@@ -21,9 +21,9 @@ This guide will help you set up and use the vOTUcluster environment, as well as 
     ```bash
     gzip -d vOTUcluster-master.zip
     cd vOTUcluster-master
-    bash setup.py
+    bash setup.sh "/path/to/db" "num"
     ```
-
+    Replace `/path/to/db` with the desired database directory and `num` with the number of threads you wish to use.
 ## Setup vRhyme Environment
 
 If you already have vRhyme, you can skip this section.
@@ -44,50 +44,8 @@ If you already have vRhyme, you can skip this section.
     pip install .
     ```
 
-## Cloning and Installing Additional Dependencies
-
-1. **Clone the VirSorter2-pyhmmerAcc repository and install**
-
-    ```bash
-    git clone https://github.com/liusihang/VirSorter2-pyhmmerAcc.git
-    cd VirSorter2-pyhmmerAcc
-    pip install -e .
-    ```
-
-2. **Install additional packages**
-
-    ```bash
-    mamba install -c conda-forge -c bioconda viralverify
-    mamba install -c conda-forge -c bioconda geNomad
-    mamba install -c conda-forge -c bioconda checkv
-    mamba install -c conda-forge -c bioconda drep
-    ```
-
-## Running the Setup Scripts
-
-1. **Run the setup scripts**
-
-    ```bash
-    python Move2bin.py
-    python ReplaceVf.py
-    ```
-
-2. **Set up the VirSorter database**
-
-    ```bash
-    virsorter setup -d /path/to/db -j 4
-    ```
-
-    Replace `/path/to/db` with the desired database directory and `4` with the number of threads you wish to use.
-
-## Usage
-
-To use the scripts and tools provided, ensure you have activated the appropriate environment:
-
 ```bash
 mamba activate vOTUcluster
-# or
-mamba activate vRhyme
 ```
 
 
