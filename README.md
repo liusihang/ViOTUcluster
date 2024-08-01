@@ -24,6 +24,15 @@ This guide will help you set up and use the vOTUcluster environment, as well as 
     bash setup.sh "/path/to/db" "num"
     ```
     Replace `/path/to/db` with the desired database directory and `num` with the number of threads you wish to use.
+
+3. **Download viralverify database**
+
+   Download viralverify database from https://figshare.com/s/f897d463b31a35ad7bf0.
+
+   Unzip it to `/path/to/db/viralverify`
+
+   The finial folder for viralverify should looks like `/path/to/db/viralverify/nbc_hmms.hmm`
+   
 ## Setup vRhyme Environment
 
 If you already have vRhyme, you can skip this section.
