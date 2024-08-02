@@ -11,8 +11,19 @@ DB_DIR=$1
 NUM_THREADS=$2
 
 # Create and activate the Conda environment
-mamba env create -f ./setupscript/vOTUcluster.yaml
-mamba activate vOTUcluster
+#mamba env create -f vOTUcluster
+#mamba activate vOTUcluster
+
+#clean cache
+conda clean --all
+
+#instasll packages
+mamba install virsorter=2 --clobber
+mamba install dRep --clobber
+mamba install viralverify --clobber
+mamba install genomad
+mamba install checkv --clobber
+mamba install pyhmmer
 
 # Clone the repository and install the package
 git clone https://gitclone.com/github.com/liusihang/VirSorter2-pyhmmerAcc.git
@@ -20,6 +31,7 @@ cd VirSorter2-pyhmmerAcc
 pip install -e .
 
 # Run Python scripts
+cd ..
 python ./setupscript/Move2bin.py
 python ./setupscript/ReplaceVf.py
 

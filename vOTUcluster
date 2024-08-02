@@ -89,9 +89,16 @@ case $SAMPLETYPE in
     ;;
 esac
 
+# 获取当前 Conda 环境的 bin 文件夹位置
+if [ -z "$CONDA_PREFIX" ]; then
+  echo "Conda environment is not activated."
+  exit 1
+fi
+ScriptDir="${CONDA_PREFIX}/bin"
+
 #过滤小于2000bp的序列
 mkdir -p "${OUTPUT_DIR}/FilteredSeqs"
-python filter_contigs.py 100 "${INPUT_DIR}" "${OUTPUT_DIR}/FilteredSeqs"
+python "${ScriptDir}/filter_contigs.py" 100 "${INPUT_DIR}" "${OUTPUT_DIR}/FilteredSeqs"
 
 # Find all .fa and .fasta files in the specified directory
 FILES=$(find "${OUTPUT_DIR}/FilteredSeqs" -type f \( -name "*.fa" -o -name "*.fasta" \))
@@ -216,10 +223,10 @@ for FILE in $FILES; do
 
     #CrossValid virus contigs
     echo -e "\n \n \n # 进行virus contigs交叉验证!!! \n \n \n"
-    python CrossValid.py "$Genomad_dir" "$Viralverify_dir" "$Virsorter_dir" "$BASENAME" "$OUT_DIR"
+    python "${ScriptDir}/CrossValid.py" "$Genomad_dir" "$Viralverify_dir" "$Virsorter_dir" "$BASENAME" "$OUT_DIR"
 
     #Sequence提取
-    python FilterRawResSeqs.py "$FILE" "$BASENAME" "$OUT_DIR"
+    python "${ScriptDir}/FilterRawResSeqs.py" "$FILE" "$BASENAME" "$OUT_DIR"
 
     ############################进行binning#################################
     mkdir -p "$OUT_DIR/Binning"
@@ -280,7 +287,7 @@ for FILE in $FILES; do
         #Aligning all reads back to entire assembly and splitting reads into individual fastq files based on their bin membership
         mkdir -p "$OUT_DIR/Binning/reads_for_reassembly"
         bwa mem -t 104 "$OUT_DIR/Binning/all_bins_index" $Read1 $Read2 \
-        | python filter_reads_for_bin_reassembly.py "$OUT_DIR/Binning/vRhyme_results_${BASENAME}_filtered/vRhyme_best_bins_fasta" "$OUT_DIR/Binning/reads_for_reassembly" $STRICT_MAX $PERMISSIVE_MAX
+        | python "${ScriptDir}/filter_reads_for_bin_reassembly.py" "$OUT_DIR/Binning/vRhyme_results_${BASENAME}_filtered/vRhyme_best_bins_fasta" "$OUT_DIR/Binning/reads_for_reassembly" $STRICT_MAX $PERMISSIVE_MAX
 
         #######重新组装vRhyme_results_${BASENAME}_filtered/vRhyme_best_bins_fasta文件夹里的所有fasta文件##########
         for FASTQ_FILE in "$OUT_DIR/Binning/reads_for_reassembly/"*_1.fastq; do
@@ -316,12 +323,12 @@ for FILE in $FILES; do
         
         #######Find best bin#######
         mkdir "$OUT_DIR/Binning/Summary"
-        python concat_fasta_sequences.py $EXTRACTED_DIR "$OUT_DIR/Binning/Summary/tempsummary.fasta"
+        python "${ScriptDir}/concat_fasta_sequences.py" $EXTRACTED_DIR "$OUT_DIR/Binning/Summary/tempsummary.fasta"
         checkv end_to_end "$OUT_DIR/Binning/Summary/tempsummary.fasta" "$OUT_DIR/Binning/Summary/CheckRes" -t 100 -d "$DATABASE/checkv-db-v1.5"
 
         #Select best bin
         mkdir "$OUT_DIR/Binning/Summary/Finialbins"
-        python select_best_bins.py "$OUT_DIR/Binning/Summary/CheckRes/quality_summary.tsv" $EXTRACTED_DIR "$OUT_DIR/Binning/Summary/Finialfasta/Bestbins"
+        python "${ScriptDir}/select_best_bins.py" "$OUT_DIR/Binning/Summary/CheckRes/quality_summary.tsv" $EXTRACTED_DIR "$OUT_DIR/Binning/Summary/Finialfasta/Bestbins"
 
     else
         # 如果不重新组装，则直接将vRhyme_best_bins_fasta目录中的所有bin放入Bestbins文件夹中
@@ -339,7 +346,7 @@ for FILE in $FILES; do
 
 
     #####extract unbined contigs#######
-    python unbined.py -i "$OUT_DIR/Binning/vRhyme_results_${BASENAME}_filtered/vRhyme_best_bins_fasta" -r "$OUT_DIR/${BASENAME}_filtered.fasta" -o "$OUT_DIR/Binning/Summary/Finialfasta/unbined.fasta"
+    python "${ScriptDir}/unbined.py" -i "$OUT_DIR/Binning/vRhyme_results_${BASENAME}_filtered/vRhyme_best_bins_fasta" -r "$OUT_DIR/${BASENAME}_filtered.fasta" -o "$OUT_DIR/Binning/Summary/Finialfasta/unbined.fasta"
 
     echo "Rebinning and reassembly complete for $FILE"
 
@@ -398,7 +405,7 @@ echo "All files processed successfully."
 mkdir "$OUTPUT_DIR/Summary/Viralcontigs"
 mkdir "$OUTPUT_DIR/Summary/dRepRes"
 dRep dereplicate "$OUTPUT_DIR/Summary/dRepRes" -g ${OUTPUT_DIR}/Summary/bins/*.fasta --ignoreGenomeQuality -pa 0.8 -sa 0.95 -nc 0.85 -comW 0 -conW 0 -strW 0 -N50W 0 -sizeW 1 -centW 0
-python concat_fasta_sequences.py "$OUTPUT_DIR/Summary/dRepRes/dereplicated_genomes" "$OUTPUT_DIR/Summary/Viralcontigs/Allbins.fasta"
+python "${ScriptDir}/concat_fasta_sequences.py" "$OUTPUT_DIR/Summary/dRepRes/dereplicated_genomes" "$OUTPUT_DIR/Summary/Viralcontigs/Allbins.fasta"
 
 ###############dRep for contigs
 mkdir "$OUTPUT_DIR/Summary/temp"
@@ -412,20 +419,20 @@ makeblastdb -in "${newDir}/merged_sequences.fasta" -dbtype nucl -out "${newDir}/
 blastn -query "${newDir}/merged_sequences.fasta" -db "${newDir}/temp_db" -outfmt "6 std qlen slen" -max_target_seqs 10000 -out "${newDir}/merged_sequences_blast.tsv" -num_threads 104
 
 #Next, calculate pairwise ANI by combining local alignments between sequence pairs:
-python anicalc.py -i "${newDir}/merged_sequences_blast.tsv" -o "${newDir}/merged_sequences_ani.tsv"
+python "${ScriptDir}/anicalc.py" -i "${newDir}/merged_sequences_blast.tsv" -o "${newDir}/merged_sequences_ani.tsv"
 
 #Finally, perform UCLUST-like clustering using the MIUVIG recommended-parameters (95% ANI + 85% AF):
-python aniclust.py --fna "${newDir}/merged_sequences.fasta" --ani "${newDir}/merged_sequences_ani.tsv" --out "${newDir}/merged_sequences_clusters.tsv" --min_ani 95 --min_tcov 85 --min_qcov 0
+python "${ScriptDir}/aniclust.py" --fna "${newDir}/merged_sequences.fasta" --ani "${newDir}/merged_sequences_ani.tsv" --out "${newDir}/merged_sequences_clusters.tsv" --min_ani 95 --min_tcov 85 --min_qcov 0
 
 #delete temp files
 rm -f "${newDir}/temp_db.*" 
 rm -f "${newDir}/merged_sequences_blast.tsv"
 
 ####################################Merge cluster results
-python SelectCluster.py "${newDir}/merged_sequences.fasta" "${newDir}/merged_sequences_clusters.tsv" "$OUTPUT_DIR/Summary/Viralcontigs/drepviralcontigs.fa"
+python "${ScriptDir}/SelectCluster.py" "${newDir}/merged_sequences.fasta" "${newDir}/merged_sequences_clusters.tsv" "$OUTPUT_DIR/Summary/Viralcontigs/drepviralcontigs.fa"
 
 #Merge all
-python Rename.py -i "$OUTPUT_DIR/Summary/Viralcontigs/drepviralcontigs.fa"
+python "${ScriptDir}/Rename.py" -i "$OUTPUT_DIR/Summary/Viralcontigs/drepviralcontigs.fa"
 cat "$OUTPUT_DIR/Summary/Viralcontigs/drepviralcontigs.fa" "$OUTPUT_DIR/Summary/Viralcontigs/Allbins.fasta" > "$OUTPUT_DIR/Summary/Viralcontigs/vOTU.fasta"
 checkv end_to_end "$OUTPUT_DIR/Summary/Viralcontigs/vOTU.fasta" "$OUTPUT_DIR/Summary/CheckRes" -t 100 -d "$DATABASE/checkv-db-v1.5"
 
