@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import sys
 import os
 from multiprocessing import cpu_count
