@@ -35,6 +35,12 @@ cd ..
 python ./setupscript/Move2bin.py
 python ./setupscript/ReplaceVf.py
 
+# Get the current conda environment path
+CONDA_ENV_PATH=$(conda info --base)/envs/$(basename "$CONDA_DEFAULT_ENV")
+
+# Add execute permissions to all files in the current conda environment's bin folder
+chmod +x "$CONDA_ENV_PATH/bin/*"
+
 # Setup the database for VirSorter
 virsorter setup -d "$DB_DIR" -j "$NUM_THREADS"
 checkv download_database "$DB_DIR"
