@@ -17,18 +17,22 @@ NUM_THREADS=$2
 #clean cache
 conda clean --all
 
+# Clone the repository and install the package
+git clone https://github.com/liusihang/VirSorter2-pyhmmerAcc.git
+cd VirSorter2-pyhmmerAcc
+pip install -e .
+
 #instasll packages
-mamba install virsorter=2 --clobber
+#mamba install virsorter=2 --clobber
 mamba install dRep --clobber
 mamba install viralverify --clobber
 mamba install genomad
 mamba install checkv --clobber
 mamba install pyhmmer
+mamba install snakemake
+mamba install ruamel
+mamba install ruamel.yaml
 
-# Clone the repository and install the package
-git clone https://gitclone.com/github.com/liusihang/VirSorter2-pyhmmerAcc.git
-cd VirSorter2-pyhmmerAcc
-pip install -e .
 
 # Run Python scripts
 cd ..
