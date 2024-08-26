@@ -19,7 +19,7 @@ This guide will help you set up and use the vOTUcluster environment, as well as 
 2. **Download and setup vOTUcluster**
 
     ```bash
-    gzip -d vOTUcluster-master.zip
+    git clone https://github.com/liusihang/vOTUcluster.git
     cd vOTUcluster-master
     bash setup.sh "/path/to/db" "num"
     ```
