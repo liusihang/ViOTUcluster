@@ -135,8 +135,12 @@ process_file() {
   # 检测并跳过已完成的任务
   if [ ! -f "$Viralverify_dir/${BASENAME}_result_table.csv" ]; then
     echo "Running viralverify prediction..."
+
+    # Actiate environment
+    CURRENT_ENV=$(basename "$CONDA_DEFAULT_ENV")
     source ~/miniconda3/etc/profile.d/conda.sh
-    conda activate vOTUclusternew
+    conda activate "$CURRENT_ENV"
+    
     viralverify -f "$FILE" -o "$Viralverify_dir" --hmm "$DATABASE/ViralVerify/nbc_hmms.hmm" -t 104 > "$Viralverify_dir/viralverify.log" 2>&1
     echo "viralverify prediction completed!"
   else
@@ -145,8 +149,12 @@ process_file() {
 
   if [ ! -f "$Virsorter_dir/final-viral-score.tsv" ]; then
     echo "Running Virsorter2 prediction..."
+
+    # Actiate environment
+    CURRENT_ENV=$(basename "$CONDA_DEFAULT_ENV")
     source ~/miniconda3/etc/profile.d/conda.sh
-    conda activate vOTUclusternew
+    conda activate "$CURRENT_ENV"
+
     virsorter run -w "$Virsorter_dir" -i "$FILE" --include-groups "$Group" -j 104 all --min-score 0.5 --min-length 2000 --keep-original-seq > "$Virsorter_dir/virsorter.log" 2>&1
     echo "Virsorter2 prediction completed!"
   else
