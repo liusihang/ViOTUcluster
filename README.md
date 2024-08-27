@@ -86,7 +86,6 @@ bioconda
 To run the pipeline, use the following command structure:
 
 ```markdown
-```bash
 vOTUcluster -i <input_path_to_contigs> -r <input_path_fastq> -o <output_path> -d <database_path> -t <sample_type> [--reassemble]
 ```
 
