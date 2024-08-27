@@ -17,22 +17,15 @@ NUM_THREADS=$2
 #clean cache
 conda clean --all
 
-# Clone the repository and install the package
-git clone https://github.com/liusihang/VirSorter2-pyhmmerAcc.git
-cd VirSorter2-pyhmmerAcc
-pip install -e .
-
 #instasll packages
 #mamba install virsorter=2 --clobber
-mamba install dRep --clobber
-mamba install viralverify --clobber
-mamba install genomad
-mamba install checkv --clobber
-mamba install pyhmmer
-mamba install snakemake
-mamba install ruamel
-mamba install ruamel.yaml
+#mamba create -n vOTUcluster8.27 -c conda-forge -c bioconda "python=3.8" 
+mamba install -c conda-forge -c bioconda dRep viralverify genomad checkv scikit-learn=0.22.1 imbalanced-learn pandas seaborn pyhmmer==0.10.14 prodigal screed ruamel.yaml "snakemake>=5.18,<=5.26" click "conda-package-handling<=1.9"
 
+# Clone the repository and install the package
+git clone https://gitclone.com/github.com/liusihang/VirSorter2-pyhmmerAcc
+cd VirSorter2-pyhmmerAcc
+pip install -e .
 
 # Run Python scripts
 cd ..
@@ -49,4 +42,3 @@ chmod +x "$CONDA_ENV_PATH/bin/*"
 virsorter setup -d "$DB_DIR" -j "$NUM_THREADS"
 checkv download_database "$DB_DIR"
 genomad download-database "$DB_DIR"
-
