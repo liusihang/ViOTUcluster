@@ -3,8 +3,6 @@
 # 记录开始时间
 start_time=$(date +%s)
 
-#!/bin/bash
-
 # 初始化变量
 INPUT_DIR=""
 RAW_SEQ_DIR=""
@@ -12,6 +10,9 @@ OUTPUT_DIR=""
 DATABASE=""
 SAMPLETYPE=""
 REASSEMBLE=false
+
+# 设置日志文件路径
+LOG_FILE=""
 
 # 使用 getopts 处理命令行选项
 while getopts ":i:r:o:d:t:rh" opt; do
@@ -24,6 +25,7 @@ while getopts ":i:r:o:d:t:rh" opt; do
       ;;
     o)
       OUTPUT_DIR=$OPTARG
+      LOG_FILE="${OUTPUT_DIR}/pipeline.log"  # 设置日志文件路径
       ;;
     d)
       DATABASE=$OPTARG
@@ -72,6 +74,9 @@ if [ -z "$INPUT_DIR" ] || [ -z "$RAW_SEQ_DIR" ] || [ -z "$OUTPUT_DIR" ] || [ -z 
     exit 1
 fi
 
+# 重定向所有输出到日志文件
+exec > >(tee -a "$LOG_FILE") 2>&1
+
 # 根据 SAMPLETYPE 设置 Group 变量
 case $SAMPLETYPE in
   DNA)
@@ -96,7 +101,7 @@ if [ -z "$CONDA_PREFIX" ]; then
 fi
 ScriptDir="${CONDA_PREFIX}/bin"
 
-#过滤小于2000bp的序列
+# 过滤小于2000bp的序列
 mkdir -p "${OUTPUT_DIR}/FilteredSeqs"
 python "${ScriptDir}/filter_contigs.py" 100 "${INPUT_DIR}" "${OUTPUT_DIR}/FilteredSeqs"
 
@@ -108,45 +113,53 @@ RawFILES=$(find "${INPUT_DIR}" -maxdepth 1 -type f \( -name "*.fa" -o -name "*.f
 export OUTPUT_DIR DATABASE Group
 
 process_file() {
-local FILE=$1
-local BASENAME=$(basename "$FILE" .fa)
-BASENAME=${BASENAME%.fasta}
+  local FILE=$1
+  local BASENAME=$(basename "$FILE" .fa)
+  BASENAME=${BASENAME%.fasta}
 
-local OUT_DIR="$OUTPUT_DIR/SeprateFile/${BASENAME}"
-mkdir -p "$OUT_DIR"
+  local OUT_DIR="$OUTPUT_DIR/SeprateFile/${BASENAME}"
+  mkdir -p "$OUT_DIR"
 
-local PREDICTION_DIR="$OUT_DIR/RoughViralPrediction"
-mkdir -p "$PREDICTION_DIR"
+  local PREDICTION_DIR="$OUT_DIR/RoughViralPrediction"
+  mkdir -p "$PREDICTION_DIR"
 
-local Genomad_dir="$PREDICTION_DIR/genomadres"
-mkdir -p "$Genomad_dir"
-local Viralverify_dir="$PREDICTION_DIR/viralverify"
-mkdir -p "$Viralverify_dir"
-local Virsorter_dir="$PREDICTION_DIR/virsorter2"
-mkdir -p "$Virsorter_dir"
+  local Genomad_dir="$PREDICTION_DIR/genomadres"
+  mkdir -p "$Genomad_dir"
+  local Viralverify_dir="$PREDICTION_DIR/viralverify"
+  mkdir -p "$Viralverify_dir"
+  local Virsorter_dir="$PREDICTION_DIR/virsorter2"
+  mkdir -p "$Virsorter_dir"
 
-echo "Processing $FILE"
+  echo "Processing $FILE"
 
-# 检测并跳过已完成的任务
-if [ ! -f "$Viralverify_dir/${BASENAME}_result_table.csv" ]; then
+  # 检测并跳过已完成的任务
+  if [ ! -f "$Viralverify_dir/${BASENAME}_result_table.csv" ]; then
     echo "Running viralverify prediction..."
+
+    # Actiate environment
+    CURRENT_ENV=$(basename "$CONDA_DEFAULT_ENV")
     source ~/miniconda3/etc/profile.d/conda.sh
-    conda activate vOTUclusternew
+    conda activate "$CURRENT_ENV"
+    
     viralverify -f "$FILE" -o "$Viralverify_dir" --hmm "$DATABASE/ViralVerify/nbc_hmms.hmm" -t 104 > "$Viralverify_dir/viralverify.log" 2>&1
     echo "viralverify prediction completed!"
-else
+  else
     echo "viralverify prediction already completed for $FILE, skipping..."
-fi
+  fi
 
-if [ ! -f "$Virsorter_dir/final-viral-score.tsv" ]; then
+  if [ ! -f "$Virsorter_dir/final-viral-score.tsv" ]; then
     echo "Running Virsorter2 prediction..."
+
+    # Actiate environment
+    CURRENT_ENV=$(basename "$CONDA_DEFAULT_ENV")
     source ~/miniconda3/etc/profile.d/conda.sh
-    conda activate vOTUclusternew
+    conda activate "$CURRENT_ENV"
+
     virsorter run -w "$Virsorter_dir" -i "$FILE" --include-groups "$Group" -j 104 all --min-score 0.5 --min-length 2000 --keep-original-seq > "$Virsorter_dir/virsorter.log" 2>&1
     echo "Virsorter2 prediction completed!"
-else
+  else
     echo "Virsorter2 prediction already completed for $FILE, skipping..."
-fi
+  fi
 }
 
 export -f process_file
@@ -154,50 +167,49 @@ parallel process_file ::: $FILES
 
 #进行Gemomad分析
 for FILE in $RawFILES; do
-    echo "Processing $FILE"
-    # 获取文件的基本名称，无扩展名
-    BASENAME=$(basename "$FILE" .fa)
-    BASENAME=${BASENAME%.fasta}  # 处理.fasta扩展名
+  echo "Processing $FILE"
+  # 获取文件的基本名称，无扩展名
+  BASENAME=$(basename "$FILE" .fa)
+  BASENAME=${BASENAME%.fasta}  # 处理.fasta扩展名
     
-    #
-    OUT_DIR="$OUTPUT_DIR/SeprateFile/${BASENAME}"
-    #mkdir -p "$OUT_DIR"
+  OUT_DIR="$OUTPUT_DIR/SeprateFile/${BASENAME}"
+  #mkdir -p "$OUT_DIR"
 
-    PREDICTION_DIR="$OUT_DIR/RoughViralPrediction"
-    #mkdir -p "$PREDICTION_DIR"
+  PREDICTION_DIR="$OUT_DIR/RoughViralPrediction"
+  #mkdir -p "$PREDICTION_DIR"
 
-    # genomad预测
-    echo -e "\n \n \n # 进行genomad预测!!! \n \n \n"
-    Genomad_dir="$PREDICTION_DIR/genomadres"
-    mkdir -p "$Genomad_dir"
+  # genomad预测
+  echo -e "\n \n \n # 进行genomad预测!!! \n \n \n"
+  Genomad_dir="$PREDICTION_DIR/genomadres"
+  mkdir -p "$Genomad_dir"
     
-    if [ ! -f "$Genomad_dir/${BASENAME}_summary/${BASENAME}_virus_summary.tsv" ]; then
-        genomad end-to-end --enable-score-calibration "$FILE" "$Genomad_dir" "$DATABASE/genomad_db"
-        echo -e "\n \n \n # genomad预测完成!!! \n \n \n"
-    else
-        echo "genomad prediction already completed for $FILE, skipping..."
-    fi
+  if [ ! -f "$Genomad_dir/${BASENAME}_summary/${BASENAME}_virus_summary.tsv" ]; then
+    genomad end-to-end --enable-score-calibration "$FILE" "$Genomad_dir" "$DATABASE/genomad_db"
+    echo -e "\n \n \n # genomad预测完成!!! \n \n \n"
+  else
+    echo "genomad prediction already completed for $FILE, skipping..."
+  fi
 done
 
 # 检测所有 Virsorter2 任务是否完成
 all_tasks_completed=false
 while [ "$all_tasks_completed" == "false" ]; do
-    all_tasks_completed=true
-    for FILE in $FILES; do
-        BASENAME=$(basename "$FILE" .fa)
-        BASENAME=${BASENAME%.fasta}
-        Virsorter_dir="$OUTPUT_DIR/SeprateFile/${BASENAME}/RoughViralPrediction/virsorter2"
+  all_tasks_completed=true
+  for FILE in $FILES; do
+    BASENAME=$(basename "$FILE" .fa)
+    BASENAME=${BASENAME%.fasta}
+    Virsorter_dir="$OUTPUT_DIR/SeprateFile/${BASENAME}/RoughViralPrediction/virsorter2"
 
-        if [ ! -f "$Virsorter_dir/final-viral-score.tsv" ]; then
-            all_tasks_completed=false
-            echo "Virsorter2 still in processing"
-        break
+    if [ ! -f "$Virsorter_dir/final-viral-score.tsv" ]; then
+      all_tasks_completed=false
+      echo "Virsorter2 still in processing"
+      break
     fi
-    done
+  done
 
-    if [ "$all_tasks_completed" == "false" ]; then
-        sleep 30
-    fi
+  if [ "$all_tasks_completed" == "false" ]; then
+    sleep 30
+  fi
 done
 
 #COMMENT
@@ -205,150 +217,149 @@ echo "All files have been processed."
 
 # 进行CrossValid分析
 for FILE in $FILES; do
-    echo "Processing $FILE"
+  echo "Processing $FILE"
 
-    #MIN_CONTIG_LEN=300  # 最小contig长度
-    STRICT_MAX=2  # 严格比对的最大SNP数
-    PERMISSIVE_MAX=5  # 宽松比对的最大SNP数
+  #MIN_CONTIG_LEN=300  # 最小contig长度
+  STRICT_MAX=2  # 严格比对的最大SNP数
+  PERMISSIVE_MAX=5  # 宽松比对的最大SNP数
 
-    BASENAME=$(basename "$FILE" .fa)
-    BASENAME=${BASENAME%.fasta}
-    OUT_DIR="$OUTPUT_DIR/SeprateFile/${BASENAME}"
-    PREDICTION_DIR="$OUT_DIR/RoughViralPrediction"
-    Genomad_dir="$PREDICTION_DIR/genomadres"
-    Viralverify_dir="$PREDICTION_DIR/viralverify"
-    Virsorter_dir="$PREDICTION_DIR/virsorter2"
-    Read1="$RAW_SEQ_DIR/${BASENAME}_R1.fq"
-    Read2="$RAW_SEQ_DIR/${BASENAME}_R2.fq"
+  BASENAME=$(basename "$FILE" .fa)
+  BASENAME=${BASENAME%.fasta}
+  OUT_DIR="$OUTPUT_DIR/SeprateFile/${BASENAME}"
+  PREDICTION_DIR="$OUT_DIR/RoughViralPrediction"
+  Genomad_dir="$PREDICTION_DIR/genomadres"
+  Viralverify_dir="$PREDICTION_DIR/viralverify"
+  Virsorter_dir="$PREDICTION_DIR/virsorter2"
+  Read1="$RAW_SEQ_DIR/${BASENAME}_R1.fq"
+  Read2="$RAW_SEQ_DIR/${BASENAME}_R2.fq"
 
-    #CrossValid virus contigs
-    echo -e "\n \n \n # 进行virus contigs交叉验证!!! \n \n \n"
-    python "${ScriptDir}/CrossValid.py" "$Genomad_dir" "$Viralverify_dir" "$Virsorter_dir" "$BASENAME" "$OUT_DIR"
+  #CrossValid virus contigs
+  echo -e "\n \n \n # 进行virus contigs交叉验证!!! \n \n \n"
+  python "${ScriptDir}/CrossValid.py" "$Genomad_dir" "$Viralverify_dir" "$Virsorter_dir" "$BASENAME" "$OUT_DIR"
 
-    #Sequence提取
-    python "${ScriptDir}/FilterRawResSeqs.py" "$FILE" "$BASENAME" "$OUT_DIR"
+  #Sequence提取
+  python "${ScriptDir}/FilterRawResSeqs.py" "$FILE" "$BASENAME" "$OUT_DIR"
 
-    ############################进行binning#################################
-    mkdir -p "$OUT_DIR/Binning"
+  ############################进行binning#################################
+  mkdir -p "$OUT_DIR/Binning"
 
-    if [ ! -f "$OUT_DIR/Binning/alignment.bam" ]; then
+  if [ ! -f "$OUT_DIR/Binning/alignment.bam" ]; then
     #创建BWA索引，并将索引文件输出到指定目录
-        bwa index -p "$OUT_DIR/Binning/assembly_index" "$OUT_DIR/${BASENAME}_filtered.fasta"
+    bwa index -p "$OUT_DIR/Binning/assembly_index" "$OUT_DIR/${BASENAME}_filtered.fasta"
 
-        #比对读数到装配的contigs上，并将结果输出到指定目录
-        bwa mem -t 104 "$OUT_DIR/Binning/assembly_index" $Read1 $Read2 > "$OUT_DIR/Binning/alignment.sam"
-        samtools view -S -b "$OUT_DIR/Binning/alignment.sam" > "$OUT_DIR/Binning/alignment.bam"
-    else
-        echo "Alignment already completed for $FILE, skipping..."
-    fi
+    #比对读数到装配的contigs上，并将结果输出到指定目录
+    bwa mem -t 104 "$OUT_DIR/Binning/assembly_index" $Read1 $Read2 > "$OUT_DIR/Binning/alignment.sam"
+    samtools view -S -b "$OUT_DIR/Binning/alignment.sam" > "$OUT_DIR/Binning/alignment.bam"
+  else
+    echo "Alignment already completed for $FILE, skipping..."
+  fi
 
-    #Log_file="$OUT_DIR/Binning/vRhyme_results_${BASENAME}_filtered/log_vRhyme_${BASENAME}_filtered.log"
-    if [ ! -f "$OUT_DIR/Binning/vRhyme_results_${BASENAME}_filtered/log_vRhyme_${BASENAME}_filtered.log" ]; then
-        #vRhyme bining
-        nohup gnome-terminal -- bash -c "
-            source ~/miniconda3/etc/profile.d/conda.sh;
-            conda activate vRhyme;  # 激活vRhyme环境
-            echo 'Conda environment activated:';
-            conda info --envs;  # 显示当前的环境信息以确认激活成功
-            which vRhyme;  # 检查 vRhyme 命令是否在环境中可用
-            vRhyme -i \"$OUT_DIR/${BASENAME}_filtered.fasta\" -b \"$OUT_DIR/Binning/alignment.bam\" -t 104 -o \"$OUT_DIR/Binning/vRhyme_results_${BASENAME}_filtered\";
-            exec bash
-        " > gnome-terminal-log.txt 2>&1 &
-            # 检测任务是否完成
+  Log_file="$OUT_DIR/Binning/vRhyme_results_${BASENAME}_filtered/log_vRhyme_${BASENAME}_filtered.log"
+  if [ ! -f "$Log_file" ]; then
+    # vRhyme binning
+    gnome-terminal -- bash -c "
+      source ~/miniconda3/etc/profile.d/conda.sh;
+      conda activate vRhyme;  # 激活vRhyme环境
+      echo 'Conda environment activated:';
+      conda info --envs;  # 显示当前的环境信息以确认激活成功
+      which vRhyme;  # 检查 vRhyme 命令是否在环境中可用
+      vRhyme -i \"$OUT_DIR/${BASENAME}_filtered.fasta\" -b \"$OUT_DIR/Binning/alignment.bam\" -t 104 -o \"$OUT_DIR/Binning/vRhyme_results_${BASENAME}_filtered\";
+      exit;  # 任务完成后退出终端
+    " > gnome-terminal-log.txt 2>&1 &
+
+    # 检测任务是否完成
+    all_tasks_completed=false
+
+    while [ "$all_tasks_completed" == "false" ]; do
+      sleep 30
+      all_tasks_completed=true
+
+      if ! grep -q "vRhyme binning complete" "$Log_file"; then
         all_tasks_completed=false
+        echo "vRhyme command is still running in the background for $BASENAME"
+      fi
 
-        while [ "$all_tasks_completed" == "false" ]; do
-            sleep 30
-            all_tasks_completed=true
-            Log_file="$OUT_DIR/Binning/vRhyme_results_${BASENAME}_filtered/log_vRhyme_${BASENAME}_filtered.log"
-
-            if ! grep -q "vRhyme binning complete" "$Log_file"; then
-                all_tasks_completed=false
-                echo "vRhyme command is still running in the background for $BASENAME"
-            fi
-
-            if [ "$all_tasks_completed" == "false" ]; then
-                sleep 30
-            fi
-        done
-    else
-        echo "Viral binning already completed for $FILE, skipping..."
-    fi
-
-
-    if [ "$REASSEMBLE" = true ]; then
-            # 创建大的FA文件用于比对
-        ALL_BINS_FA="$OUT_DIR/Binning/summary_bins_contigs.fa"
-        cat "$OUT_DIR/Binning/vRhyme_results_${BASENAME}_filtered/vRhyme_best_bins_fasta/"*.fasta > "$ALL_BINS_FA"
-
-        # 创建新的BWA索引，并将索引文件输出到指定目录
-        bwa index -p "$OUT_DIR/Binning/all_bins_index" "$ALL_BINS_FA"
-
-        #Aligning all reads back to entire assembly and splitting reads into individual fastq files based on their bin membership
-        mkdir -p "$OUT_DIR/Binning/reads_for_reassembly"
-        bwa mem -t 104 "$OUT_DIR/Binning/all_bins_index" $Read1 $Read2 \
-        | python "${ScriptDir}/filter_reads_for_bin_reassembly.py" "$OUT_DIR/Binning/vRhyme_results_${BASENAME}_filtered/vRhyme_best_bins_fasta" "$OUT_DIR/Binning/reads_for_reassembly" $STRICT_MAX $PERMISSIVE_MAX
-
-        #######重新组装vRhyme_results_${BASENAME}_filtered/vRhyme_best_bins_fasta文件夹里的所有fasta文件##########
-        for FASTQ_FILE in "$OUT_DIR/Binning/reads_for_reassembly/"*_1.fastq; do
-            BIN_BASENAME=$(basename "$FASTQ_FILE" _1.fastq)
-            OriginalBin=${BIN_BASENAME%%.*}
-
-            # 创建目录
-            EXTRACTED_DIR="$OUT_DIR/Binning/reassembled_bins"
-            TMP_DIR="$EXTRACTED_DIR/${BIN_BASENAME}_tmp"
-            mkdir -p "$TMP_DIR"
-
-            # 使用SPAdes进行bin的重新组装
-            spades.py -t 104 --tmp $TMP_DIR --careful \
-                --untrusted-contigs "$OUT_DIR/Binning/vRhyme_results_${BASENAME}_filtered/vRhyme_best_bins_fasta/${OriginalBin}.fasta" \
-                -1 "${OUT_DIR}/Binning/reads_for_reassembly/${BIN_BASENAME}_1.fastq" \
-                -2 "${OUT_DIR}/Binning/reads_for_reassembly/${BIN_BASENAME}_2.fastq" \
-                -o "$OUT_DIR/Binning/reassembile/${BIN_BASENAME}"
-
-            # 清理短的contigs
-            #python rm_short_contigs.py "$OUT_DIR/Binning/reassembile/${BIN_BASENAME}/contigs.fasta" 500
-
-            #提取并重命名scaffolds.fasta
-            #EXTRACTED_DIR="$OUT_DIR/Binning/reassembled_bins"
-            mkdir -p "$EXTRACTED_DIR"
-            cp "$OUT_DIR/Binning/reassembile/${BIN_BASENAME}/contigs.fasta" "$EXTRACTED_DIR/${BIN_BASENAME}.fasta"
-            cp "$OUT_DIR/Binning/vRhyme_results_${BASENAME}_filtered/vRhyme_best_bins_fasta/${OriginalBin}.fasta" "$EXTRACTED_DIR/${OriginalBin}.origin.fasta"
-
-            echo "Reassembly complete for ${BIN_BASENAME}"
-
-            # 删除临时目录
-            rm -rf "$TMP_DIR"
-        done
-        
-        #######Find best bin#######
-        mkdir "$OUT_DIR/Binning/Summary"
-        python "${ScriptDir}/concat_fasta_sequences.py" $EXTRACTED_DIR "$OUT_DIR/Binning/Summary/tempsummary.fasta"
-        checkv end_to_end "$OUT_DIR/Binning/Summary/tempsummary.fasta" "$OUT_DIR/Binning/Summary/CheckRes" -t 100 -d "$DATABASE/checkv-db-v1.5"
-
-        #Select best bin
-        mkdir "$OUT_DIR/Binning/Summary/Finialbins"
-        python "${ScriptDir}/select_best_bins.py" "$OUT_DIR/Binning/Summary/CheckRes/quality_summary.tsv" $EXTRACTED_DIR "$OUT_DIR/Binning/Summary/Finialfasta/Bestbins"
-
-    else
-        # 如果不重新组装，则直接将vRhyme_best_bins_fasta目录中的所有bin放入Bestbins文件夹中
-        mkdir "$OUT_DIR/Binning/Summary"
-        mkdir -p "$OUT_DIR/Binning/Summary/Finialfasta/Bestbins"
-        cp "$OUT_DIR/Binning/vRhyme_results_${BASENAME}_filtered/vRhyme_best_bins_fasta/"*.fasta "$OUT_DIR/Binning/Summary/Finialfasta/Bestbins/"
-    fi
-
-    EXTRACTED_DIR="$OUT_DIR/Binning/reassembled_bins"
-    # 去掉$OUT_DIR/Binning/Summary/Finialfasta/Bestbins文件夹内所有fasta文件名字里的vRhyme_
-    for vRhymeFILE in "$OUT_DIR/Binning/Summary/Finialfasta/Bestbins"/*.fasta; do
-        NEW_NAME=$(basename "$vRhymeFILE" | sed 's/^vRhyme_//')
-        mv "$vRhymeFILE" "$OUT_DIR/Binning/Summary/Finialfasta/Bestbins/$NEW_NAME"
+      if [ "$all_tasks_completed" == "false" ]; then
+        sleep 30
+      fi
     done
+  else
+    echo "Viral binning already completed for $FILE, skipping..."
+  fi
 
 
-    #####extract unbined contigs#######
-    python "${ScriptDir}/unbined.py" -i "$OUT_DIR/Binning/vRhyme_results_${BASENAME}_filtered/vRhyme_best_bins_fasta" -r "$OUT_DIR/${BASENAME}_filtered.fasta" -o "$OUT_DIR/Binning/Summary/Finialfasta/unbined.fasta"
+  if [ "$REASSEMBLE" = true ]; then
+    # 创建大的FA文件用于比对
+    ALL_BINS_FA="$OUT_DIR/Binning/summary_bins_contigs.fa"
+    cat "$OUT_DIR/Binning/vRhyme_results_${BASENAME}_filtered/vRhyme_best_bins_fasta/"*.fasta > "$ALL_BINS_FA"
 
-    echo "Rebinning and reassembly complete for $FILE"
+    # 创建新的BWA索引，并将索引文件输出到指定目录
+    bwa index -p "$OUT_DIR/Binning/all_bins_index" "$ALL_BINS_FA"
+
+    #Aligning all reads back to entire assembly and splitting reads into individual fastq files based on their bin membership
+    mkdir -p "$OUT_DIR/Binning/reads_for_reassembly"
+    bwa mem -t 104 "$OUT_DIR/Binning/all_bins_index" $Read1 $Read2 \
+      | python "${ScriptDir}/filter_reads_for_bin_reassembly.py" "$OUT_DIR/Binning/vRhyme_results_${BASENAME}_filtered/vRhyme_best_bins_fasta" "$OUT_DIR/Binning/reads_for_reassembly" $STRICT_MAX $PERMISSIVE_MAX
+
+    #######重新组装vRhyme_results_${BASENAME}_filtered/vRhyme_best_bins_fasta文件夹里的所有fasta文件##########
+    for FASTQ_FILE in "$OUT_DIR/Binning/reads_for_reassembly/"*_1.fastq; do
+      BIN_BASENAME=$(basename "$FASTQ_FILE" _1.fastq)
+      OriginalBin=${BIN_BASENAME%%.*}
+
+      # 创建目录
+      EXTRACTED_DIR="$OUT_DIR/Binning/reassembled_bins"
+      TMP_DIR="$EXTRACTED_DIR/${BIN_BASENAME}_tmp"
+      mkdir -p "$TMP_DIR"
+
+      # 使用SPAdes进行bin的重新组装
+      spades.py -t 104 --tmp $TMP_DIR --careful \
+        --untrusted-contigs "$OUT_DIR/Binning/vRhyme_results_${BASENAME}_filtered/vRhyme_best_bins_fasta/${OriginalBin}.fasta" \
+        -1 "${OUT_DIR}/Binning/reads_for_reassembly/${BIN_BASENAME}_1.fastq" \
+        -2 "${OUT_DIR}/Binning/reads_for_reassembly/${BIN_BASENAME}_2.fastq" \
+        -o "$OUT_DIR/Binning/reassembile/${BIN_BASENAME}"
+
+      # 清理短的contigs
+      #python rm_short_contigs.py "$OUT_DIR/Binning/reassembile/${BIN_BASENAME}/contigs.fasta" 500
+
+      #提取并重命名scaffolds.fasta
+      #EXTRACTED_DIR="$OUT_DIR/Binning/reassembled_bins"
+      mkdir -p "$EXTRACTED_DIR"
+      cp "$OUT_DIR/Binning/reassembile/${BIN_BASENAME}/contigs.fasta" "$EXTRACTED_DIR/${BIN_BASENAME}.fasta"
+      cp "$OUT_DIR/Binning/vRhyme_results_${BASENAME}_filtered/vRhyme_best_bins_fasta/${OriginalBin}.fasta" "$EXTRACTED_DIR/${OriginalBin}.origin.fasta"
+
+      echo "Reassembly complete for ${BIN_BASENAME}"
+
+      # 删除临时目录
+      rm -rf "$TMP_DIR"
+    done
+        
+    #######Find best bin#######
+    mkdir "$OUT_DIR/Binning/Summary"
+    python "${ScriptDir}/concat_fasta_sequences.py" $EXTRACTED_DIR "$OUT_DIR/Binning/Summary/tempsummary.fasta"
+    checkv end_to_end "$OUT_DIR/Binning/Summary/tempsummary.fasta" "$OUT_DIR/Binning/Summary/CheckRes" -t 100 -d "$DATABASE/checkv-db-v1.5"
+
+    #Select best bin
+    mkdir "$OUT_DIR/Binning/Summary/Finialbins"
+    python "${ScriptDir}/select_best_bins.py" "$OUT_DIR/Binning/Summary/CheckRes/quality_summary.tsv" $EXTRACTED_DIR "$OUT_DIR/Binning/Summary/Finialfasta/Bestbins"
+
+  else
+    # 如果不重新组装，则直接将vRhyme_best_bins_fasta目录中的所有bin放入Bestbins文件夹中
+    mkdir "$OUT_DIR/Binning/Summary"
+    mkdir -p "$OUT_DIR/Binning/Summary/Finialfasta/Bestbins"
+    cp "$OUT_DIR/Binning/vRhyme_results_${BASENAME}_filtered/vRhyme_best_bins_fasta/"*.fasta "$OUT_DIR/Binning/Summary/Finialfasta/Bestbins/"
+  fi
+
+  EXTRACTED_DIR="$OUT_DIR/Binning/reassembled_bins"
+  # 去掉$OUT_DIR/Binning/Summary/Finialfasta/Bestbins文件夹内所有fasta文件名字里的vRhyme_
+  for vRhymeFILE in "$OUT_DIR/Binning/Summary/Finialfasta/Bestbins"/*.fasta; do
+    NEW_NAME=$(basename "$vRhymeFILE" | sed 's/^vRhyme_//')
+    mv "$vRhymeFILE" "$OUT_DIR/Binning/Summary/Finialfasta/Bestbins/$NEW_NAME"
+  done
+
+  #####extract unbined contigs#######
+  python "${ScriptDir}/unbined.py" -i "$OUT_DIR/Binning/vRhyme_results_${BASENAME}_filtered/vRhyme_best_bins_fasta" -r "$OUT_DIR/${BASENAME}_filtered.fasta" -o "$OUT_DIR/Binning/Summary/Finialfasta/unbined.fasta"
+
+  echo "Rebinning and reassembly complete for $FILE"
 
 done
 
@@ -363,38 +374,38 @@ mkdir -p "$OUTPUT_DIR/Summary/bins"
 
 # 遍历当前目录下的所有子目录
 for folder in "$OUTPUT_DIR/SeprateFile/"*/ ; do
-    if [ -d "$folder" ]; then
-        # 获取文件夹的名字，去除尾部的斜线
-        folderName=$(basename "$folder")
-        echo "Processing folder: $folderName"
+  if [ -d "$folder" ]; then
+    # 获取文件夹的名字，去除尾部的斜线
+    folderName=$(basename "$folder")
+    echo "Processing folder: $folderName"
 
-        # 处理unbined.fasta文件
-        unbined_source="${folder}Binning/Summary/Finialfasta/unbined.fasta"
-        if [ -f "$unbined_source" ]; then
-            unbined_dest="$OUTPUT_DIR/Summary/unbined/${folderName}_unbined.fasta"
-            cp "$unbined_source" "$unbined_dest"
-            #echo "Copied $unbined_source to $unbined_dest"
-        else
-            echo "Warning: $unbined_source does not exist."
-        fi
-
-        # 处理Bestbins文件夹中的fasta文件
-        bestbins_source="${folder}Binning/Summary/Finialfasta/Bestbins/"
-        if [ -d "$bestbins_source" ]; then
-            for fasta_file in "$bestbins_source"*.fasta; do
-                if [ -f "$fasta_file" ]; then
-                    fasta_filename=$(basename "$fasta_file")
-                    fasta_dest="$OUTPUT_DIR/Summary/bins/${folderName}_${fasta_filename}"
-                    cp "$fasta_file" "$fasta_dest"
-                    #echo "Copied $fasta_file to $fasta_dest"
-                else
-                    echo "Warning: No .fasta files found in $bestbins_source"
-                fi
-            done
-        else
-            echo "Warning: $bestbins_source does not exist."
-        fi
+    # 处理unbined.fasta文件
+    unbined_source="${folder}Binning/Summary/Finialfasta/unbined.fasta"
+    if [ -f "$unbined_source" ]; then
+      unbined_dest="$OUTPUT_DIR/Summary/unbined/${folderName}_unbined.fasta"
+      cp "$unbined_source" "$unbined_dest"
+      #echo "Copied $unbined_source to $unbined_dest"
+    else
+      echo "Warning: $unbined_source does not exist."
     fi
+
+    # 处理Bestbins文件夹中的fasta文件
+    bestbins_source="${folder}Binning/Summary/Finialfasta/Bestbins/"
+    if [ -d "$bestbins_source" ]; then
+      for fasta_file in "$bestbins_source"*.fasta; do
+        if [ -f "$fasta_file" ]; then
+          fasta_filename=$(basename "$fasta_file")
+          fasta_dest="$OUTPUT_DIR/Summary/bins/${folderName}_${fasta_filename}"
+          cp "$fasta_file" "$fasta_dest"
+          #echo "Copied $fasta_file to $fasta_dest"
+        else
+          echo "Warning: No .fasta files found in $bestbins_source"
+        fi
+      done
+    else
+      echo "Warning: $bestbins_source does not exist."
+    fi
+  fi
 done
 
 echo "All files processed successfully."
@@ -425,7 +436,7 @@ python "${ScriptDir}/anicalc.py" -i "${newDir}/merged_sequences_blast.tsv" -o "$
 python "${ScriptDir}/aniclust.py" --fna "${newDir}/merged_sequences.fasta" --ani "${newDir}/merged_sequences_ani.tsv" --out "${newDir}/merged_sequences_clusters.tsv" --min_ani 95 --min_tcov 85 --min_qcov 0
 
 #delete temp files
-rm -f "${newDir}/temp_db.*" 
+rm -f "${newDir}/temp_db.*"
 rm -f "${newDir}/merged_sequences_blast.tsv"
 
 ####################################Merge cluster results
