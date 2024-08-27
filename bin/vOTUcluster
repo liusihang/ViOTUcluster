@@ -254,25 +254,25 @@ for FILE in $FILES; do
     echo "Alignment already completed for $FILE, skipping..."
   fi
 
-  #Log_file="$OUT_DIR/Binning/vRhyme_results_${BASENAME}_filtered/log_vRhyme_${BASENAME}_filtered.log"
-  if [ ! -f "$OUT_DIR/Binning/vRhyme_results_${BASENAME}_filtered/log_vRhyme_${BASENAME}_filtered.log" ]; then
-    #vRhyme bining
-    nohup gnome-terminal -- bash -c "
+  Log_file="$OUT_DIR/Binning/vRhyme_results_${BASENAME}_filtered/log_vRhyme_${BASENAME}_filtered.log"
+  if [ ! -f "$Log_file" ]; then
+    # vRhyme binning
+    gnome-terminal -- bash -c "
       source ~/miniconda3/etc/profile.d/conda.sh;
       conda activate vRhyme;  # 激活vRhyme环境
       echo 'Conda environment activated:';
       conda info --envs;  # 显示当前的环境信息以确认激活成功
       which vRhyme;  # 检查 vRhyme 命令是否在环境中可用
       vRhyme -i \"$OUT_DIR/${BASENAME}_filtered.fasta\" -b \"$OUT_DIR/Binning/alignment.bam\" -t 104 -o \"$OUT_DIR/Binning/vRhyme_results_${BASENAME}_filtered\";
-      exec bash
+      exit;  # 任务完成后退出终端
     " > gnome-terminal-log.txt 2>&1 &
+
     # 检测任务是否完成
     all_tasks_completed=false
 
     while [ "$all_tasks_completed" == "false" ]; do
       sleep 30
       all_tasks_completed=true
-      Log_file="$OUT_DIR/Binning/vRhyme_results_${BASENAME}_filtered/log_vRhyme_${BASENAME}_filtered.log"
 
       if ! grep -q "vRhyme binning complete" "$Log_file"; then
         all_tasks_completed=false
@@ -286,6 +286,7 @@ for FILE in $FILES; do
   else
     echo "Viral binning already completed for $FILE, skipping..."
   fi
+
 
   if [ "$REASSEMBLE" = true ]; then
     # 创建大的FA文件用于比对
