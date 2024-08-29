@@ -101,7 +101,7 @@ vOTUcluster -i <input_path_to_contigs> -r <input_path_fastq> -o <output_path> -d
 
 - **`-t <sample_type>`**: Specifies the type of sample being analyzed. Possible values are `DNA`, `RNA`, or `Mix`, which will determine the viral groups used during the prediction step.
 
-- **`--reassemble`**: (Optional) If included, this option enables the reassembly of bins after the initial binning process. This step can improve the accuracy and quality of the final contigs.Notably, this function is still in beta stage. Enable `--reassemble` will significantly increase running time.
+- **`--reassemble`**: (Optional) If included, this option enables the reassembly of bins after the initial binning process. This step can improve the accuracy and quality of the final contigs. Notably, this function is still in beta stage. Enable `--reassemble` will significantly increase running time.
 
 ### File Structure Example
 
