@@ -10,12 +10,13 @@ OUTPUT_DIR=""
 DATABASE=""
 SAMPLETYPE=""
 REASSEMBLE=false
+VERSION="0.0.3"  # 定义版本号
 
 # 设置日志文件路径
 LOG_FILE=""
 
 # 使用 getopts 处理命令行选项
-while getopts ":i:r:o:d:t:rh" opt; do
+while getopts ":i:r:o:d:t:rvh" opt; do
   case $opt in
     i)
       INPUT_DIR=$OPTARG
@@ -33,6 +34,10 @@ while getopts ":i:r:o:d:t:rh" opt; do
     t) # 用 't' 代表 'type'
       SAMPLETYPE=$OPTARG
       ;;
+    v) # 显示版本信息
+      echo "Version: $VERSION"
+      exit 0
+      ;;
     h) # 显示帮助信息
       echo "Usage: $0 [options]"
       echo ""
@@ -43,6 +48,7 @@ while getopts ":i:r:o:d:t:rh" opt; do
       echo "  -d <database_path>          Specify the path to the database required for analysis."
       echo "  -t <sample_type>            Specify the sample type: DNA, RNA, or Mix."
       echo "  --reassemble                Enable reassembly of bins."
+      echo "  -v                          Display the version of this script."
       echo "  -h                          Display this help and exit."
       exit 0
       ;;
