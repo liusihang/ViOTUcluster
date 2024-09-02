@@ -1,21 +1,24 @@
+#! /usr/bin/env python
 import os
 import pandas as pd
 import sys
 
-# Accept command-line arguments
+# Accept command line arguments
 Genomadpath = sys.argv[1]
 Viralverifypath = sys.argv[2]
 Virsorterpath = sys.argv[3]
 Inputfile = sys.argv[4]
 OUT_DIR = sys.argv[5]
+CONCENTRATION_TYPE = sys.argv[6]
 
-#Find file
+# Find file
 def find_file(directory, filename):
     for root, dirs, files in os.walk(directory):
         if filename in files:
             return os.path.join(root, filename)
     return None
 
+# Read and filter Virsorter2 data
 def read_and_filter_virsorter2(file_path, pass_type='pass1'):
     data = pd.read_csv(file_path, sep='\t')
     if pass_type == 'pass1':
@@ -25,7 +28,7 @@ def read_and_filter_virsorter2(file_path, pass_type='pass1'):
     filtered_data.iloc[:, 0] = filtered_data.iloc[:, 0].apply(lambda x: x.split('||')[0] if pd.notnull(x) else x)
     return filtered_data.iloc[:, 0]
 
-# 读取和过滤 Genomad 数据
+# Read and filter Genomad data
 def read_and_filter_genomad(Path, pass_type='pass1'):
     filename = Inputfile + "_virus_summary.tsv"
     found_path = find_file(Path, filename)
@@ -37,7 +40,7 @@ def read_and_filter_genomad(Path, pass_type='pass1'):
     filtered_data.iloc[:, 0] = filtered_data.iloc[:, 0].apply(lambda x: x.split('||')[0] if pd.notnull(x) else x)
     return filtered_data.iloc[:, 0]
 
-# 读取和过滤 ViralVerify 数据
+# Read and filter ViralVerify data
 def read_and_filter_viralverify(Path, pass_type='pass1'):
     filename = Inputfile + "_result_table.csv"
     found_path = find_file(Path, filename)
@@ -49,7 +52,7 @@ def read_and_filter_viralverify(Path, pass_type='pass1'):
     filtered_data.iloc[:, 0] = filtered_data.iloc[:, 0].apply(lambda x: x.split('||')[0] if pd.notnull(x) else x)
     return filtered_data.iloc[:, 0]
 
-# 读取和过滤 ViralVerify 数据中 Plasmid, Chromosome, Uncertain - plasmid or chromosomal 的序列
+# Read and filter non-viral sequences from ViralVerify data (Plasmid, Chromosome, Uncertain - plasmid or chromosomal)
 def read_and_filter_viralverify_nonviral(Path):
     filename = Inputfile + "_result_table.csv"
     found_path = find_file(Path, filename)
@@ -58,7 +61,7 @@ def read_and_filter_viralverify_nonviral(Path):
     filtered_data.iloc[:, 0] = filtered_data.iloc[:, 0].apply(lambda x: x.split('||')[0] if pd.notnull(x) else x)
     return set(filtered_data.iloc[:, 0])
 
-# 读取和过滤 Genomad 数据中的 plasmid 数据
+# Read and filter plasmid data from Genomad data
 def read_plasmid_data(Path):
     filename = Inputfile + "_plasmid_summary.tsv"
     found_path = find_file(Path, filename)
@@ -78,32 +81,28 @@ def find_common_elements(*args):
     common_elements = set.intersection(*sets)
     return pd.Series(list(common_elements))
 
-# Pass1 filtering
-virsorter2_list1 = read_and_filter_virsorter2(os.path.join(Virsorterpath, "final-viral-score.tsv"), 'pass1')
-genomad_list1 = read_and_filter_genomad(os.path.join(Genomadpath), 'pass1')
-viralverify_list1 = read_and_filter_viralverify(os.path.join(Viralverifypath), 'pass1')
+# Filter based on CONCENTRATION_TYPE for Pass1
+if CONCENTRATION_TYPE == "concentration":
+    virsorter2_list1 = read_and_filter_virsorter2(os.path.join(Virsorterpath, "final-viral-score.tsv"), 'pass1')
+    genomad_list1 = read_and_filter_genomad(os.path.join(Genomadpath), 'pass1')
+    viralverify_list1 = read_and_filter_viralverify(os.path.join(Viralverifypath), 'pass1')
 
-# Merge Pass1 results
-Pass1_list = merge_lists(virsorter2_list1, genomad_list1, viralverify_list1)
+    # Merge Pass1 results for concentration type
+    AllPass_series = merge_lists(virsorter2_list1, genomad_list1, viralverify_list1)
+else:  # Non-concentration type
+    genomad_list1 = read_and_filter_genomad(os.path.join(Genomadpath), 'pass1')
+    viralverify_list1 = read_and_filter_viralverify(os.path.join(Viralverifypath), 'pass1')
 
-# Double-check filtering
-virsorter2_list2 = read_and_filter_virsorter2(os.path.join(Virsorterpath, "final-viral-score.tsv"), 'doublecheck')
-genomad_list2 = read_and_filter_genomad(os.path.join(Genomadpath), 'doublecheck')
-viralverify_list2 = read_and_filter_viralverify(os.path.join(Viralverifypath), 'doublecheck')
+    # Merge Pass1 results for non-concentration type
+    AllPass_series = merge_lists(genomad_list1, viralverify_list1)
 
-# Merge double-check results
-Pass2_list = find_common_elements(virsorter2_list2, genomad_list2, viralverify_list2)
-
-# Combine all Pass results
-AllPass_series = merge_lists(Pass1_list, Pass2_list)
-
-# 读取并过滤 Genomad 数据中的 plasmid 数据
+# Read and filter plasmid data from Genomad data
 plasmid_sequences = read_plasmid_data(Genomadpath)
 
-# 读取并过滤 ViralVerify 数据中的非病毒序列 (Plasmid, Chromosome, Uncertain - plasmid or chromosomal)
+# Read and filter non-viral sequences (Plasmid, Chromosome, Uncertain - plasmid or chromosomal) from ViralVerify data
 nonviral_sequences = read_and_filter_viralverify_nonviral(Viralverifypath)
 
-# 从 AllPass_series 中移除所有在 plasmid_sequences 和 nonviral_sequences 中的序列
+# Remove all sequences in plasmid_sequences and nonviral_sequences from AllPass_series
 AllPass_series = AllPass_series[~AllPass_series.isin(plasmid_sequences | nonviral_sequences)]
 
 # Create DataFrame

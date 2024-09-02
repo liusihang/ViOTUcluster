@@ -14,7 +14,7 @@ for FILE in $FILES; do
 
   # CrossValid virus contigs
   echo -e "\n \n \n # 进行virus contigs交叉验证!!! \n \n \n"
-  python "${ScriptDir}/CrossValid.py" "$Genomad_dir" "$Viralverify_dir" "$Virsorter_dir" "$BASENAME" "$OUT_DIR"
+  python "${ScriptDir}/CrossValid.py" "$Genomad_dir" "$Viralverify_dir" "$Virsorter_dir" "$BASENAME" "$OUT_DIR" "$CONCENTRATION_TYPE"
 
   # Sequence提取
   python "${ScriptDir}/FilterRawResSeqs.py" "$FILE" "$BASENAME" "$OUT_DIR"

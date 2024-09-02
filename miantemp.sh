@@ -104,6 +104,18 @@ for FILE in "${RAW_SEQ_DIR}"/*_R1.*; do
   fi
 done
 
+# 根据 CONCENTRATION_TYPE 进行不同的处理
+if [ "$CONCENTRATION_TYPE" == "non-concentration" ]; then
+    echo "Running non-concentration specific steps..."
+    # 在这里添加 non-concentration 的特定处理步骤
+elif [ "$CONCENTRATION_TYPE" == "concentration" ]; then
+    echo "Running concentration specific steps..."
+    # 在这里添加 concentration 的特定处理步骤
+else
+    echo "Error: Invalid concentration type."
+    exit 1
+fi
+
 # 重定向所有输出到日志文件
 exec > >(tee -a "$LOG_FILE") 2>&1
 
@@ -127,18 +139,6 @@ esac
 # 输出选择的处理类型
 echo "Processing with $CONCENTRATION_TYPE mode."
 
-# 根据 CONCENTRATION_TYPE 进行不同的处理
-if [ "$CONCENTRATION_TYPE" == "non-concentration" ]; then
-    echo "Running non-concentration specific steps..."
-    # 在这里添加 non-concentration 的特定处理步骤
-elif [ "$CONCENTRATION_TYPE" == "concentration" ]; then
-    echo "Running concentration specific steps..."
-    # 在这里添加 concentration 的特定处理步骤
-else
-    echo "Error: Invalid concentration type."
-    exit 1
-fi
-
 # 获取当前 Conda 环境的 bin 文件夹位置
 if [ -z "$CONDA_PREFIX" ]; then
   echo "Conda environment is not activated."
@@ -158,7 +158,7 @@ FILES=$(find "${OUTPUT_DIR}/FilteredSeqs" -type f \( -name "*.fa" -o -name "*.fa
 RawFILES=$(find "${INPUT_DIR}" -maxdepth 1 -type f \( -name "*.fa" -o -name "*.fasta" \))
 
 # 导出必要的变量和函数
-export OUTPUT_DIR DATABASE Group FILES RawFILES
+export OUTPUT_DIR DATABASE Group FILES RawFILES CONCENTRATION_TYPE
 
 # 按顺序执行各个模块并记录时间和日志
 
@@ -167,7 +167,11 @@ mkdir -p "${OUTPUT_DIR}/Log"
 echo "Starting viral prediction..."
 #Viral prediction module
 module_start_time=$(date +%s)
-viral_prediction_module.sh > "${OUTPUT_DIR}/Log/viral_prediction.log" 2>&1
+# 根据 CONCENTRATION_TYPE 进行不同的处理
+if [ "$CONCENTRATION_TYPE" == "non-concentration" ]; then
+    viral_prediction_module.sh > "${OUTPUT_DIR}/Log/cross_validation.log" 2>&1
+else [ "$CONCENTRATION_TYPE" == "concentration" ]; then
+    viral_prediction_module.sh > "${OUTPUT_DIR}/Log/cross_validation.log" 2>&1
 module_end_time=$(date +%s)
 module_runtime=$((module_end_time - module_start_time))
 echo "Viral prediction completed in ${module_runtime} seconds." >> "${OUTPUT_DIR}/Log/viral_prediction.log"
@@ -175,7 +179,11 @@ echo "Viral prediction completed in ${module_runtime} seconds." >> "${OUTPUT_DIR
 #Cross Validation module
 echo "Starting Cross Validation module..."
 module_start_time=$(date +%s)
-cross_validation_module.sh > "${OUTPUT_DIR}/Log/cross_validation.log" 2>&1
+# 根据 CONCENTRATION_TYPE 进行不同的处理
+if [ "$CONCENTRATION_TYPE" == "non-concentration" ]; then
+    cross_validation_module.sh > "${OUTPUT_DIR}/Log/cross_validation.log" 2>&1
+else [ "$CONCENTRATION_TYPE" == "concentration" ]; then
+    cross_validation_module.sh > "${OUTPUT_DIR}/Log/cross_validation.log" 2>&1
 module_end_time=$(date +%s)
 module_runtime=$((module_end_time - module_start_time))
 echo "Cross Validation completed in ${module_runtime} seconds." >> "${OUTPUT_DIR}/Log/cross_validation.log"

@@ -7,9 +7,8 @@ RawFILES=$(find "${INPUT_DIR}" -maxdepth 1 -type f \( -name "*.fa" -o -name "*.f
 BASE_CONDA_PREFIX=$(conda info --base)
 conda_sh="$BASE_CONDA_PREFIX/etc/profile.d/conda.sh"
 
-
 # 导出必要的变量和函数
-export OUTPUT_DIR DATABASE Group
+export OUTPUT_DIR DATABASE Group CONCENTRATION_TYPE
 
 process_file() {
   local FILE=$1
@@ -26,8 +25,6 @@ process_file() {
   mkdir -p "$Genomad_dir"
   local Viralverify_dir="$PREDICTION_DIR/viralverify"
   mkdir -p "$Viralverify_dir"
-  local Virsorter_dir="$PREDICTION_DIR/virsorter2"
-  mkdir -p "$Virsorter_dir"
 
   echo "Processing $FILE"
 
@@ -46,25 +43,31 @@ process_file() {
     echo "viralverify prediction already completed for $FILE, skipping..."
   fi
 
-  if [ ! -f "$Virsorter_dir/final-viral-score.tsv" ]; then
-    echo "Running Virsorter2 prediction..."
+  # 仅当是 concentration 时才运行 Virsorter2
+  if [ "$CONCENTRATION_TYPE" == "concentration" ]; then
+    local Virsorter_dir="$PREDICTION_DIR/virsorter2"
+    mkdir -p "$Virsorter_dir"
 
-    # Activate environment
-    CURRENT_ENV=$(basename "$CONDA_DEFAULT_ENV")
-    source ${conda_sh}
-    conda activate "$CURRENT_ENV"
+    if [ ! -f "$Virsorter_dir/final-viral-score.tsv" ]; then
+      echo "Running Virsorter2 prediction..."
 
-    virsorter run -w "$Virsorter_dir" -i "$FILE" --include-groups "$Group" -j 104 all --min-score 0.5 --min-length 2000 --keep-original-seq > "$Virsorter_dir/virsorter.log" 2>&1
-    echo "Virsorter2 prediction completed!"
-  else
-    echo "Virsorter2 prediction already completed for $FILE, skipping..."
+      # Activate environment
+      CURRENT_ENV=$(basename "$CONDA_DEFAULT_ENV")
+      source ${conda_sh}
+      conda activate "$CURRENT_ENV"
+
+      virsorter run -w "$Virsorter_dir" -i "$FILE" --include-groups "$Group" -j 104 all --min-score 0.5 --min-length 2000 --keep-original-seq -d "$DATABASE/db"> "$Virsorter_dir/virsorter.log" 2>&1
+      echo "Virsorter2 prediction completed!"
+    else
+      echo "Virsorter2 prediction already completed for $FILE, skipping..."
+    fi
   fi
 }
 
 export -f process_file
 parallel process_file ::: $FILES
 
-# 进行Gemomad分析
+# 进行Genomad分析
 for FILE in $RawFILES; do
   echo "Processing $FILE"
   # 获取文件的基本名称，无扩展名
@@ -88,25 +91,27 @@ for FILE in $RawFILES; do
   fi
 done
 
-# 检测所有 Virsorter2 任务是否完成
-all_tasks_completed=false
-while [ "$all_tasks_completed" == "false" ]; do
-  all_tasks_completed=true
-  for FILE in $FILES; do
-    BASENAME=$(basename "$FILE" .fa)
-    BASENAME=${BASENAME%.fasta}
-    Virsorter_dir="$OUTPUT_DIR/SeprateFile/${BASENAME}/RoughViralPrediction/virsorter2"
+# 检测所有 Virsorter2 任务是否完成 (仅当 concentration 时)
+if [ "$CONCENTRATION_TYPE" == "concentration" ]; then
+  all_tasks_completed=false
+  while [ "$all_tasks_completed" == "false" ]; do
+    all_tasks_completed=true
+    for FILE in $FILES; do
+      BASENAME=$(basename "$FILE" .fa)
+      BASENAME=${BASENAME%.fasta}
+      Virsorter_dir="$OUTPUT_DIR/SeprateFile/${BASENAME}/RoughViralPrediction/virsorter2"
 
-    if [ ! -f "$Virsorter_dir/final-viral-score.tsv" ]; then
-      all_tasks_completed=false
-      echo "Virsorter2 still in processing"
-      break
+      if [ ! -f "$Virsorter_dir/final-viral-score.tsv" ]; then
+        all_tasks_completed=false
+        echo "Virsorter2 still in processing"
+        break
+      fi
+    done
+
+    if [ "$all_tasks_completed" == "false" ]; then
+      sleep 30
     fi
   done
-
-  if [ "$all_tasks_completed" == "false" ]; then
-    sleep 30
-  fi
-done
+fi
 
 echo "All files have been processed."

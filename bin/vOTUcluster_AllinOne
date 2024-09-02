@@ -184,11 +184,14 @@ RawFILES=$(find "${INPUT_DIR}" -maxdepth 1 -type f \( -name "*.fa" -o -name "*.f
 # 导出必要的变量和函数
 export OUTPUT_DIR DATABASE Group FILES RawFILES
 
-# 按顺序执行各个模块并记录时间和日志
 echo "Starting viral prediction..."
 #Viral prediction module
 module_start_time=$(date +%s)
-"${ScriptDir}"/viral_prediction_module.sh > "${OUTPUT_DIR}/Log/viral_prediction.log" 2>&1
+# 根据 CONCENTRATION_TYPE 进行不同的处理
+if [ "$CONCENTRATION_TYPE" == "non-concentration" ]; then
+    viral_prediction_module.sh > "${OUTPUT_DIR}/Log/cross_validation.log" 2>&1
+else [ "$CONCENTRATION_TYPE" == "concentration" ]; then
+    viral_prediction_module.sh > "${OUTPUT_DIR}/Log/cross_validation.log" 2>&1
 module_end_time=$(date +%s)
 module_runtime=$((module_end_time - module_start_time))
 echo "Viral prediction completed in ${module_runtime} seconds." >> "${OUTPUT_DIR}/Log/viral_prediction.log"
@@ -196,7 +199,11 @@ echo "Viral prediction completed in ${module_runtime} seconds." >> "${OUTPUT_DIR
 #Cross Validation module
 echo "Starting Cross Validation module..."
 module_start_time=$(date +%s)
-"${ScriptDir}"/cross_validation_module.sh > "${OUTPUT_DIR}/Log/cross_validation.log" 2>&1
+# 根据 CONCENTRATION_TYPE 进行不同的处理
+if [ "$CONCENTRATION_TYPE" == "non-concentration" ]; then
+    cross_validation_module.sh > "${OUTPUT_DIR}/Log/cross_validation.log" 2>&1
+else [ "$CONCENTRATION_TYPE" == "concentration" ]; then
+    cross_validation_module.sh > "${OUTPUT_DIR}/Log/cross_validation.log" 2>&1
 module_end_time=$(date +%s)
 module_runtime=$((module_end_time - module_start_time))
 echo "Cross Validation completed in ${module_runtime} seconds." >> "${OUTPUT_DIR}/Log/cross_validation.log"
