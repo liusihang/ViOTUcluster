@@ -11,8 +11,6 @@ for FILE in $FILES; do
   Genomad_dir="$PREDICTION_DIR/genomadres"
   Viralverify_dir="$PREDICTION_DIR/viralverify"
   Virsorter_dir="$PREDICTION_DIR/virsorter2"
-  Read1="$RAW_SEQ_DIR/${BASENAME}_R1.fq"
-  Read2="$RAW_SEQ_DIR/${BASENAME}_R2.fq"
 
   # CrossValid virus contigs
   echo -e "\n \n \n # 进行virus contigs交叉验证!!! \n \n \n"
@@ -20,4 +18,9 @@ for FILE in $FILES; do
 
   # Sequence提取
   python "${ScriptDir}/FilterRawResSeqs.py" "$FILE" "$BASENAME" "$OUT_DIR"
+
+  # CheckVFilter
+  mkdir -p "$OUT_DIR/${BASENAME}_CheckRes"
+  checkv end_to_end "$OUT_DIR/${BASENAME}_filtered.fasta" "$OUT_DIR/${BASENAME}_CheckRes" -t 90 -d "$DATABASE/checkv-db-v1.5"
+  python "${ScriptDir}/check_removal.py" "$OUT_DIR/${BASENAME}_CheckRes/quality_summary.tsv" "$OUT_DIR/${BASENAME}_filtered.fasta"
 done

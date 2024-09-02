@@ -246,6 +246,11 @@ for FILE in $FILES; do
   #Sequence提取
   python "${ScriptDir}/FilterRawResSeqs.py" "$FILE" "$BASENAME" "$OUT_DIR"
 
+  # CheckVFilter
+  mkdir -p "$OUT_DIR/${BASENAME}_CheckRes"
+  checkv end_to_end "$OUT_DIR/${BASENAME}_filtered.fasta" "$OUT_DIR/${BASENAME}_CheckRes" -t 90 -d "$DATABASE/checkv-db-v1.5"
+  python "${ScriptDir}/check_removal.py" "$OUT_DIR/${BASENAME}_CheckRes/quality_summary.tsv" "$OUT_DIR/${BASENAME}_filtered.fasta"
+
   ############################进行binning#################################
   mkdir -p "$OUT_DIR/Binning"
 

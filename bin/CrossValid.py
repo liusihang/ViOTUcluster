@@ -9,10 +9,6 @@ Virsorterpath = sys.argv[3]
 Inputfile = sys.argv[4]
 OUT_DIR = sys.argv[5]
 
-#print(f"{Inputfile}_viurs_summary.tsv")
-#print(find_file(Viralverifypath, f"{Inputfile}_result_table.csv"))
-#print(find_file(Genomadpath, f"{Inputfile}_virus_summary.tsv"))
-
 #Find file
 def find_file(directory, filename):
     for root, dirs, files in os.walk(directory):
@@ -53,6 +49,25 @@ def read_and_filter_viralverify(Path, pass_type='pass1'):
     filtered_data.iloc[:, 0] = filtered_data.iloc[:, 0].apply(lambda x: x.split('||')[0] if pd.notnull(x) else x)
     return filtered_data.iloc[:, 0]
 
+# 读取和过滤 ViralVerify 数据中 Plasmid, Chromosome, Uncertain - plasmid or chromosomal 的序列
+def read_and_filter_viralverify_nonviral(Path):
+    filename = Inputfile + "_result_table.csv"
+    found_path = find_file(Path, filename)
+    data = pd.read_csv(found_path)
+    filtered_data = data[data['Prediction'].isin(["Plasmid", "Chromosome", "Uncertain - plasmid or chromosomal"])]
+    filtered_data.iloc[:, 0] = filtered_data.iloc[:, 0].apply(lambda x: x.split('||')[0] if pd.notnull(x) else x)
+    return set(filtered_data.iloc[:, 0])
+
+# 读取和过滤 Genomad 数据中的 plasmid 数据
+def read_plasmid_data(Path):
+    filename = Inputfile + "_plasmid_summary.tsv"
+    found_path = find_file(Path, filename)
+    if found_path:
+        data = pd.read_csv(found_path, sep='\t')
+        plasmid_sequences = data.iloc[:, 0].apply(lambda x: x.split('||')[0] if pd.notnull(x) else x)
+        return set(plasmid_sequences)
+    return set()
+
 def merge_lists(*args):
     # Combine lists into a set for unique identifiers
     combined_set = set().union(*[set(list_) for list_ in args])
@@ -82,10 +97,18 @@ Pass2_list = find_common_elements(virsorter2_list2, genomad_list2, viralverify_l
 # Combine all Pass results
 AllPass_series = merge_lists(Pass1_list, Pass2_list)
 
+# 读取并过滤 Genomad 数据中的 plasmid 数据
+plasmid_sequences = read_plasmid_data(Genomadpath)
+
+# 读取并过滤 ViralVerify 数据中的非病毒序列 (Plasmid, Chromosome, Uncertain - plasmid or chromosomal)
+nonviral_sequences = read_and_filter_viralverify_nonviral(Viralverifypath)
+
+# 从 AllPass_series 中移除所有在 plasmid_sequences 和 nonviral_sequences 中的序列
+AllPass_series = AllPass_series[~AllPass_series.isin(plasmid_sequences | nonviral_sequences)]
+
 # Create DataFrame
 AllPass_df = pd.DataFrame(AllPass_series, columns=['Sequence Id'])
 
 # Save to file
-#print(Inputfile)
 filename = Inputfile + "_viral_predictionsList.csv"
-AllPass_df.to_csv(os.path.join(OUT_DIR,filename), index=False)
+AllPass_df.to_csv(os.path.join(OUT_DIR, filename), index=False)

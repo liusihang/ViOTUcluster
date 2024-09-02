@@ -11,6 +11,25 @@ for FILE in $FILES; do
   BASENAME=$(basename "$FILE" .fa)
   BASENAME=${BASENAME%.fasta}
   OUT_DIR="$OUTPUT_DIR/SeprateFile/${BASENAME}"
+  # 检查并设置Read1和Read2的路径
+  PREFIX="${RAW_SEQ_DIR}/${BASENAME}"
+
+  if [ -f "${PREFIX}_R1.fq" ] && [ -f "${PREFIX}_R2.fq" ]; then
+    Read1="${PREFIX}_R1.fq"
+    Read2="${PREFIX}_R2.fq"
+  elif [ -f "${PREFIX}_R1.fastq" ] && [ -f "${PREFIX}_R2.fastq" ]; then
+    Read1="${PREFIX}_R1.fastq"
+    Read2="${PREFIX}_R2.fastq"
+  elif [ -f "${PREFIX}_R1.fq.gz" ] && [ -f "${PREFIX}_R2.fq.gz" ]; then
+    Read1="${PREFIX}_R1.fq.gz"
+    Read2="${PREFIX}_R2.fq.gz"
+  elif [ -f "${PREFIX}_R1.fastq.gz" ] && [ -f "${PREFIX}_R2.fastq.gz" ]; then
+    Read1="${PREFIX}_R1.fastq.gz"
+    Read2="${PREFIX}_R2.fastq.gz"
+  else
+    echo "Error: Paired-end files for $BASENAME not found in the expected formats (.fq, .fastq, .fq.gz, .fastq.gz)"
+    exit 1
+  fi
   
   mkdir -p "$OUT_DIR/Binning"
 

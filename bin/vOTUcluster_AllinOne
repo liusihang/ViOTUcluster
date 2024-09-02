@@ -4,11 +4,11 @@
 start_time=$(date +%s)
 
 # 初始化变量
-INPUT_DIR=""
 RAW_SEQ_DIR=""
 OUTPUT_DIR=""
 DATABASE=""
 SAMPLETYPE=""
+ASSEMBLY_SOFTWARE=""
 REASSEMBLE=false
 VERSION="0.0.5"  # 定义版本号
 CONCENTRATION_TYPE=""
@@ -19,10 +19,6 @@ LOG_FILE=""
 # 使用 getopts 处理短选项和手动处理长选项
 while [[ $# -gt 0 ]]; do
   case $1 in
-    -i)
-      INPUT_DIR=$2
-      shift 2
-      ;;
     -r)
       RAW_SEQ_DIR=$2
       shift 2
@@ -38,6 +34,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     -t) # 用 't' 代表 'type'
       SAMPLETYPE=$2
+      shift 2
+      ;;
+    -a) # 用 'a' 代表 'assembly software'
+      ASSEMBLY_SOFTWARE=$2
       shift 2
       ;;
     -v) # 显示版本信息
@@ -56,11 +56,11 @@ while [[ $# -gt 0 ]]; do
       echo "Usage: $0 [options]"
       echo ""
       echo "Options:"
-      echo "  -i <input_path_to_search>   Specify the input directory to search for FASTA files."
       echo "  -r <input_path_raw_seqs>    Specify the input directory to search for raw seqs files."
       echo "  -o <output_path>            Specify the output directory for the results."
       echo "  -d <database_path>          Specify the path to the database required for analysis."
       echo "  -t <sample_type>            Specify the sample type: DNA, RNA, or Mix."
+      echo "  -a <assembly_software>      Specify the assembly software: megahit, metaspades."
       echo "  --non-con                   Specify non-concentration processing."
       echo "  --con                       Specify concentration processing."
       echo "  --reassemble                Enable reassembly of bins."
@@ -80,8 +80,14 @@ while [[ $# -gt 0 ]]; do
 done
 
 # 检查必要的输入是否已提供
-if [ -z "$INPUT_DIR" ] || [ -z "$RAW_SEQ_DIR" ] || [ -z "$OUTPUT_DIR" ] || [ -z "$DATABASE" ] || [ -z "$SAMPLETYPE" ] || [ -z "$CONCENTRATION_TYPE" ]; then
-    echo "Usage: $0 -i <input_path_to_search> -r <input_path_raw_seqs> -o <output_path> -d <database_path> -t <sample_type> --non-con/--con [--reassemble]"
+if [ -z "$RAW_SEQ_DIR" ] || [ -z "$OUTPUT_DIR" ] || [ -z "$DATABASE" ] || [ -z "$SAMPLETYPE" ] || [ -z "$CONCENTRATION_TYPE" ] || [ -z "$ASSEMBLY_SOFTWARE" ]; then
+    echo "Usage: $0 -r <input_path_raw_seqs> -o <output_path> -d <database_path> -t <sample_type> -a <assembly_software> --non-con/--con [--reassemble]"
+    exit 1
+fi
+
+# 验证组装软件选项
+if [[ "$ASSEMBLY_SOFTWARE" != "megahit" && "$ASSEMBLY_SOFTWARE" != "metaspades" ]]; then
+    echo "Error: Invalid assembly software. Please choose either 'megahit' or 'metaspades'."
     exit 1
 fi
 
@@ -147,7 +153,25 @@ fi
 ScriptDir="${CONDA_PREFIX}/bin"
 
 # 导出参数作为环境变量
-export INPUT_DIR OUTPUT_DIR DATABASE SAMPLETYPE REASSEMBLE
+export RAW_SEQ_DIR OUTPUT_DIR DATABASE SAMPLETYPE REASSEMBLE ASSEMBLY_SOFTWARE
+
+mkdir -p "${OUTPUT_DIR}/Log"
+#Raw sequence Process
+echo "Starting Raw sequences Process..."
+#Raw sequences module
+module_start_time=$(date +%s)
+"${ScriptDir}"/Preprocess_module.sh "${RAW_SEQ_DIR}" "${ASSEMBLY_SOFTWARE}" "${OUTPUT_DIR}"> "${OUTPUT_DIR}/Log/Preprocess.log" 2>&1
+module_end_time=$(date +%s)
+module_runtime=$((module_end_time - module_start_time))
+echo "Viral prediction completed in ${module_runtime} seconds." >> "${OUTPUT_DIR}/Log/Preprocess.log"
+
+
+# 导出参数作为环境变量
+CONTIGS_DIR="${OUTPUT_DIR}/Contigs"
+RAW_SEQ_DIR="${OUTPUT_DIR}/Cleanreads"
+INPUT_DIR=${CONTIGS_DIR}
+export CONTIGS_DIR OUTPUT_DIR DATABASE SAMPLETYPE REASSEMBLE 
+
 
 # 过滤小于2000bp的序列
 mkdir -p "${OUTPUT_DIR}/FilteredSeqs"
@@ -161,13 +185,10 @@ RawFILES=$(find "${INPUT_DIR}" -maxdepth 1 -type f \( -name "*.fa" -o -name "*.f
 export OUTPUT_DIR DATABASE Group FILES RawFILES
 
 # 按顺序执行各个模块并记录时间和日志
-
-mkdir -p "${OUTPUT_DIR}/Log"
-
 echo "Starting viral prediction..."
 #Viral prediction module
 module_start_time=$(date +%s)
-./viral_prediction_module.sh > "${OUTPUT_DIR}/Log/viral_prediction.log" 2>&1
+"${ScriptDir}"/viral_prediction_module.sh > "${OUTPUT_DIR}/Log/viral_prediction.log" 2>&1
 module_end_time=$(date +%s)
 module_runtime=$((module_end_time - module_start_time))
 echo "Viral prediction completed in ${module_runtime} seconds." >> "${OUTPUT_DIR}/Log/viral_prediction.log"
@@ -175,7 +196,7 @@ echo "Viral prediction completed in ${module_runtime} seconds." >> "${OUTPUT_DIR
 #Cross Validation module
 echo "Starting Cross Validation module..."
 module_start_time=$(date +%s)
-./cross_validation_module.sh > "${OUTPUT_DIR}/Log/cross_validation.log" 2>&1
+"${ScriptDir}"/cross_validation_module.sh > "${OUTPUT_DIR}/Log/cross_validation.log" 2>&1
 module_end_time=$(date +%s)
 module_runtime=$((module_end_time - module_start_time))
 echo "Cross Validation completed in ${module_runtime} seconds." >> "${OUTPUT_DIR}/Log/cross_validation.log"
@@ -183,7 +204,7 @@ echo "Cross Validation completed in ${module_runtime} seconds." >> "${OUTPUT_DIR
 #Binning and merge module
 echo "Starting Binning and merge module..."
 module_start_time=$(date +%s)
-./binning_merge_module.sh > "${OUTPUT_DIR}/Log/binning_merge.log" 2>&1
+"${ScriptDir}"/binning_merge_module.sh > "${OUTPUT_DIR}/Log/binning_merge.log" 2>&1
 module_end_time=$(date +%s)
 module_runtime=$((module_end_time - module_start_time))
 echo "Binning completed in ${module_runtime} seconds." >> "${OUTPUT_DIR}/Log/binning_merge.log"
@@ -191,7 +212,7 @@ echo "Binning completed in ${module_runtime} seconds." >> "${OUTPUT_DIR}/Log/bin
 #Summary module
 echo "Starting Summary module..."
 module_start_time=$(date +%s)
-./summary_module.sh > "${OUTPUT_DIR}/Log/summary.log" 2>&1
+"${ScriptDir}"/summary_module.sh > "${OUTPUT_DIR}/Log/summary.log" 2>&1
 module_end_time=$(date +%s)
 module_runtime=$((module_end_time - module_start_time))
 echo "Summary completed in ${module_runtime} seconds." >> "${OUTPUT_DIR}/Log/summary.log"
@@ -199,7 +220,7 @@ echo "Summary completed in ${module_runtime} seconds." >> "${OUTPUT_DIR}/Log/sum
 #dRep module
 echo "Starting dRep module..."
 module_start_time=$(date +%s)
-./drep_module.sh > "${OUTPUT_DIR}/Log/drep.log" 2>&1
+"${ScriptDir}"/drep_module.sh > "${OUTPUT_DIR}/Log/drep.log" 2>&1
 module_end_time=$(date +%s)
 module_runtime=$((module_end_time - module_start_time))
 echo "dRep completed in ${module_runtime} seconds." >> "${OUTPUT_DIR}/Log/drep.log"
@@ -208,7 +229,7 @@ echo "dRep completed in ${module_runtime} seconds." >> "${OUTPUT_DIR}/Log/drep.l
 echo "Starting DRAM module..."
 module_start_time=$(date +%s)
 mkdir -p "$OUTPUT_DIR/Summary/DRAM"
-./run_dram_analysis.sh "$OUTPUT_DIR/Summary/Viralcontigs/vOTU.fasta" "$OUTPUT_DIR/Summary/DRAM" > "${OUTPUT_DIR}/Log/DRAM.log" 2>&1
+"${ScriptDir}"/run_dram_analysis.sh "$OUTPUT_DIR/Summary/Viralcontigs/vOTU.fasta" "$OUTPUT_DIR/Summary/DRAM" > "${OUTPUT_DIR}/Log/DRAM.log" 2>&1
 module_end_time=$(date +%s)
 module_runtime=$((module_end_time - module_start_time))
 echo "DRAM completed in ${module_runtime} seconds." >> "${OUTPUT_DIR}/Log/DRAM.log"
@@ -217,7 +238,7 @@ echo "DRAM completed in ${module_runtime} seconds." >> "${OUTPUT_DIR}/Log/DRAM.l
 echo "Starting iPhop module..."
 module_start_time=$(date +%s)
 mkdir -p "$OUTPUT_DIR/Summary/iPhop"
-./run_iphop_analysis.sh "$OUTPUT_DIR/Summary/Viralcontigs/vOTU.fasta" "$OUTPUT_DIR/Summary/iPhop" > "${OUTPUT_DIR}/Log/iPhop.log" 2>&1
+"${ScriptDir}"/run_iphop_analysis.sh "$OUTPUT_DIR/Summary/Viralcontigs/vOTU.fasta" "$OUTPUT_DIR/Summary/iPhop" > "${OUTPUT_DIR}/Log/iPhop.log" 2>&1
 module_end_time=$(date +%s)
 module_runtime=$((module_end_time - module_start_time))
 echo "iPhop completed in ${module_runtime} seconds." >> "${OUTPUT_DIR}/Log/iPhop.log"

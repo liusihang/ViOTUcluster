@@ -3,31 +3,32 @@ import os
 import sys
 from Bio import SeqIO
 
-# Accept command-line arguments
+# 接受命令行参数
 fasta = sys.argv[1]
 Inputname = sys.argv[2]
 OUT_DIR = sys.argv[3]
 
-# Read the list of IDs from the CSV file
+# 从CSV文件中读取ID列表
 csv_values = set()
 csv_path = os.path.join(OUT_DIR, f"{Inputname}.csv")
 with open(csv_path, 'r', encoding='utf-8') as csvfile:
     reader = csv.reader(csvfile)
     for row in reader:
-        if row:  # Check if the row is not empty
-            csv_values.add(row[0])  # Assume the first column contains the IDs
+        if row:  # 检查行是否不为空
+            # 处理CSV中的ID
+            csv_id = row[0].split('|')[0]  # 取'|'前面的部分
+            csv_values.add(csv_id)
 
-# Read the FASTA file and find matching sequences
+# 读取FASTA文件并找到匹配的序列
 matches = []
 for record in SeqIO.parse(fasta, "fasta"):
-    record_id = record.id.split()[0]  # Extract the first part of the ID before any spaces
-    if record_id in csv_values:
+    # 全字匹配序列ID
+    if record.id in csv_values:
         matches.append(record)
 
-# If matching sequences are found, save them to a new FASTA file
+# 如果找到匹配的序列，保存到新的FASTA文件
 if matches:
     output_fasta_filename = os.path.join(OUT_DIR, f"{Inputname}_filtered.fasta")
     SeqIO.write(matches, output_fasta_filename, "fasta")
 
 print("所有文件处理完成。")
-
