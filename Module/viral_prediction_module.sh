@@ -3,6 +3,10 @@
 # Find all .fa and .fasta files in the specified directory
 FILES=$(find "${OUTPUT_DIR}/FilteredSeqs" -type f \( -name "*.fa" -o -name "*.fasta" \))
 RawFILES=$(find "${INPUT_DIR}" -maxdepth 1 -type f \( -name "*.fa" -o -name "*.fasta" \))
+# 构建 conda.sh 的路径
+BASE_CONDA_PREFIX=$(conda info --base)
+conda_sh="$BASE_CONDA_PREFIX/etc/profile.d/conda.sh"
+
 
 # 导出必要的变量和函数
 export OUTPUT_DIR DATABASE Group
@@ -33,7 +37,7 @@ process_file() {
 
     # Activate environment
     CURRENT_ENV=$(basename "$CONDA_DEFAULT_ENV")
-    source ~/miniconda3/etc/profile.d/conda.sh
+    source ${conda_sh}
     conda activate "$CURRENT_ENV"
     
     viralverify -f "$FILE" -o "$Viralverify_dir" --hmm "$DATABASE/ViralVerify/nbc_hmms.hmm" -t 104 > "$Viralverify_dir/viralverify.log" 2>&1
@@ -47,7 +51,7 @@ process_file() {
 
     # Activate environment
     CURRENT_ENV=$(basename "$CONDA_DEFAULT_ENV")
-    source ~/miniconda3/etc/profile.d/conda.sh
+    source ${conda_sh}
     conda activate "$CURRENT_ENV"
 
     virsorter run -w "$Virsorter_dir" -i "$FILE" --include-groups "$Group" -j 104 all --min-score 0.5 --min-length 2000 --keep-original-seq > "$Virsorter_dir/virsorter.log" 2>&1
