@@ -225,6 +225,14 @@ module_end_time=$(date +%s)
 module_runtime=$((module_end_time - module_start_time))
 echo "dRep completed in ${module_runtime} seconds." >> "${OUTPUT_DIR}/Log/drep.log"
 
+#TPM caculate module
+echo "Starting TPM caculate module..."
+module_start_time=$(date +%s)
+TPM_caculate_Module.sh > "${OUTPUT_DIR}/Log/TPM_caculate.log" 2>&1
+module_end_time=$(date +%s)
+module_runtime=$((module_end_time - module_start_time))
+echo "TPM caculate completed in ${module_runtime} seconds." >> "${OUTPUT_DIR}/Log/TPM_caculate.log"
+
 #DRAM module
 echo "Starting DRAM module..."
 module_start_time=$(date +%s)

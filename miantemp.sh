@@ -167,7 +167,7 @@ mkdir -p "${OUTPUT_DIR}/Log"
 echo "Starting viral prediction..."
 #Viral prediction module
 module_start_time=$(date +%s)
-./viral_prediction_module.sh > "${OUTPUT_DIR}/Log/viral_prediction.log" 2>&1
+viral_prediction_module.sh > "${OUTPUT_DIR}/Log/viral_prediction.log" 2>&1
 module_end_time=$(date +%s)
 module_runtime=$((module_end_time - module_start_time))
 echo "Viral prediction completed in ${module_runtime} seconds." >> "${OUTPUT_DIR}/Log/viral_prediction.log"
@@ -175,7 +175,7 @@ echo "Viral prediction completed in ${module_runtime} seconds." >> "${OUTPUT_DIR
 #Cross Validation module
 echo "Starting Cross Validation module..."
 module_start_time=$(date +%s)
-./cross_validation_module.sh > "${OUTPUT_DIR}/Log/cross_validation.log" 2>&1
+cross_validation_module.sh > "${OUTPUT_DIR}/Log/cross_validation.log" 2>&1
 module_end_time=$(date +%s)
 module_runtime=$((module_end_time - module_start_time))
 echo "Cross Validation completed in ${module_runtime} seconds." >> "${OUTPUT_DIR}/Log/cross_validation.log"
@@ -183,7 +183,7 @@ echo "Cross Validation completed in ${module_runtime} seconds." >> "${OUTPUT_DIR
 #Binning and merge module
 echo "Starting Binning and merge module..."
 module_start_time=$(date +%s)
-./binning_merge_module.sh > "${OUTPUT_DIR}/Log/binning_merge.log" 2>&1
+binning_merge_module.sh > "${OUTPUT_DIR}/Log/binning_merge.log" 2>&1
 module_end_time=$(date +%s)
 module_runtime=$((module_end_time - module_start_time))
 echo "Binning completed in ${module_runtime} seconds." >> "${OUTPUT_DIR}/Log/binning_merge.log"
@@ -191,7 +191,7 @@ echo "Binning completed in ${module_runtime} seconds." >> "${OUTPUT_DIR}/Log/bin
 #Summary module
 echo "Starting Summary module..."
 module_start_time=$(date +%s)
-./summary_module.sh > "${OUTPUT_DIR}/Log/summary.log" 2>&1
+summary_module.sh > "${OUTPUT_DIR}/Log/summary.log" 2>&1
 module_end_time=$(date +%s)
 module_runtime=$((module_end_time - module_start_time))
 echo "Summary completed in ${module_runtime} seconds." >> "${OUTPUT_DIR}/Log/summary.log"
@@ -199,16 +199,24 @@ echo "Summary completed in ${module_runtime} seconds." >> "${OUTPUT_DIR}/Log/sum
 #dRep module
 echo "Starting dRep module..."
 module_start_time=$(date +%s)
-./drep_module.sh > "${OUTPUT_DIR}/Log/drep.log" 2>&1
+drep_module.sh > "${OUTPUT_DIR}/Log/drep.log" 2>&1
 module_end_time=$(date +%s)
 module_runtime=$((module_end_time - module_start_time))
 echo "dRep completed in ${module_runtime} seconds." >> "${OUTPUT_DIR}/Log/drep.log"
+
+#TPM caculate module
+echo "Starting TPM caculate module..."
+module_start_time=$(date +%s)
+TPM_caculate_Module.sh > "${OUTPUT_DIR}/Log/TPM_caculate.log" 2>&1
+module_end_time=$(date +%s)
+module_runtime=$((module_end_time - module_start_time))
+echo "TPM caculate completed in ${module_runtime} seconds." >> "${OUTPUT_DIR}/Log/TPM_caculate.log"
 
 #DRAM module
 echo "Starting DRAM module..."
 module_start_time=$(date +%s)
 mkdir -p "$OUTPUT_DIR/Summary/DRAM"
-./run_dram_analysis.sh "$OUTPUT_DIR/Summary/Viralcontigs/vOTU.fasta" "$OUTPUT_DIR/Summary/DRAM" > "${OUTPUT_DIR}/Log/DRAM.log" 2>&1
+run_dram_analysis.sh "$OUTPUT_DIR/Summary/Viralcontigs/vOTU.fasta" "$OUTPUT_DIR/Summary/DRAM" > "${OUTPUT_DIR}/Log/DRAM.log" 2>&1
 module_end_time=$(date +%s)
 module_runtime=$((module_end_time - module_start_time))
 echo "DRAM completed in ${module_runtime} seconds." >> "${OUTPUT_DIR}/Log/DRAM.log"
@@ -217,7 +225,7 @@ echo "DRAM completed in ${module_runtime} seconds." >> "${OUTPUT_DIR}/Log/DRAM.l
 echo "Starting iPhop module..."
 module_start_time=$(date +%s)
 mkdir -p "$OUTPUT_DIR/Summary/iPhop"
-./run_iphop_analysis.sh "$OUTPUT_DIR/Summary/Viralcontigs/vOTU.fasta" "$OUTPUT_DIR/Summary/iPhop" > "${OUTPUT_DIR}/Log/iPhop.log" 2>&1
+run_iphop_analysis.sh "$OUTPUT_DIR/Summary/Viralcontigs/vOTU.fasta" "$OUTPUT_DIR/Summary/iPhop" > "${OUTPUT_DIR}/Log/iPhop.log" 2>&1
 module_end_time=$(date +%s)
 module_runtime=$((module_end_time - module_start_time))
 echo "iPhop completed in ${module_runtime} seconds." >> "${OUTPUT_DIR}/Log/iPhop.log"
