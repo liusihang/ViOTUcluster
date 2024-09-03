@@ -30,7 +30,6 @@ pip install -e .
 # Run Python scripts
 cd ..
 python ./setupscript/Move2bin.py
-python ./setupscript/ReplaceVf.py
 
 # Get the current conda environment path
 CONDA_ENV_PATH=$(conda info --base)/envs/$(basename "$CONDA_DEFAULT_ENV")

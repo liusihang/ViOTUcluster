@@ -37,7 +37,20 @@ def replace_and_copy_scripts():
                 os.chmod(target_file, st.st_mode | stat.S_IEXEC)
                 print(f"Replaced and made executable {target_file} with {source_viralverify}")
 
-    # 复制其他脚本文件到目标目录并设置可执行权限
+    # 复制Bin脚本文件到目标目录并设置可执行权限
+    for filename in os.listdir(source_dir):
+        source_file = os.path.join(source_dir, filename)
+        target_file = os.path.join(target_dir, filename)
+
+        if os.path.isfile(source_file):
+            shutil.copy(source_file, target_file)
+            # 设置可执行权限
+            st = os.stat(target_file)
+            os.chmod(target_file, st.st_mode | stat.S_IEXEC)
+            print(f"Copied and made executable {source_file} to {target_file}")
+
+    source_dir = os.path.join(os.getcwd(), 'Modules')
+    # 复制Source脚本文件到目标目录并设置可执行权限
     for filename in os.listdir(source_dir):
         source_file = os.path.join(source_dir, filename)
         target_file = os.path.join(target_dir, filename)
