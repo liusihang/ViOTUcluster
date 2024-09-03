@@ -52,10 +52,6 @@ process_file() {
       echo "Running Virsorter2 prediction..."
 
       # Activate environment
-      CURRENT_ENV=$(basename "$CONDA_DEFAULT_ENV")
-      source ${conda_sh}
-      conda activate "$CURRENT_ENV"
-
       virsorter run -w "$Virsorter_dir" -i "$FILE" --include-groups "$Group" -j 104 all --min-score 0.5 --min-length 2000 --keep-original-seq -d "$DATABASE/db"> "$Virsorter_dir/virsorter.log" 2>&1
       echo "Virsorter2 prediction completed!"
     else
