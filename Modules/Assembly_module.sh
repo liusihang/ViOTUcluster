@@ -7,12 +7,10 @@ for FILE in $FILES; do
   BASENAME=$(basename "$FILE" .fa)
   BASENAME=${BASENAME%.fasta}
   OUT_DIR="$OUTPUT_DIR/SeprateFile/${BASENAME}"
-  PREDICTION_DIR="$OUT_DIR/RoughViralPrediction"
-  Genomad_dir="$PREDICTION_DIR/genomadres"
-  Viralverify_dir="$PREDICTION_DIR/viralverify"
-  Virsorter_dir="$PREDICTION_DIR/virsorter2"
-  Read1="$RAW_SEQ_DIR/${BASENAME}_R1.fq"
-  Read2="$RAW_SEQ_DIR/${BASENAME}_R2.fq"
+  # 检查并设置Read1和Read2的路径
+  # 匹配BASENAME_R1* 的格式
+  Read1=$(find "${RAW_SEQ_DIR}" -type f -name "${BASENAME}_R1*" | head -n 1)
+  Read2=$(find "${RAW_SEQ_DIR}" -type f -name "${BASENAME}_R2*" | head -n 1)
 
   # Assembly
   echo -e "\n \n \n # 进行fastap处理交叉验证!!! \n \n \n"

@@ -147,7 +147,7 @@ fi
 ScriptDir="${CONDA_PREFIX}/bin"
 
 # 导出参数作为环境变量
-export INPUT_DIR OUTPUT_DIR DATABASE SAMPLETYPE REASSEMBLE
+export INPUT_DIR OUTPUT_DIR DATABASE SAMPLETYPE REASSEMBLE ScriptDir RAW_SEQ_DIR
 
 # 过滤小于2000bp的序列
 mkdir -p "${OUTPUT_DIR}/FilteredSeqs"
@@ -158,7 +158,7 @@ FILES=$(find "${OUTPUT_DIR}/FilteredSeqs" -type f \( -name "*.fa" -o -name "*.fa
 RawFILES=$(find "${INPUT_DIR}" -maxdepth 1 -type f \( -name "*.fa" -o -name "*.fasta" \))
 
 # 导出必要的变量和函数
-export OUTPUT_DIR DATABASE Group FILES RawFILES CONCENTRATION_TYPE
+export OUTPUT_DIR DATABASE Group FILES RawFILES CONCENTRATION_TYPE ScriptDir RAW_SEQ_DIR
 
 # 按顺序执行各个模块并记录时间和日志
 
@@ -176,17 +176,27 @@ module_end_time=$(date +%s)
 module_runtime=$((module_end_time - module_start_time))
 echo "Viral prediction completed in ${module_runtime} seconds." >> "${OUTPUT_DIR}/Log/viral_prediction.log"
 
-#Cross Validation module
+# Cross Validation module
 echo "Starting Cross Validation module..."
-module_start_time=$(date +%s)
-# 根据 CONCENTRATION_TYPE 进行不同的处理
-if [ "$CONCENTRATION_TYPE" == "non-concentration" ]; then
-    cross_validation_module.sh > "${OUTPUT_DIR}/Log/cross_validation.log" 2>&1
-else [ "$CONCENTRATION_TYPE" == "concentration" ]; then
-    cross_validation_module.sh > "${OUTPUT_DIR}/Log/cross_validation.log" 2>&1
-module_end_time=$(date +%s)
-module_runtime=$((module_end_time - module_start_time))
-echo "Cross Validation completed in ${module_runtime} seconds." >> "${OUTPUT_DIR}/Log/cross_validation.log"
+# 检查日志文件是否存在以及是否包含关键字
+LOG_FILE="${OUTPUT_DIR}/Log/cross_validation.log"
+KEYWORD="Cross Validation completed"
+
+if [ -f "$LOG_FILE" ] && grep -q "$KEYWORD" "$LOG_FILE"; then
+    echo "Cross Validation module already completed, skipping..."
+else
+    module_start_time=$(date +%s)
+    # 根据 CONCENTRATION_TYPE 进行不同的处理
+    if [ "$CONCENTRATION_TYPE" == "non-concentration" ]; then
+        cross_validation_module.sh --non-concentration > "$LOG_FILE" 2>&1
+    else
+        cross_validation_module.sh --concentration > "$LOG_FILE" 2>&1
+    fi
+    module_end_time=$(date +%s)
+    module_runtime=$((module_end_time - module_start_time))
+    echo "Cross Validation completed in ${module_runtime} seconds." >> "$LOG_FILE"
+fi
+
 
 #Binning and merge module
 echo "Starting Binning and merge module..."
@@ -204,21 +214,37 @@ module_end_time=$(date +%s)
 module_runtime=$((module_end_time - module_start_time))
 echo "Summary completed in ${module_runtime} seconds." >> "${OUTPUT_DIR}/Log/summary.log"
 
-#dRep module
+# dRep module
 echo "Starting dRep module..."
-module_start_time=$(date +%s)
-drep_module.sh > "${OUTPUT_DIR}/Log/drep.log" 2>&1
-module_end_time=$(date +%s)
-module_runtime=$((module_end_time - module_start_time))
-echo "dRep completed in ${module_runtime} seconds." >> "${OUTPUT_DIR}/Log/drep.log"
+LOG_FILE="${OUTPUT_DIR}/Log/drep.log"
+# 检查日志文件是否存在且包含关键字
+if [ -f "$LOG_FILE" ] && grep -q "Combined fasta files and quality summaries completed." "$LOG_FILE"; then
+  echo "dRep module already completed, skipping..."
+else
+  module_start_time=$(date +%s)
+  # 执行 dRep 模块
+  drep_module.sh > "$LOG_FILE" 2>&1
+  module_end_time=$(date +%s)
+  module_runtime=$((module_end_time - module_start_time))
+  echo "dRep completed in ${module_runtime} seconds." >> "$LOG_FILE"
+fi
 
 #TPM caculate module
-echo "Starting TPM caculate module..."
-module_start_time=$(date +%s)
-TPM_caculate_Module.sh > "${OUTPUT_DIR}/Log/TPM_caculate.log" 2>&1
-module_end_time=$(date +%s)
-module_runtime=$((module_end_time - module_start_time))
-echo "TPM caculate completed in ${module_runtime} seconds." >> "${OUTPUT_DIR}/Log/TPM_caculate.log"
+LOG_FILE="${OUTPUT_DIR}/Log/TPM_caculate.log"
+# 检查日志文件是否存在，并且是否包含 "TPM calculation completed successfully."
+if [ -f "$LOG_FILE" ] && grep -q "TPM calculation completed successfully." "$LOG_FILE"; then
+    echo "TPM calculation already completed, skipping..."
+else
+    echo "Starting TPM calculate module..."
+    module_start_time=$(date +%s)
+    # 执行TPM计算模块并将日志输出到文件
+    TPM_caculate_Module.sh > "$LOG_FILE" 2>&1
+    module_end_time=$(date +%s)
+    module_runtime=$((module_end_time - module_start_time))
+    # 将运行时间追加到日志文件中
+    echo "TPM calculate completed in ${module_runtime} seconds." >> "$LOG_FILE"
+fi
+
 
 #DRAM module
 echo "Starting DRAM module..."

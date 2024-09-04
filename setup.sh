@@ -21,6 +21,7 @@ conda clean --all
 #mamba install virsorter=2 --clobber
 #mamba create -n vOTUcluster8.27 -c conda-forge -c bioconda "python=3.8" 
 mamba install -c conda-forge -c bioconda dRep=3.5.0 viralverify=1.1 genomad=1.8.0 checkv=1.0.3 scikit-learn=0.22.1 imbalanced-learn pandas seaborn pyhmmer==0.10.14 prodigal screed ruamel.yaml "snakemake>=5.18,<=5.26" click "conda-package-handling<=1.9"
+mamba install numpy=1.23.5
 
 # Clone the repository and install the package
 git clone https://gitclone.com/github.com/liusihang/VirSorter2-pyhmmerAcc
