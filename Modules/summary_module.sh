@@ -38,4 +38,6 @@ for folder in "$OUTPUT_DIR/SeprateFile/"*/ ; do
   fi
 done
 
+# Clean up intermediate files
+rm -r "$OUTPUT_DIR/Summary/temp"
 echo "All files processed successfully."

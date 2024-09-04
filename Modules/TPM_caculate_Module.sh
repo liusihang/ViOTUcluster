@@ -75,7 +75,7 @@ for FILE in $FILES; do
 
     # Clean up intermediate files
     rm -r "$OUTPUT_DIR/Summary/Viralcontigs/TPMTemp/binsf"
-    rm "$OUTPUT_DIR/Summary/Viralcontigs/TPMTemp/TempIndex"
+    rm -r "$OUTPUT_DIR/Summary/Viralcontigs/TPMTemp/TempIndex"
 done
 
 # Run the TPM calculation Python script
@@ -84,5 +84,8 @@ if [ $? -ne 0 ]; then
     echo "Error: Failed to run TPM calculation."
     exit 1
 fi
+# Clean up intermediate files
+rm -r "$OUTPUT_DIR/Summary/Viralcontigs/Temp"
+rm -r "$OUTPUT_DIR/Summary/Viralcontigs/TPMTemp"
 
 echo "TPM calculation completed successfully."

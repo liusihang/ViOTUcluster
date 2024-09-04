@@ -51,6 +51,6 @@ python "${ScriptDir}/SelectCluster.py" "${newDir}/merged_sequences.fasta" "${new
 echo "Merging final sequences..."
 python "${ScriptDir}/Rename.py" -i "$OUTPUT_DIR/Summary/Viralcontigs/drepviralcontigs.fa"
 cat "$OUTPUT_DIR/Summary/Viralcontigs/drepviralcontigs.fa" "$OUTPUT_DIR/Summary/Viralcontigs/Allbins.fasta" > "$OUTPUT_DIR/Summary/Viralcontigs/vOTU.fasta"
-checkv end_to_end "$OUTPUT_DIR/Summary/Viralcontigs/vOTU.fasta" "$OUTPUT_DIR/Summary/CheckRes" -t 100 -d "$DATABASE/checkv-db-v1.5"
+checkv end_to_end "$OUTPUT_DIR/Summary/Viralcontigs/vOTU.fasta" "$OUTPUT_DIR/Summary/Viralcontigs/vOTU_CheckRes" -t 100 -d "$DATABASE/checkv-db-v1.5"
 
 echo "Combined fasta files and quality summaries completed."
