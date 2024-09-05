@@ -10,7 +10,7 @@ DATABASE=""
 SAMPLETYPE=""
 ASSEMBLY_SOFTWARE=""
 REASSEMBLE=false
-VERSION="0.0.6"  # 定义版本号
+VERSION="0.1"  # 定义版本号
 CONCENTRATION_TYPE=""
 
 # 设置日志文件路径
