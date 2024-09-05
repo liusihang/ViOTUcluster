@@ -24,11 +24,14 @@ mkdir -p "$OUTPUT_DIR/DRAM_results"
 echo -e "\n\n\n# 进行DRAM分析!!!\n\n\n"
 pwd
 
+# 获取输入文件的基础文件名（不带路径）
+BASE_INPUT_FASTA=$(basename "$INPUT_FASTA")
+
 # 分割输入的fasta文件，每个新文件包含1000条序列
-awk 'BEGIN {n_seq=0;} 
+awk -v output_dir="$OUTPUT_DIR/split_files" -v base_name="$BASE_INPUT_FASTA" 'BEGIN {n_seq=0;} 
      /^>/ {
         if (n_seq % 1000 == 0) {
-            file = sprintf("'"$OUTPUT_DIR"'/split_files/%s_%d.fna", FILENAME, n_seq);
+            file = sprintf("%s/%s_%d.fna", output_dir, base_name, n_seq);
         } 
         print >> file; 
         n_seq++; 
@@ -42,11 +45,31 @@ cd "$OUTPUT_DIR/split_files" || exit
 # 列出所有分割后的fna文件
 ls *.fna > DRAM
 
+# 激活DRAM环境并运行分析
+BASE_CONDA_PREFIX=$(conda info --base)
+conda_sh="$BASE_CONDA_PREFIX/etc/profile.d/conda.sh"
+CURRENT_ENV=$(basename "$CONDA_DEFAULT_ENV")
+source ${conda_sh}
+
+echo "Conda environment activated: $(conda info --envs)"
+which DRAM-v.py
+
 # 使用 GNU Parallel 并行执行 DRAM 注释
 cat DRAM | parallel 'fq1={}; DRAM-v.py annotate -i "${fq1}" -o "${fq1}_DRAMAnnot" --threads 100'
 
-# 等待所有并行任务完成
-wait
+# 监控任务是否完成
+all_tasks_completed=false
+while [ "$all_tasks_completed" == "false" ]; do
+    sleep 30
+    all_tasks_completed=true
+    if ls *_DRAMAnnot/annotation.tsv 1> /dev/null 2>&1; then
+        echo "DRAM annotation still in progress."
+        all_tasks_completed=false
+    fi
+    if [ "$all_tasks_completed" == "false" ]; then
+        sleep 30
+    fi
+done
 
 # 合并所有注释结果到输出目录
 awk 'FNR==1 && NR!=1{next;} {print}' ./*_DRAMAnnot/annotation.tsv > "$OUTPUT_DIR/combined_annotations.tsv"
@@ -59,3 +82,4 @@ rm -rf "$OUTPUT_DIR/split_files"
 rm -rf "$OUTPUT_DIR/DRAM_results"/*_DRAMAnnot
 
 echo "Cleanup complete."
+conda activate "$CURRENT_ENV"
