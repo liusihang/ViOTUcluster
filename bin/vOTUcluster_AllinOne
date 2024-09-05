@@ -10,7 +10,7 @@ DATABASE=""
 SAMPLETYPE=""
 ASSEMBLY_SOFTWARE=""
 REASSEMBLE=false
-VERSION="0.0.5"  # 定义版本号
+VERSION="0.0.6"  # 定义版本号
 CONCENTRATION_TYPE=""
 
 # 设置日志文件路径
@@ -160,7 +160,7 @@ mkdir -p "${OUTPUT_DIR}/Log"
 echo "Starting Raw sequences Process..."
 #Raw sequences module
 module_start_time=$(date +%s)
-"${ScriptDir}"/Preprocess_module.sh "${RAW_SEQ_DIR}" "${ASSEMBLY_SOFTWARE}" "${OUTPUT_DIR}"> "${OUTPUT_DIR}/Log/Preprocess.log" 2>&1
+Preprocess_module.sh "${RAW_SEQ_DIR}" "${ASSEMBLY_SOFTWARE}" "${OUTPUT_DIR}"> "${OUTPUT_DIR}/Log/Preprocess.log" 2>&1
 module_end_time=$(date +%s)
 module_runtime=$((module_end_time - module_start_time))
 echo "Viral prediction completed in ${module_runtime} seconds." >> "${OUTPUT_DIR}/Log/Preprocess.log"
