@@ -23,6 +23,12 @@ for FILE in $FILES; do
     BASENAME=$(basename "$FILE" .fa)
     BASENAME=${BASENAME%.fasta}
     
+    # 检查是否已经存在coverage文件，若存在则跳过
+    if [ -f "$OUTPUT_DIR/Summary/Viralcontigs/Temp/${BASENAME}_coverage.tsv" ]; then
+        echo "Skipping $BASENAME as coverage file already exists."
+        continue
+    fi
+    
     # 检查并设置Read1和Read2的路径
     Read1=$(find "${RAW_SEQ_DIR}" -type f -name "${BASENAME}_R1*" | head -n 1)
     Read2=$(find "${RAW_SEQ_DIR}" -type f -name "${BASENAME}_R2*" | head -n 1)
@@ -75,11 +81,11 @@ for FILE in $FILES; do
 
     # Clean up intermediate files
     rm -r "$OUTPUT_DIR/Summary/Viralcontigs/TPMTemp/binsf"
-    rm -r "$OUTPUT_DIR/Summary/Viralcontigs/TPMTemp/TempIndex"
+    #rm -r "$OUTPUT_DIR/Summary/Viralcontigs/TPMTemp/TempIndex"
 done
 
 # Run the TPM calculation Python script
-python TPM_caculate.py "$OUTPUT_DIR/Summary/Viralcontigs/Temp" "$OUTPUT_DIR/Summary/Viralcontigs/Merged_vOTU_TPM.csv"
+python ${ScriptDir}/TPM_caculate.py "$OUTPUT_DIR/Summary/Viralcontigs/Temp" "$OUTPUT_DIR/Summary/Viralcontigs/Merged_vOTU_TPM.csv"
 if [ $? -ne 0 ]; then
     echo "Error: Failed to run TPM calculation."
     exit 1

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # 记录开始时间
 start_time=$(date +%s)
@@ -10,35 +10,49 @@ OUTPUT_DIR=""
 DATABASE=""
 SAMPLETYPE=""
 REASSEMBLE=false
-VERSION="0.0.3"  # 定义版本号
+VERSION="0.0.5"  # 定义版本号
+CONCENTRATION_TYPE=""
 
 # 设置日志文件路径
 LOG_FILE=""
 
-# 使用 getopts 处理命令行选项
-while getopts ":i:r:o:d:t:rvh" opt; do
-  case $opt in
-    i)
-      INPUT_DIR=$OPTARG
+# 使用 getopts 处理短选项和手动处理长选项
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    -i)
+      INPUT_DIR=$2
+      shift 2
       ;;
-    r)
-      RAW_SEQ_DIR=$OPTARG
+    -r)
+      RAW_SEQ_DIR=$2
+      shift 2
       ;;
-    o)
-      OUTPUT_DIR=$OPTARG
+    -o)
+      OUTPUT_DIR=$2
       LOG_FILE="${OUTPUT_DIR}/pipeline.log"  # 设置日志文件路径
+      shift 2
       ;;
-    d)
-      DATABASE=$OPTARG
+    -d)
+      DATABASE=$2
+      shift 2
       ;;
-    t) # 用 't' 代表 'type'
-      SAMPLETYPE=$OPTARG
+    -t) # 用 't' 代表 'type'
+      SAMPLETYPE=$2
+      shift 2
       ;;
-    v) # 显示版本信息
+    -v) # 显示版本信息
       echo "Version: $VERSION"
       exit 0
       ;;
-    h) # 显示帮助信息
+    --non-con) # non-concentration
+      CONCENTRATION_TYPE="non-concentration"
+      shift
+      ;;
+    --con) # concentration
+      CONCENTRATION_TYPE="concentration"
+      shift
+      ;;
+    -h) # 显示帮助信息
       echo "Usage: $0 [options]"
       echo ""
       echo "Options:"
@@ -47,36 +61,58 @@ while getopts ":i:r:o:d:t:rvh" opt; do
       echo "  -o <output_path>            Specify the output directory for the results."
       echo "  -d <database_path>          Specify the path to the database required for analysis."
       echo "  -t <sample_type>            Specify the sample type: DNA, RNA, or Mix."
+      echo "  --non-con                   Specify non-concentration processing."
+      echo "  --con                       Specify concentration processing."
       echo "  --reassemble                Enable reassembly of bins."
       echo "  -v                          Display the version of this script."
       echo "  -h                          Display this help and exit."
       exit 0
       ;;
-    -)
-      case "${OPTARG}" in
-        reassemble)
-          REASSEMBLE=true
-          ;;
-        *)
-          echo "Unknown option: --${OPTARG}" >&2
-          exit 1
-          ;;
-      esac
+    --reassemble)
+      REASSEMBLE=true
+      shift
       ;;
-    \?)
-      echo "Invalid option: -$OPTARG" >&2
-      exit 1
-      ;;
-    :)
-      echo "Option -$OPTARG requires an argument." >&2
+    *)
+      echo "Unknown option: $1" >&2
       exit 1
       ;;
   esac
 done
 
 # 检查必要的输入是否已提供
-if [ -z "$INPUT_DIR" ] || [ -z "$RAW_SEQ_DIR" ] || [ -z "$OUTPUT_DIR" ] || [ -z "$DATABASE" ] || [ -z "$SAMPLETYPE" ]; then
-    echo "Usage: $0 -i <input_path_to_search> -r <input_path_raw_seqs> -o <output_path> -d <database_path> -t <sample_type> [--reassemble]"
+if [ -z "$INPUT_DIR" ] || [ -z "$RAW_SEQ_DIR" ] || [ -z "$OUTPUT_DIR" ] || [ -z "$DATABASE" ] || [ -z "$SAMPLETYPE" ] || [ -z "$CONCENTRATION_TYPE" ]; then
+    echo "Usage: $0 -i <input_path_to_search> -r <input_path_raw_seqs> -o <output_path> -d <database_path> -t <sample_type> --non-con/--con [--reassemble]"
+    exit 1
+fi
+
+# 验证配对文件是否存在并且格式正确
+for FILE in "${RAW_SEQ_DIR}"/*_R1.*; do
+  BASENAME=$(basename "$FILE" | sed 's/_R1\..*//')
+  PREFIX="${RAW_SEQ_DIR}/${BASENAME}"
+
+  if [ -f "${PREFIX}_R1.fq" ] && [ -f "${PREFIX}_R2.fq" ]; then
+    echo "Found paired files: ${PREFIX}_R1.fq and ${PREFIX}_R2.fq"
+  elif [ -f "${PREFIX}_R1.fastq" ] && [ -f "${PREFIX}_R2.fastq" ]; then
+    echo "Found paired files: ${PREFIX}_R1.fastq and ${PREFIX}_R2.fastq"
+  elif [ -f "${PREFIX}_R1.fq.gz" ] && [ -f "${PREFIX}_R2.fq.gz" ]; then
+    echo "Found paired files: ${PREFIX}_R1.fq.gz and ${PREFIX}_R2.fq.gz"
+  elif [ -f "${PREFIX}_R1.fastq.gz" ] && [ -f "${PREFIX}_R2.fastq.gz" ]; then
+    echo "Found paired files: ${PREFIX}_R1.fastq.gz and ${PREFIX}_R2.fastq.gz"
+  else
+    echo "Error: Paired-end files for ${BASENAME} not found in the expected formats (.fq, .fastq, .fq.gz, .fastq.gz)"
+    exit 1
+  fi
+done
+
+# 根据 CONCENTRATION_TYPE 进行不同的处理
+if [ "$CONCENTRATION_TYPE" == "non-concentration" ]; then
+    echo "Running non-concentration specific steps..."
+    # 在这里添加 non-concentration 的特定处理步骤
+elif [ "$CONCENTRATION_TYPE" == "concentration" ]; then
+    echo "Running concentration specific steps..."
+    # 在这里添加 concentration 的特定处理步骤
+else
+    echo "Error: Invalid concentration type."
     exit 1
 fi
 
@@ -100,12 +136,18 @@ case $SAMPLETYPE in
     ;;
 esac
 
+# 输出选择的处理类型
+echo "Processing with $CONCENTRATION_TYPE mode."
+
 # 获取当前 Conda 环境的 bin 文件夹位置
 if [ -z "$CONDA_PREFIX" ]; then
   echo "Conda environment is not activated."
   exit 1
 fi
 ScriptDir="${CONDA_PREFIX}/bin"
+
+# 导出参数作为环境变量
+export INPUT_DIR OUTPUT_DIR DATABASE SAMPLETYPE REASSEMBLE ScriptDir RAW_SEQ_DIR
 
 # 过滤小于2000bp的序列
 mkdir -p "${OUTPUT_DIR}/FilteredSeqs"
@@ -116,353 +158,113 @@ FILES=$(find "${OUTPUT_DIR}/FilteredSeqs" -type f \( -name "*.fa" -o -name "*.fa
 RawFILES=$(find "${INPUT_DIR}" -maxdepth 1 -type f \( -name "*.fa" -o -name "*.fasta" \))
 
 # 导出必要的变量和函数
-export OUTPUT_DIR DATABASE Group
+export OUTPUT_DIR DATABASE Group FILES RawFILES CONCENTRATION_TYPE ScriptDir RAW_SEQ_DIR
 
-process_file() {
-  local FILE=$1
-  local BASENAME=$(basename "$FILE" .fa)
-  BASENAME=${BASENAME%.fasta}
+# 按顺序执行各个模块并记录时间和日志
 
-  local OUT_DIR="$OUTPUT_DIR/SeprateFile/${BASENAME}"
-  mkdir -p "$OUT_DIR"
+mkdir -p "${OUTPUT_DIR}/Log"
 
-  local PREDICTION_DIR="$OUT_DIR/RoughViralPrediction"
-  mkdir -p "$PREDICTION_DIR"
+echo "Starting viral prediction..."
+#Viral prediction module
+module_start_time=$(date +%s)
+# 根据 CONCENTRATION_TYPE 进行不同的处理
+if [ "$CONCENTRATION_TYPE" == "non-concentration" ]; then
+    viral_prediction_module.sh > "${OUTPUT_DIR}/Log/cross_validation.log" 2>&1
+else [ "$CONCENTRATION_TYPE" == "concentration" ]; then
+    viral_prediction_module.sh > "${OUTPUT_DIR}/Log/cross_validation.log" 2>&1
+module_end_time=$(date +%s)
+module_runtime=$((module_end_time - module_start_time))
+echo "Viral prediction completed in ${module_runtime} seconds." >> "${OUTPUT_DIR}/Log/viral_prediction.log"
 
-  local Genomad_dir="$PREDICTION_DIR/genomadres"
-  mkdir -p "$Genomad_dir"
-  local Viralverify_dir="$PREDICTION_DIR/viralverify"
-  mkdir -p "$Viralverify_dir"
-  local Virsorter_dir="$PREDICTION_DIR/virsorter2"
-  mkdir -p "$Virsorter_dir"
+# Cross Validation module
+echo "Starting Cross Validation module..."
+# 检查日志文件是否存在以及是否包含关键字
+LOG_FILE="${OUTPUT_DIR}/Log/cross_validation.log"
+KEYWORD="Cross Validation completed"
 
-  echo "Processing $FILE"
-
-  # 检测并跳过已完成的任务
-  if [ ! -f "$Viralverify_dir/${BASENAME}_result_table.csv" ]; then
-    echo "Running viralverify prediction..."
-
-    # Actiate environment
-    CURRENT_ENV=$(basename "$CONDA_DEFAULT_ENV")
-    source ~/miniconda3/etc/profile.d/conda.sh
-    conda activate "$CURRENT_ENV"
-    
-    viralverify -f "$FILE" -o "$Viralverify_dir" --hmm "$DATABASE/ViralVerify/nbc_hmms.hmm" -t 104 > "$Viralverify_dir/viralverify.log" 2>&1
-    echo "viralverify prediction completed!"
-  else
-    echo "viralverify prediction already completed for $FILE, skipping..."
-  fi
-
-  if [ ! -f "$Virsorter_dir/final-viral-score.tsv" ]; then
-    echo "Running Virsorter2 prediction..."
-
-    # Actiate environment
-    CURRENT_ENV=$(basename "$CONDA_DEFAULT_ENV")
-    source ~/miniconda3/etc/profile.d/conda.sh
-    conda activate "$CURRENT_ENV"
-
-    virsorter run -w "$Virsorter_dir" -i "$FILE" --include-groups "$Group" -j 104 all --min-score 0.5 --min-length 2000 --keep-original-seq > "$Virsorter_dir/virsorter.log" 2>&1
-    echo "Virsorter2 prediction completed!"
-  else
-    echo "Virsorter2 prediction already completed for $FILE, skipping..."
-  fi
-}
-
-export -f process_file
-parallel process_file ::: $FILES
-
-#进行Gemomad分析
-for FILE in $RawFILES; do
-  echo "Processing $FILE"
-  # 获取文件的基本名称，无扩展名
-  BASENAME=$(basename "$FILE" .fa)
-  BASENAME=${BASENAME%.fasta}  # 处理.fasta扩展名
-    
-  OUT_DIR="$OUTPUT_DIR/SeprateFile/${BASENAME}"
-  #mkdir -p "$OUT_DIR"
-
-  PREDICTION_DIR="$OUT_DIR/RoughViralPrediction"
-  #mkdir -p "$PREDICTION_DIR"
-
-  # genomad预测
-  echo -e "\n \n \n # 进行genomad预测!!! \n \n \n"
-  Genomad_dir="$PREDICTION_DIR/genomadres"
-  mkdir -p "$Genomad_dir"
-    
-  if [ ! -f "$Genomad_dir/${BASENAME}_summary/${BASENAME}_virus_summary.tsv" ]; then
-    genomad end-to-end --enable-score-calibration "$FILE" "$Genomad_dir" "$DATABASE/genomad_db"
-    echo -e "\n \n \n # genomad预测完成!!! \n \n \n"
-  else
-    echo "genomad prediction already completed for $FILE, skipping..."
-  fi
-done
-
-# 检测所有 Virsorter2 任务是否完成
-all_tasks_completed=false
-while [ "$all_tasks_completed" == "false" ]; do
-  all_tasks_completed=true
-  for FILE in $FILES; do
-    BASENAME=$(basename "$FILE" .fa)
-    BASENAME=${BASENAME%.fasta}
-    Virsorter_dir="$OUTPUT_DIR/SeprateFile/${BASENAME}/RoughViralPrediction/virsorter2"
-
-    if [ ! -f "$Virsorter_dir/final-viral-score.tsv" ]; then
-      all_tasks_completed=false
-      echo "Virsorter2 still in processing"
-      break
-    fi
-  done
-
-  if [ "$all_tasks_completed" == "false" ]; then
-    sleep 30
-  fi
-done
-
-#COMMENT
-echo "All files have been processed."
-
-# 进行CrossValid分析
-for FILE in $FILES; do
-  echo "Processing $FILE"
-
-  #MIN_CONTIG_LEN=300  # 最小contig长度
-  STRICT_MAX=2  # 严格比对的最大SNP数
-  PERMISSIVE_MAX=5  # 宽松比对的最大SNP数
-
-  BASENAME=$(basename "$FILE" .fa)
-  BASENAME=${BASENAME%.fasta}
-  OUT_DIR="$OUTPUT_DIR/SeprateFile/${BASENAME}"
-  PREDICTION_DIR="$OUT_DIR/RoughViralPrediction"
-  Genomad_dir="$PREDICTION_DIR/genomadres"
-  Viralverify_dir="$PREDICTION_DIR/viralverify"
-  Virsorter_dir="$PREDICTION_DIR/virsorter2"
-  Read1="$RAW_SEQ_DIR/${BASENAME}_R1.fq"
-  Read2="$RAW_SEQ_DIR/${BASENAME}_R2.fq"
-
-  #CrossValid virus contigs
-  echo -e "\n \n \n # 进行virus contigs交叉验证!!! \n \n \n"
-  python "${ScriptDir}/CrossValid.py" "$Genomad_dir" "$Viralverify_dir" "$Virsorter_dir" "$BASENAME" "$OUT_DIR"
-
-  #Sequence提取
-  python "${ScriptDir}/FilterRawResSeqs.py" "$FILE" "$BASENAME" "$OUT_DIR"
-
-  # CheckVFilter
-  mkdir -p "$OUT_DIR/${BASENAME}_CheckRes"
-  checkv end_to_end "$OUT_DIR/${BASENAME}_filtered.fasta" "$OUT_DIR/${BASENAME}_CheckRes" -t 90 -d "$DATABASE/checkv-db-v1.5"
-  python "${ScriptDir}/check_removal.py" "$OUT_DIR/${BASENAME}_CheckRes/quality_summary.tsv" "$OUT_DIR/${BASENAME}_filtered.fasta"
-
-  ############################进行binning#################################
-  mkdir -p "$OUT_DIR/Binning"
-
-  if [ ! -f "$OUT_DIR/Binning/alignment.bam" ]; then
-    #创建BWA索引，并将索引文件输出到指定目录
-    bwa index -p "$OUT_DIR/Binning/assembly_index" "$OUT_DIR/${BASENAME}_filtered.fasta"
-
-    #比对读数到装配的contigs上，并将结果输出到指定目录
-    bwa mem -t 104 "$OUT_DIR/Binning/assembly_index" $Read1 $Read2 > "$OUT_DIR/Binning/alignment.sam"
-    samtools view -S -b "$OUT_DIR/Binning/alignment.sam" > "$OUT_DIR/Binning/alignment.bam"
-  else
-    echo "Alignment already completed for $FILE, skipping..."
-  fi
-
-  Log_file="$OUT_DIR/Binning/vRhyme_results_${BASENAME}_filtered/log_vRhyme_${BASENAME}_filtered.log"
-  if [ ! -f "$Log_file" ]; then
-    # vRhyme binning
-    gnome-terminal -- bash -c "
-      source ~/miniconda3/etc/profile.d/conda.sh;
-      conda activate vRhyme;  # 激活vRhyme环境
-      echo 'Conda environment activated:';
-      conda info --envs;  # 显示当前的环境信息以确认激活成功
-      which vRhyme;  # 检查 vRhyme 命令是否在环境中可用
-      vRhyme -i \"$OUT_DIR/${BASENAME}_filtered.fasta\" -b \"$OUT_DIR/Binning/alignment.bam\" -t 104 -o \"$OUT_DIR/Binning/vRhyme_results_${BASENAME}_filtered\";
-      exit;  # 任务完成后退出终端
-    " > gnome-terminal-log.txt 2>&1 &
-
-    # 检测任务是否完成
-    all_tasks_completed=false
-
-    while [ "$all_tasks_completed" == "false" ]; do
-      sleep 30
-      all_tasks_completed=true
-
-      if ! grep -q "vRhyme binning complete" "$Log_file"; then
-        all_tasks_completed=false
-        echo "vRhyme command is still running in the background for $BASENAME"
-      fi
-
-      if [ "$all_tasks_completed" == "false" ]; then
-        sleep 30
-      fi
-    done
-  else
-    echo "Viral binning already completed for $FILE, skipping..."
-  fi
-
-
-  if [ "$REASSEMBLE" = true ]; then
-    # 创建大的FA文件用于比对
-    ALL_BINS_FA="$OUT_DIR/Binning/summary_bins_contigs.fa"
-    cat "$OUT_DIR/Binning/vRhyme_results_${BASENAME}_filtered/vRhyme_best_bins_fasta/"*.fasta > "$ALL_BINS_FA"
-
-    # 创建新的BWA索引，并将索引文件输出到指定目录
-    bwa index -p "$OUT_DIR/Binning/all_bins_index" "$ALL_BINS_FA"
-
-    #Aligning all reads back to entire assembly and splitting reads into individual fastq files based on their bin membership
-    mkdir -p "$OUT_DIR/Binning/reads_for_reassembly"
-    bwa mem -t 104 "$OUT_DIR/Binning/all_bins_index" $Read1 $Read2 \
-      | python "${ScriptDir}/filter_reads_for_bin_reassembly.py" "$OUT_DIR/Binning/vRhyme_results_${BASENAME}_filtered/vRhyme_best_bins_fasta" "$OUT_DIR/Binning/reads_for_reassembly" $STRICT_MAX $PERMISSIVE_MAX
-
-    #######重新组装vRhyme_results_${BASENAME}_filtered/vRhyme_best_bins_fasta文件夹里的所有fasta文件##########
-    for FASTQ_FILE in "$OUT_DIR/Binning/reads_for_reassembly/"*_1.fastq; do
-      BIN_BASENAME=$(basename "$FASTQ_FILE" _1.fastq)
-      OriginalBin=${BIN_BASENAME%%.*}
-
-      # 创建目录
-      EXTRACTED_DIR="$OUT_DIR/Binning/reassembled_bins"
-      TMP_DIR="$EXTRACTED_DIR/${BIN_BASENAME}_tmp"
-      mkdir -p "$TMP_DIR"
-
-      # 使用SPAdes进行bin的重新组装
-      spades.py -t 104 --tmp $TMP_DIR --careful \
-        --untrusted-contigs "$OUT_DIR/Binning/vRhyme_results_${BASENAME}_filtered/vRhyme_best_bins_fasta/${OriginalBin}.fasta" \
-        -1 "${OUT_DIR}/Binning/reads_for_reassembly/${BIN_BASENAME}_1.fastq" \
-        -2 "${OUT_DIR}/Binning/reads_for_reassembly/${BIN_BASENAME}_2.fastq" \
-        -o "$OUT_DIR/Binning/reassembile/${BIN_BASENAME}"
-
-      # 清理短的contigs
-      #python rm_short_contigs.py "$OUT_DIR/Binning/reassembile/${BIN_BASENAME}/contigs.fasta" 500
-
-      #提取并重命名scaffolds.fasta
-      #EXTRACTED_DIR="$OUT_DIR/Binning/reassembled_bins"
-      mkdir -p "$EXTRACTED_DIR"
-      cp "$OUT_DIR/Binning/reassembile/${BIN_BASENAME}/contigs.fasta" "$EXTRACTED_DIR/${BIN_BASENAME}.fasta"
-      cp "$OUT_DIR/Binning/vRhyme_results_${BASENAME}_filtered/vRhyme_best_bins_fasta/${OriginalBin}.fasta" "$EXTRACTED_DIR/${OriginalBin}.origin.fasta"
-
-      echo "Reassembly complete for ${BIN_BASENAME}"
-
-      # 删除临时目录
-      rm -rf "$TMP_DIR"
-    done
-        
-    #######Find best bin#######
-    mkdir "$OUT_DIR/Binning/Summary"
-    python "${ScriptDir}/concat_fasta_sequences.py" $EXTRACTED_DIR "$OUT_DIR/Binning/Summary/tempsummary.fasta"
-    checkv end_to_end "$OUT_DIR/Binning/Summary/tempsummary.fasta" "$OUT_DIR/Binning/Summary/CheckRes" -t 100 -d "$DATABASE/checkv-db-v1.5"
-
-    #Select best bin
-    mkdir "$OUT_DIR/Binning/Summary/Finialbins"
-    python "${ScriptDir}/select_best_bins.py" "$OUT_DIR/Binning/Summary/CheckRes/quality_summary.tsv" $EXTRACTED_DIR "$OUT_DIR/Binning/Summary/Finialfasta/Bestbins"
-
-  else
-    # 如果不重新组装，则直接将vRhyme_best_bins_fasta目录中的所有bin放入Bestbins文件夹中
-    mkdir "$OUT_DIR/Binning/Summary"
-    mkdir -p "$OUT_DIR/Binning/Summary/Finialfasta/Bestbins"
-    cp "$OUT_DIR/Binning/vRhyme_results_${BASENAME}_filtered/vRhyme_best_bins_fasta/"*.fasta "$OUT_DIR/Binning/Summary/Finialfasta/Bestbins/"
-  fi
-
-  EXTRACTED_DIR="$OUT_DIR/Binning/reassembled_bins"
-  # 去掉$OUT_DIR/Binning/Summary/Finialfasta/Bestbins文件夹内所有fasta文件名字里的vRhyme_
-  for vRhymeFILE in "$OUT_DIR/Binning/Summary/Finialfasta/Bestbins"/*.fasta; do
-    NEW_NAME=$(basename "$vRhymeFILE" | sed 's/^vRhyme_//')
-    mv "$vRhymeFILE" "$OUT_DIR/Binning/Summary/Finialfasta/Bestbins/$NEW_NAME"
-  done
-
-  #####extract unbined contigs#######
-  python "${ScriptDir}/unbined.py" -i "$OUT_DIR/Binning/vRhyme_results_${BASENAME}_filtered/vRhyme_best_bins_fasta" -r "$OUT_DIR/${BASENAME}_filtered.fasta" -o "$OUT_DIR/Binning/Summary/Finialfasta/unbined.fasta"
-
-  echo "Rebinning and reassembly complete for $FILE"
-
-done
-
-echo "All files processed successfully."
-
-
-#############Summary results################
-# 新目录用于存放所有组合后的fasta文件和重命名的quality summary文件
-# 创建目标目录
-mkdir -p "$OUTPUT_DIR/Summary/unbined"
-mkdir -p "$OUTPUT_DIR/Summary/bins"
-
-# 遍历当前目录下的所有子目录
-for folder in "$OUTPUT_DIR/SeprateFile/"*/ ; do
-  if [ -d "$folder" ]; then
-    # 获取文件夹的名字，去除尾部的斜线
-    folderName=$(basename "$folder")
-    echo "Processing folder: $folderName"
-
-    # 处理unbined.fasta文件
-    unbined_source="${folder}Binning/Summary/Finialfasta/unbined.fasta"
-    if [ -f "$unbined_source" ]; then
-      unbined_dest="$OUTPUT_DIR/Summary/unbined/${folderName}_unbined.fasta"
-      cp "$unbined_source" "$unbined_dest"
-      #echo "Copied $unbined_source to $unbined_dest"
+if [ -f "$LOG_FILE" ] && grep -q "$KEYWORD" "$LOG_FILE"; then
+    echo "Cross Validation module already completed, skipping..."
+else
+    module_start_time=$(date +%s)
+    # 根据 CONCENTRATION_TYPE 进行不同的处理
+    if [ "$CONCENTRATION_TYPE" == "non-concentration" ]; then
+        cross_validation_module.sh --non-concentration > "$LOG_FILE" 2>&1
     else
-      echo "Warning: $unbined_source does not exist."
+        cross_validation_module.sh --concentration > "$LOG_FILE" 2>&1
     fi
-
-    # 处理Bestbins文件夹中的fasta文件
-    bestbins_source="${folder}Binning/Summary/Finialfasta/Bestbins/"
-    if [ -d "$bestbins_source" ]; then
-      for fasta_file in "$bestbins_source"*.fasta; do
-        if [ -f "$fasta_file" ]; then
-          fasta_filename=$(basename "$fasta_file")
-          fasta_dest="$OUTPUT_DIR/Summary/bins/${folderName}_${fasta_filename}"
-          cp "$fasta_file" "$fasta_dest"
-          #echo "Copied $fasta_file to $fasta_dest"
-        else
-          echo "Warning: No .fasta files found in $bestbins_source"
-        fi
-      done
-    else
-      echo "Warning: $bestbins_source does not exist."
-    fi
-  fi
-done
-
-echo "All files processed successfully."
+    module_end_time=$(date +%s)
+    module_runtime=$((module_end_time - module_start_time))
+    echo "Cross Validation completed in ${module_runtime} seconds." >> "$LOG_FILE"
+fi
 
 
-################dRep#######################################
-################dRep for bins
-mkdir "$OUTPUT_DIR/Summary/Viralcontigs"
-mkdir "$OUTPUT_DIR/Summary/dRepRes"
-dRep dereplicate "$OUTPUT_DIR/Summary/dRepRes" -g ${OUTPUT_DIR}/Summary/bins/*.fasta --ignoreGenomeQuality -pa 0.8 -sa 0.95 -nc 0.85 -comW 0 -conW 0 -strW 0 -N50W 0 -sizeW 1 -centW 0
-python "${ScriptDir}/concat_fasta_sequences.py" "$OUTPUT_DIR/Summary/dRepRes/dereplicated_genomes" "$OUTPUT_DIR/Summary/Viralcontigs/Allbins.fasta"
+#Binning and merge module
+echo "Starting Binning and merge module..."
+module_start_time=$(date +%s)
+binning_merge_module.sh > "${OUTPUT_DIR}/Log/binning_merge.log" 2>&1
+module_end_time=$(date +%s)
+module_runtime=$((module_end_time - module_start_time))
+echo "Binning completed in ${module_runtime} seconds." >> "${OUTPUT_DIR}/Log/binning_merge.log"
 
-###############dRep for contigs
-mkdir "$OUTPUT_DIR/Summary/temp"
-cat "$OUTPUT_DIR/Summary/unbined/"*.fasta > "$OUTPUT_DIR/Summary/temp/merged_sequences.fasta"
-#Cluster
-newDir="$OUTPUT_DIR/Summary/temp"
-#First, create a blast+ database:
-makeblastdb -in "${newDir}/merged_sequences.fasta" -dbtype nucl -out "${newDir}/temp_db"
+#Summary module
+echo "Starting Summary module..."
+module_start_time=$(date +%s)
+summary_module.sh > "${OUTPUT_DIR}/Log/summary.log" 2>&1
+module_end_time=$(date +%s)
+module_runtime=$((module_end_time - module_start_time))
+echo "Summary completed in ${module_runtime} seconds." >> "${OUTPUT_DIR}/Log/summary.log"
 
-#Next, use megablast from blast+ package to perform all-vs-all blastn of sequences:
-blastn -query "${newDir}/merged_sequences.fasta" -db "${newDir}/temp_db" -outfmt "6 std qlen slen" -max_target_seqs 10000 -out "${newDir}/merged_sequences_blast.tsv" -num_threads 104
+# dRep module
+echo "Starting dRep module..."
+LOG_FILE="${OUTPUT_DIR}/Log/drep.log"
+# 检查日志文件是否存在且包含关键字
+if [ -f "$LOG_FILE" ] && grep -q "Combined fasta files and quality summaries completed." "$LOG_FILE"; then
+  echo "dRep module already completed, skipping..."
+else
+  module_start_time=$(date +%s)
+  # 执行 dRep 模块
+  drep_module.sh > "$LOG_FILE" 2>&1
+  module_end_time=$(date +%s)
+  module_runtime=$((module_end_time - module_start_time))
+  echo "dRep completed in ${module_runtime} seconds." >> "$LOG_FILE"
+fi
 
-#Next, calculate pairwise ANI by combining local alignments between sequence pairs:
-python "${ScriptDir}/anicalc.py" -i "${newDir}/merged_sequences_blast.tsv" -o "${newDir}/merged_sequences_ani.tsv"
+#TPM caculate module
+LOG_FILE="${OUTPUT_DIR}/Log/TPM_caculate.log"
+# 检查日志文件是否存在，并且是否包含 "TPM calculation completed successfully."
+if [ -f "$LOG_FILE" ] && grep -q "TPM calculation completed successfully." "$LOG_FILE"; then
+    echo "TPM calculation already completed, skipping..."
+else
+    echo "Starting TPM calculate module..."
+    module_start_time=$(date +%s)
+    # 执行TPM计算模块并将日志输出到文件
+    TPM_caculate_Module.sh > "$LOG_FILE" 2>&1
+    module_end_time=$(date +%s)
+    module_runtime=$((module_end_time - module_start_time))
+    # 将运行时间追加到日志文件中
+    echo "TPM calculate completed in ${module_runtime} seconds." >> "$LOG_FILE"
+fi
 
-#Finally, perform UCLUST-like clustering using the MIUVIG recommended-parameters (95% ANI + 85% AF):
-python "${ScriptDir}/aniclust.py" --fna "${newDir}/merged_sequences.fasta" --ani "${newDir}/merged_sequences_ani.tsv" --out "${newDir}/merged_sequences_clusters.tsv" --min_ani 95 --min_tcov 85 --min_qcov 0
 
-#delete temp files
-rm -f "${newDir}/temp_db.*"
-rm -f "${newDir}/merged_sequences_blast.tsv"
+#DRAM module
+echo "Starting DRAM module..."
+module_start_time=$(date +%s)
+mkdir -p "$OUTPUT_DIR/Summary/DRAM"
+run_dram_analysis.sh "$OUTPUT_DIR/Summary/Viralcontigs/vOTU.fasta" "$OUTPUT_DIR/Summary/DRAM" > "${OUTPUT_DIR}/Log/DRAM.log" 2>&1
+module_end_time=$(date +%s)
+module_runtime=$((module_end_time - module_start_time))
+echo "DRAM completed in ${module_runtime} seconds." >> "${OUTPUT_DIR}/Log/DRAM.log"
 
-####################################Merge cluster results
-python "${ScriptDir}/SelectCluster.py" "${newDir}/merged_sequences.fasta" "${newDir}/merged_sequences_clusters.tsv" "$OUTPUT_DIR/Summary/Viralcontigs/drepviralcontigs.fa"
+#iPhop module
+echo "Starting iPhop module..."
+module_start_time=$(date +%s)
+mkdir -p "$OUTPUT_DIR/Summary/iPhop"
+run_iphop_analysis.sh "$OUTPUT_DIR/Summary/Viralcontigs/vOTU.fasta" "$OUTPUT_DIR/Summary/iPhop" > "${OUTPUT_DIR}/Log/iPhop.log" 2>&1
+module_end_time=$(date +%s)
+module_runtime=$((module_end_time - module_start_time))
+echo "iPhop completed in ${module_runtime} seconds." >> "${OUTPUT_DIR}/Log/iPhop.log"
 
-#Merge all
-python "${ScriptDir}/Rename.py" -i "$OUTPUT_DIR/Summary/Viralcontigs/drepviralcontigs.fa"
-cat "$OUTPUT_DIR/Summary/Viralcontigs/drepviralcontigs.fa" "$OUTPUT_DIR/Summary/Viralcontigs/Allbins.fasta" > "$OUTPUT_DIR/Summary/Viralcontigs/vOTU.fasta"
-checkv end_to_end "$OUTPUT_DIR/Summary/Viralcontigs/vOTU.fasta" "$OUTPUT_DIR/Summary/CheckRes" -t 100 -d "$DATABASE/checkv-db-v1.5"
-
-echo "Combined fasta files and quality summaries completed."
-
-#记录脚本结束时间
+# 记录结束时间并计算整个流程的总耗时
 end_time=$(date +%s)
-elapsed_time=$((end_time - start_time))
-echo "Elapsed time: $(date -u -d @${elapsed_time} +"%T")"
-
-exit 0
+total_runtime=$((end_time - start_time))
+echo "Total runtime: ${total_runtime} seconds" >> "${OUTPUT_DIR}/pipeline.log"
