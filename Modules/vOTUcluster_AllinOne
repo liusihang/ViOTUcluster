@@ -191,9 +191,10 @@ echo "Starting viral prediction..."
 module_start_time=$(date +%s)
 # 根据 CONCENTRATION_TYPE 进行不同的处理
 if [ "$CONCENTRATION_TYPE" == "non-concentration" ]; then
-    viral_prediction_module.sh > "${OUTPUT_DIR}/Log/cross_validation.log" 2>&1
-else [ "$CONCENTRATION_TYPE" == "concentration" ]; then
-    viral_prediction_module.sh > "${OUTPUT_DIR}/Log/cross_validation.log" 2>&1
+    viral_prediction_module.sh > "${OUTPUT_DIR}/Log/viral_prediction.log" 2>&1
+else
+    viral_prediction_module.sh > "${OUTPUT_DIR}/Log/viral_prediction.log" 2>&1
+fi
 module_end_time=$(date +%s)
 module_runtime=$((module_end_time - module_start_time))
 echo "Viral prediction completed in ${module_runtime} seconds." >> "${OUTPUT_DIR}/Log/viral_prediction.log"
