@@ -36,7 +36,7 @@ process_file() {
 
   # CheckVFilter
   mkdir -p "$OUT_DIR/${BASENAME}_CheckRes"
-  if ! checkv end_to_end "$OUT_DIR/${BASENAME}_filtered.fasta" "$OUT_DIR/${BASENAME}_CheckRes" -t 104 -d "$DATABASE/checkv-db-v1.5"; then
+  if ! checkv end_to_end "$OUT_DIR/${BASENAME}_filtered.fasta" "$OUT_DIR/${BASENAME}_CheckRes" -t "${THREADS}" -d "$DATABASE/checkv-db-v1.5"; then
     echo "Error during CheckVFilter for $BASENAME. Exiting..."
     return 1
   fi

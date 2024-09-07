@@ -55,7 +55,7 @@ echo "Conda environment activated: $(conda info --envs)"
 which DRAM-v.py
 
 # 使用 GNU Parallel 并行执行 DRAM 注释
-cat DRAM | parallel 'fq1={}; DRAM-v.py annotate -i "${fq1}" -o "${fq1}_DRAMAnnot" --threads 100'
+cat DRAM | parallel 'fq1={}; DRAM-v.py annotate -i "${fq1}" -o "${fq1}_DRAMAnnot" --threads "${THREADS_PER_FILE}"'
 
 # 监控任务是否完成
 all_tasks_completed=false

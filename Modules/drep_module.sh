@@ -30,7 +30,7 @@ echo "Clustering..."
 makeblastdb -in "${newDir}/merged_sequences.fasta" -dbtype nucl -out "${newDir}/temp_db"
 
 # Perform all-vs-all blastn of sequences
-blastn -query "${newDir}/merged_sequences.fasta" -db "${newDir}/temp_db" -outfmt "6 std qlen slen" -max_target_seqs 10000 -out "${newDir}/merged_sequences_blast.tsv" -num_threads 104
+blastn -query "${newDir}/merged_sequences.fasta" -db "${newDir}/temp_db" -outfmt "6 std qlen slen" -max_target_seqs 10000 -out "${newDir}/merged_sequences_blast.tsv" -num_threads "${THREADS}"
 
 # Calculate pairwise ANI
 python "${ScriptDir}/anicalc.py" -i "${newDir}/merged_sequences_blast.tsv" -o "${newDir}/merged_sequences_ani.tsv"
@@ -51,6 +51,6 @@ python "${ScriptDir}/SelectCluster.py" "${newDir}/merged_sequences.fasta" "${new
 echo "Merging final sequences..."
 python "${ScriptDir}/Rename.py" -i "$OUTPUT_DIR/Summary/Viralcontigs/drepviralcontigs.fa"
 cat "$OUTPUT_DIR/Summary/Viralcontigs/drepviralcontigs.fa" "$OUTPUT_DIR/Summary/Viralcontigs/Allbins.fasta" > "$OUTPUT_DIR/Summary/Viralcontigs/vOTU.fasta"
-checkv end_to_end "$OUTPUT_DIR/Summary/Viralcontigs/vOTU.fasta" "$OUTPUT_DIR/Summary/Viralcontigs/vOTU_CheckRes" -t 100 -d "$DATABASE/checkv-db-v1.5"
+checkv end_to_end "$OUTPUT_DIR/Summary/Viralcontigs/vOTU.fasta" "$OUTPUT_DIR/Summary/Viralcontigs/vOTU_CheckRes" -t "${THREADS}" -d "$DATABASE/checkv-db-v1.5"
 
 echo "Combined fasta files and quality summaries completed."

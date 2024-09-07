@@ -34,8 +34,8 @@ process_file() {
   if [ ! -f "$Viralverify_dir/${BASENAME}_result_table.csv" ]; then
     echo "Running viralverify prediction..."
     source ${conda_sh}
-    viralverify -f "$FILE" -o "$Viralverify_dir" --hmm "$DATABASE/ViralVerify/nbc_hmms.hmm" -t 104 > "$Viralverify_dir/viralverify.log" 2>&1 &
-    VVERIFY_PID=$!  # Get the process ID of viralverify
+    viralverify -f "$FILE" -o "$Viralverify_dir" --hmm "$DATABASE/ViralVerify/nbc_hmms.hmm" -t "$THREADS_PER_FILE" > "$Viralverify_dir/viralverify.log" 2>&1 &
+    #VVERIFY_PID=$!  # Get the process ID of viralverify
   else
     echo "viralverify prediction already completed for $FILE, skipping..."
   fi
@@ -47,17 +47,11 @@ process_file() {
 
     if [ ! -f "$Virsorter_dir/final-viral-score.tsv" ]; then
       echo "Running Virsorter2 prediction..."
-      virsorter run -w "$Virsorter_dir" -i "$FILE" --include-groups "$Group" -j 104 all --min-score 0.5 --min-length 2000 --keep-original-seq -d "$DATABASE/db" > "$Virsorter_dir/virsorter.log" 2>&1 &
-      VSORTER_PID=$!  # Get the process ID of virsorter2
+      virsorter run -w "$Virsorter_dir" -i "$FILE" --include-groups "$Group" -j "$THREADS_PER_FILE" all --min-score 0.5 --min-length 2000 --keep-original-seq -d "$DATABASE/db" > "$Virsorter_dir/virsorter.log" 2>&1 &
+      #VSORTER_PID=$!  # Get the process ID of virsorter2
     else
       echo "Virsorter2 prediction already completed for $FILE, skipping..."
     fi
-  fi
-
-  # Wait for all background tasks to complete
-  wait $VVERIFY_PID
-  if [ "$CONCENTRATION_TYPE" == "concentration" ]; then
-    wait $VSORTER_PID
   fi
 
   echo "All predictions completed for $FILE"
@@ -81,7 +75,7 @@ for FILE in $FILES; do
   mkdir -p "$Genomad_dir"
 
   if [ ! -f "$Genomad_dir/${BASENAME}_summary/${BASENAME}_virus_summary.tsv" ]; then
-    genomad end-to-end --enable-score-calibration "$FILE" "$Genomad_dir" "$DATABASE/genomad_db"
+    genomad end-to-end --enable-score-calibration "$FILE" "$Genomad_dir" "$DATABASE/genomad_db" -t "$THREADS_PER_FILE"
     echo -e "\n \n \n # Genomad prediction completed!!! \n \n \n"
   else
     echo "genomad prediction already completed for $FILE, skipping..."

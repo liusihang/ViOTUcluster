@@ -31,7 +31,7 @@ for FILE in $FILES; do
     bwa index -p "$OUT_DIR/Binning/assembly_index" "$OUT_DIR/${BASENAME}_filtered.fasta"
 
     # 比对读数到装配的contigs上，并将结果输出到指定目录
-    bwa mem -t 104 "$OUT_DIR/Binning/assembly_index" $Read1 $Read2 > "$OUT_DIR/Binning/alignment.sam"
+    bwa mem -t "${THREADS}" "$OUT_DIR/Binning/assembly_index" $Read1 $Read2 > "$OUT_DIR/Binning/alignment.sam"
     samtools view -S -b "$OUT_DIR/Binning/alignment.sam" > "$OUT_DIR/Binning/alignment.bam"
   else
     echo "Alignment already completed for $FILE, skipping..."
@@ -50,7 +50,7 @@ for FILE in $FILES; do
     echo "Conda environment activated: $(conda info --envs)"
     which vRhyme
 
-    vRhyme -i "$OUT_DIR/${BASENAME}_filtered.fasta" -b "$OUT_DIR/Binning/alignment.bam" -t 104 -o "$OUT_DIR/Binning/vRhyme_results_${BASENAME}_filtered"
+    vRhyme -i "$OUT_DIR/${BASENAME}_filtered.fasta" -b "$OUT_DIR/Binning/alignment.bam" -t "${THREADS_PER_FILE}" -o "$OUT_DIR/Binning/vRhyme_results_${BASENAME}_filtered"
 
     # 监控vRhyme任务是否完成
     all_tasks_completed=false
@@ -79,7 +79,7 @@ for FILE in $FILES; do
     bwa index -p "$OUT_DIR/Binning/all_bins_index" "$ALL_BINS_FA"
 
     mkdir -p "$OUT_DIR/Binning/reads_for_reassembly"
-    bwa mem -t 104 "$OUT_DIR/Binning/all_bins_index" $Read1 $Read2 | python "${ScriptDir}/filter_reads_for_bin_reassembly.py" "$OUT_DIR/Binning/vRhyme_results_${BASENAME}_filtered/vRhyme_best_bins_fasta" "$OUT_DIR/Binning/reads_for_reassembly" $STRICT_MAX $PERMISSIVE_MAX
+    bwa mem -t "${THREADS}" "$OUT_DIR/Binning/all_bins_index" $Read1 $Read2 | python "${ScriptDir}/filter_reads_for_bin_reassembly.py" "$OUT_DIR/Binning/vRhyme_results_${BASENAME}_filtered/vRhyme_best_bins_fasta" "$OUT_DIR/Binning/reads_for_reassembly" $STRICT_MAX $PERMISSIVE_MAX
 
     for FASTQ_FILE in "$OUT_DIR/Binning/reads_for_reassembly/"*_1.fastq; do
       BIN_BASENAME=$(basename "$FASTQ_FILE" _1.fastq)
@@ -88,7 +88,7 @@ for FILE in $FILES; do
       TMP_DIR="$EXTRACTED_DIR/${BIN_BASENAME}_tmp"
       mkdir -p "$TMP_DIR"
 
-      spades.py -t 104 --tmp $TMP_DIR --careful --untrusted-contigs "$OUT_DIR/Binning/vRhyme_results_${BASENAME}_filtered/vRhyme_best_bins_fasta/${OriginalBin}.fasta" -1 "${OUT_DIR}/Binning/reads_for_reassembly/${BIN_BASENAME}_1.fastq" -2 "${OUT_DIR}/Binning/reads_for_reassembly/${BIN_BASENAME}_2.fastq" -o "$OUT_DIR/Binning/reassembile/${BIN_BASENAME}"
+      spades.py -t "${THREADS}" --tmp $TMP_DIR --careful --untrusted-contigs "$OUT_DIR/Binning/vRhyme_results_${BASENAME}_filtered/vRhyme_best_bins_fasta/${OriginalBin}.fasta" -1 "${OUT_DIR}/Binning/reads_for_reassembly/${BIN_BASENAME}_1.fastq" -2 "${OUT_DIR}/Binning/reads_for_reassembly/${BIN_BASENAME}_2.fastq" -o "$OUT_DIR/Binning/reassembile/${BIN_BASENAME}"
 
       mkdir -p "$EXTRACTED_DIR"
       cp "$OUT_DIR/Binning/reassembile/${BIN_BASENAME}/contigs.fasta" "$EXTRACTED_DIR/${BIN_BASENAME}.fasta"
@@ -100,7 +100,7 @@ for FILE in $FILES; do
         
     mkdir "$OUT_DIR/Binning/Summary"
     python "${ScriptDir}/concat_fasta_sequences.py" $EXTRACTED_DIR "$OUT_DIR/Binning/Summary/tempsummary.fasta"
-    checkv end_to_end "$OUT_DIR/Binning/Summary/tempsummary.fasta" "$OUT_DIR/Binning/Summary/CheckRes" -t 100 -d "$DATABASE/checkv-db-v1.5"
+    checkv end_to_end "$OUT_DIR/Binning/Summary/tempsummary.fasta" "$OUT_DIR/Binning/Summary/CheckRes" -t "${THREADS}" -d "$DATABASE/checkv-db-v1.5"
     mkdir "$OUT_DIR/Binning/Summary/Finialbins"
     python "${ScriptDir}/select_best_bins.py" "$OUT_DIR/Binning/Summary/CheckRes/quality_summary.tsv" $EXTRACTED_DIR "$OUT_DIR/Binning/Summary/Finialfasta/Bestbins"
 

@@ -4,14 +4,15 @@
 start_time=$(date +%s)
 
 # 初始化变量
+INPUT_DIR=""
 RAW_SEQ_DIR=""
 OUTPUT_DIR=""
 DATABASE=""
 SAMPLETYPE=""
-ASSEMBLY_SOFTWARE=""
 REASSEMBLE=false
-VERSION="0.0.6"  # 定义版本号
+VERSION="0.0.5"  # 定义版本号
 CONCENTRATION_TYPE=""
+THREADS=$(nproc)  # 默认线程数为当前可用核心最大值
 
 # 设置日志文件路径
 LOG_FILE=""
@@ -19,6 +20,10 @@ LOG_FILE=""
 # 使用 getopts 处理短选项和手动处理长选项
 while [[ $# -gt 0 ]]; do
   case $1 in
+    -i)
+      INPUT_DIR=$2
+      shift 2
+      ;;
     -r)
       RAW_SEQ_DIR=$2
       shift 2
@@ -36,8 +41,8 @@ while [[ $# -gt 0 ]]; do
       SAMPLETYPE=$2
       shift 2
       ;;
-    -a) # 用 'a' 代表 'assembly software'
-      ASSEMBLY_SOFTWARE=$2
+    -n) # 用 'n' 代表线程数
+      THREADS=$2
       shift 2
       ;;
     -v) # 显示版本信息
@@ -56,11 +61,12 @@ while [[ $# -gt 0 ]]; do
       echo "Usage: $0 [options]"
       echo ""
       echo "Options:"
+      echo "  -i <input_path_to_search>   Specify the input directory to search for FASTA files."
       echo "  -r <input_path_raw_seqs>    Specify the input directory to search for raw seqs files."
       echo "  -o <output_path>            Specify the output directory for the results."
       echo "  -d <database_path>          Specify the path to the database required for analysis."
       echo "  -t <sample_type>            Specify the sample type: DNA, RNA, or Mix."
-      echo "  -a <assembly_software>      Specify the assembly software: megahit, metaspades."
+      echo "  -n <threads>                Specify the number of threads to use (default: max available cores)."
       echo "  --non-con                   Specify non-concentration processing."
       echo "  --con                       Specify concentration processing."
       echo "  --reassemble                Enable reassembly of bins."
@@ -80,14 +86,8 @@ while [[ $# -gt 0 ]]; do
 done
 
 # 检查必要的输入是否已提供
-if [ -z "$RAW_SEQ_DIR" ] || [ -z "$OUTPUT_DIR" ] || [ -z "$DATABASE" ] || [ -z "$SAMPLETYPE" ] || [ -z "$CONCENTRATION_TYPE" ] || [ -z "$ASSEMBLY_SOFTWARE" ]; then
-    echo "Usage: $0 -r <input_path_raw_seqs> -o <output_path> -d <database_path> -t <sample_type> -a <assembly_software> --non-con/--con [--reassemble]"
-    exit 1
-fi
-
-# 验证组装软件选项
-if [[ "$ASSEMBLY_SOFTWARE" != "megahit" && "$ASSEMBLY_SOFTWARE" != "metaspades" ]]; then
-    echo "Error: Invalid assembly software. Please choose either 'megahit' or 'metaspades'."
+if [ -z "$INPUT_DIR" ] || [ -z "$RAW_SEQ_DIR" ] || [ -z "$OUTPUT_DIR" ] || [ -z "$DATABASE" ] || [ -z "$SAMPLETYPE" ] || [ -z "$CONCENTRATION_TYPE" ]; then
+    echo "Usage: $0 -i <input_path_to_search> -r <input_path_raw_seqs> -o <output_path> -d <database_path> -t <sample_type> -n <threads> --non-con/--con [--reassemble]"
     exit 1
 fi
 
@@ -110,6 +110,18 @@ for FILE in "${RAW_SEQ_DIR}"/*_R1.*; do
   fi
 done
 
+# 根据 CONCENTRATION_TYPE 进行不同的处理
+if [ "$CONCENTRATION_TYPE" == "non-concentration" ]; then
+    echo "Running non-concentration specific steps..."
+    # 在这里添加 non-concentration 的特定处理步骤
+elif [ "$CONCENTRATION_TYPE" == "concentration" ]; then
+    echo "Running concentration specific steps..."
+    # 在这里添加 concentration 的特定处理步骤
+else
+    echo "Error: Invalid concentration type."
+    exit 1
+fi
+
 # 重定向所有输出到日志文件
 exec > >(tee -a "$LOG_FILE") 2>&1
 
@@ -131,19 +143,7 @@ case $SAMPLETYPE in
 esac
 
 # 输出选择的处理类型
-echo "Processing with $CONCENTRATION_TYPE mode."
-
-# 根据 CONCENTRATION_TYPE 进行不同的处理
-if [ "$CONCENTRATION_TYPE" == "non-concentration" ]; then
-    echo "Running non-concentration specific steps..."
-    # 在这里添加 non-concentration 的特定处理步骤
-elif [ "$CONCENTRATION_TYPE" == "concentration" ]; then
-    echo "Running concentration specific steps..."
-    # 在这里添加 concentration 的特定处理步骤
-else
-    echo "Error: Invalid concentration type."
-    exit 1
-fi
+echo "Processing with $CONCENTRATION_TYPE mode and $THREADS threads."
 
 # 获取当前 Conda 环境的 bin 文件夹位置
 if [ -z "$CONDA_PREFIX" ]; then
@@ -177,14 +177,34 @@ export INPUT_DIR OUTPUT_DIR DATABASE SAMPLETYPE REASSEMBLE ScriptDir RAW_SEQ_DIR
 
 # 过滤小于2000bp的序列
 mkdir -p "${OUTPUT_DIR}/FilteredSeqs"
-python "${ScriptDir}/filter_contigs.py" 100 "${INPUT_DIR}" "${OUTPUT_DIR}/FilteredSeqs"
+python "${ScriptDir}/filter_contigs.py" "${THREADS}" "${INPUT_DIR}" "${OUTPUT_DIR}/FilteredSeqs"
 
-# Find all .fa and .fasta files in the specified directory
+# Find all .fa and .fasta files in the specified directory, assign threads to the number of available cores
 FILES=$(find "${OUTPUT_DIR}/FilteredSeqs" -type f \( -name "*.fa" -o -name "*.fasta" \))
 RawFILES=$(find "${INPUT_DIR}" -maxdepth 1 -type f \( -name "*.fa" -o -name "*.fasta" \))
+num_files=$(echo "$FILES" | wc -l)  # Count the number of files
+
+# Determine THREADS_PER_FILE based on THREADS input
+if [ "$THREADS" -eq 0 ]; then
+  # If THREADS is 0, use the maximum number of available cores for each file
+  THREADS_PER_FILE=$(nproc)
+else
+  # Calculate threads per file based on the number of threads and files
+  if [ "$num_files" -gt 0 ]; then
+    THREADS_PER_FILE=$((THREADS / num_files))
+    # Ensure at least one thread is allocated per file
+    if [ "$THREADS_PER_FILE" -lt 1 ]; then
+      THREADS_PER_FILE=1
+    fi
+  else
+    echo "Assign threads error. Exiting..."
+    exit 1
+  fi
+fi
+
 
 # 导出必要的变量和函数
-export OUTPUT_DIR DATABASE Group FILES RawFILES CONCENTRATION_TYPE ScriptDir RAW_SEQ_DIR
+export OUTPUT_DIR DATABASE Group FILES RawFILES CONCENTRATION_TYPE ScriptDir RAW_SEQ_DIR THREADS_PER_FILE THREADS
 
 echo "Starting viral prediction..."
 #Viral prediction module
