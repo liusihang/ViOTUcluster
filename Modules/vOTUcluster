@@ -157,7 +157,7 @@ export INPUT_DIR OUTPUT_DIR DATABASE SAMPLETYPE REASSEMBLE ScriptDir RAW_SEQ_DIR
 
 # 过滤小于2000bp的序列
 mkdir -p "${OUTPUT_DIR}/FilteredSeqs"
-python "${ScriptDir}/filter_contigs.py" "${THREADS}" "${INPUT_DIR}" "${OUTPUT_DIR}/FilteredSeqs"
+python "${ScriptDir}/filter_contigs.py" "300" "${INPUT_DIR}" "${OUTPUT_DIR}/FilteredSeqs"
 
 # Find all .fa and .fasta files in the specified directory, assign threads to the number of available cores
 FILES=$(find "${OUTPUT_DIR}/FilteredSeqs" -type f \( -name "*.fa" -o -name "*.fasta" \))

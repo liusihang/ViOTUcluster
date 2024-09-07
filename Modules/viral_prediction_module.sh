@@ -47,7 +47,7 @@ process_file() {
 
     if [ ! -f "$Virsorter_dir/final-viral-score.tsv" ]; then
       echo "Running Virsorter2 prediction..."
-      virsorter run -w "$Virsorter_dir" -i "$FILE" --include-groups "$Group" -j "$THREADS_PER_FILE" all --min-score 0.5 --min-length 2000 --keep-original-seq -d "$DATABASE/db" > "$Virsorter_dir/virsorter.log" 2>&1 &
+      virsorter run -w "$Virsorter_dir" -i "$FILE" --include-groups "$Group" -j "$THREADS_PER_FILE" all --min-score 0.5 --min-length 300 --keep-original-seq -d "$DATABASE/db" > "$Virsorter_dir/virsorter.log" 2>&1 &
       #VSORTER_PID=$!  # Get the process ID of virsorter2
     else
       echo "Virsorter2 prediction already completed for $FILE, skipping..."
