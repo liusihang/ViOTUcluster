@@ -13,8 +13,8 @@ for FILE in $FILES; do
   OUT_DIR="$OUTPUT_DIR/SeprateFile/${BASENAME}"
 
   # 匹配BASENAME_R1* 的格式
-  Read1=$(find "${RAW_SEQ_DIR}" -type f -name "${BASENAME}_R1*" | head -n 1)
-  Read2=$(find "${RAW_SEQ_DIR}" -type f -name "${BASENAME}_R2*" | head -n 1)
+  Read1=$(find "${RAW_SEQ_DIR}" -maxdepth 1 -type f -name "${BASENAME}_R1*" | head -n 1)
+  Read2=$(find "${RAW_SEQ_DIR}" -maxdepth 1 -type f -name "${BASENAME}_R2*" | head -n 1)
 
   if [ -z "$Read1" ] || [ -z "$Read2" ]; then
     echo "Error: Paired-end files for $BASENAME not found in the expected formats."
@@ -43,31 +43,30 @@ for FILE in $FILES; do
   CURRENT_ENV=$(basename "$CONDA_DEFAULT_ENV")
   Log_file="$OUT_DIR/Binning/vRhyme_results_${BASENAME}_filtered/log_vRhyme_${BASENAME}_filtered.log"
 
-  if [ ! -f "$Log_file" ]; then
-    # 激活vRhyme环境并运行vRhyme
+  # 提前检查任务是否已经完成
+  if [ -f "$Log_file" ] && grep -q "vRhyme binning complete" "$Log_file"; then
+    echo "Viral binning already completed for $BASENAME, skipping..."
+  else
+    # 如果任务尚未完成，执行vRhyme
     source ${conda_sh}
     conda activate vRhyme
     echo "Conda environment activated: $(conda info --envs)"
     which vRhyme
 
-    vRhyme -i "$OUT_DIR/${BASENAME}_filtered.fasta" -b "$OUT_DIR/Binning/alignment.bam" -t "${THREADS_PER_FILE}" -o "$OUT_DIR/Binning/vRhyme_results_${BASENAME}_filtered"
+    vRhyme -i "$OUT_DIR/${BASENAME}_filtered.fasta" -b "$OUT_DIR/Binning/alignment.bam" -t "${THREADS_PER_FILE}" -o "$OUT_DIR/Binning/vRhyme_results_${BASENAME}_filtered" &
 
     # 监控vRhyme任务是否完成
-    all_tasks_completed=false
-    while [ "$all_tasks_completed" == "false" ]; do
+    while true; do
       sleep 30
-      all_tasks_completed=true
-      if ! grep -q "vRhyme binning complete" "$Log_file"; then
-        all_tasks_completed=false
-        echo "vRhyme command is still running in the background for $BASENAME"
-      fi
-      if [ "$all_tasks_completed" == "false" ]; then
-        sleep 30
+      if grep -q "vRhyme binning complete" "$Log_file"; then
+        echo "vRhyme binning complete for $BASENAME."
+        break
+      else
+        echo "vRhyme command is still running for $BASENAME..."
       fi
     done
-  else
-    echo "Viral binning already completed for $FILE, skipping..."
   fi
+
 
   conda activate "$CURRENT_ENV"
 
