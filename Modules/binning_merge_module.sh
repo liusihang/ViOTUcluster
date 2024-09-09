@@ -26,47 +26,32 @@ for FILE in $FILES; do
 
   mkdir -p "$OUT_DIR/Binning"
 
-  if [ ! -f "$OUT_DIR/Binning/alignment.bam" ]; then
-    # 创建BWA索引，并将索引文件输出到指定目录
-    bwa index -p "$OUT_DIR/Binning/assembly_index" "$OUT_DIR/${BASENAME}_filtered.fasta"
+  # 创建BWA索引，并将索引文件输出到指定目录
+  bwa index -p "$OUT_DIR/Binning/assembly_index" "$OUT_DIR/${BASENAME}_filtered.fasta"
 
-    # 比对读数到装配的contigs上，并将结果输出到指定目录
-    bwa mem -t "${THREADS}" "$OUT_DIR/Binning/assembly_index" $Read1 $Read2 > "$OUT_DIR/Binning/alignment.sam"
-    samtools view -S -b "$OUT_DIR/Binning/alignment.sam" > "$OUT_DIR/Binning/alignment.bam"
-  else
-    echo "Alignment already completed for $FILE, skipping..."
-  fi
+  # 比对读数到装配的contigs上，并将结果输出到指定目录
+  bwa mem -t "${THREADS}" "$OUT_DIR/Binning/assembly_index" $Read1 $Read2 > "$OUT_DIR/Binning/alignment.sam"
+  samtools view -S -b "$OUT_DIR/Binning/alignment.sam" > "$OUT_DIR/Binning/alignment.bam"
 
   # 设置conda环境和日志文件
   BASE_CONDA_PREFIX=$(conda info --base)
   conda_sh="$BASE_CONDA_PREFIX/etc/profile.d/conda.sh"
   CURRENT_ENV=$(basename "$CONDA_DEFAULT_ENV")
-  Log_file="$OUT_DIR/Binning/vRhyme_results_${BASENAME}_filtered/log_vRhyme_${BASENAME}_filtered.log"
 
-  # 提前检查任务是否已经完成
-  if [ -f "$Log_file" ] && grep -q "vRhyme binning complete" "$Log_file"; then
-    echo "Viral binning already completed for $BASENAME, skipping..."
-  else
-    # 如果任务尚未完成，执行vRhyme
-    source ${conda_sh}
-    conda activate vRhyme
-    echo "Conda environment activated: $(conda info --envs)"
-    which vRhyme
-
-    vRhyme -i "$OUT_DIR/${BASENAME}_filtered.fasta" -b "$OUT_DIR/Binning/alignment.bam" -t "${THREADS_PER_FILE}" -o "$OUT_DIR/Binning/vRhyme_results_${BASENAME}_filtered" &
-
-    # 监控vRhyme任务是否完成
-    while true; do
-      sleep 30
-      if grep -q "vRhyme binning complete" "$Log_file"; then
-        echo "vRhyme binning complete for $BASENAME."
-        break
-      else
-        echo "vRhyme command is still running for $BASENAME..."
-      fi
-    done
+  # 删除已有的vRhyme结果文件夹
+  VRHYME_DIR="$OUT_DIR/Binning/vRhyme_results_${BASENAME}_filtered"
+  if [ -d "$VRHYME_DIR" ]; then
+    echo "Deleting existing vRhyme results directory: $VRHYME_DIR"
+    rm -rf "$VRHYME_DIR"
   fi
 
+  # 激活vRhyme环境并运行vRhyme
+  source ${conda_sh}
+  conda activate vRhyme
+  echo "Conda environment activated: $(conda info --envs)"
+  which vRhyme
+
+  vRhyme -i "$OUT_DIR/${BASENAME}_filtered.fasta" -b "$OUT_DIR/Binning/alignment.bam" -t "${THREADS_PER_FILE}" -o "$OUT_DIR/Binning/vRhyme_results_${BASENAME}_filtered"
 
   conda activate "$CURRENT_ENV"
 
