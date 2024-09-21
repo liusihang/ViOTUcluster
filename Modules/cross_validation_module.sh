@@ -5,10 +5,14 @@ export OUTPUT_DIR DATABASE CONCENTRATION_TYPE ScriptDir
 
 process_file() {
   local FILE=$1
-  echo "Processing $FILE"
+  local BASENAME=$(basename "$FILE")
+  # Extract the extension
+  local EXTENSION="${BASENAME##*.}"
+  # Remove the extension if it's .fa or .fasta
+  if [ "$EXTENSION" = "fa" ] || [ "$EXTENSION" = "fasta" ]; then
+      BASENAME="${BASENAME%.*}"
+  fi
 
-  BASENAME=$(basename "$FILE" .fa)
-  BASENAME=${BASENAME%.fasta}
   OUT_DIR="$OUTPUT_DIR/SeprateFile/${BASENAME}"
   PREDICTION_DIR="$OUT_DIR/RoughViralPrediction"
   Genomad_dir="$PREDICTION_DIR/genomadres"

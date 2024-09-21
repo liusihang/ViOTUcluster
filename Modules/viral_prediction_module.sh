@@ -14,8 +14,13 @@ export OUTPUT_DIR DATABASE Group CONCENTRATION_TYPE
 # Main function to process files
 process_file() {
   local FILE=$1
-  local BASENAME=$(basename "$FILE" .fa)
-  BASENAME=${BASENAME%.fasta}
+  local BASENAME=$(basename "$FILE")
+  # Extract the extension
+  local EXTENSION="${BASENAME##*.}"
+  # Remove the extension if it's .fa or .fasta
+  if [ "$EXTENSION" = "fa" ] || [ "$EXTENSION" = "fasta" ]; then
+      BASENAME="${BASENAME%.*}"
+  fi
 
   local OUT_DIR="$OUTPUT_DIR/SeprateFile/${BASENAME}"
   mkdir -p "$OUT_DIR"
@@ -35,7 +40,6 @@ process_file() {
     echo "Running viralverify prediction..."
     source ${conda_sh}
     viralverify -f "$FILE" -o "$Viralverify_dir" --hmm "$DATABASE/ViralVerify/nbc_hmms.hmm" -t "$THREADS_PER_FILE" > "$Viralverify_dir/viralverify.log" 2>&1 &
-    #VVERIFY_PID=$!  # Get the process ID of viralverify
   else
     echo "viralverify prediction already completed for $FILE, skipping..."
   fi
@@ -48,7 +52,6 @@ process_file() {
     if [ ! -f "$Virsorter_dir/final-viral-score.tsv" ]; then
       echo "Running Virsorter2 prediction..."
       virsorter run -w "$Virsorter_dir" -i "$FILE" --include-groups "$Group" -j "$THREADS_PER_FILE" all --min-score 0.5 --min-length 300 --keep-original-seq -d "$DATABASE/db" > "$Virsorter_dir/virsorter.log" 2>&1 &
-      #VSORTER_PID=$!  # Get the process ID of virsorter2
     else
       echo "Virsorter2 prediction already completed for $FILE, skipping..."
     fi
@@ -60,11 +63,16 @@ process_file() {
 export -f process_file
 parallel process_file ::: $FILES
 
-# Perform Genomad analysis
+# Perform Genomad analysis based on CONCENTRATION_TYPE
 for FILE in $FILES; do
-  echo "Processing $FILE"
-  BASENAME=$(basename "$FILE" .fa)
-  BASENAME=${BASENAME%.fasta}
+  local FILE=$1
+  local BASENAME=$(basename "$FILE")
+  # Extract the extension
+  local EXTENSION="${BASENAME##*.}"
+  # Remove the extension if it's .fa or .fasta
+  if [ "$EXTENSION" = "fa" ] || [ "$EXTENSION" = "fasta" ]; then
+      BASENAME="${BASENAME%.*}"
+  fi
 
   OUT_DIR="$OUTPUT_DIR/SeprateFile/${BASENAME}"
   PREDICTION_DIR="$OUT_DIR/RoughViralPrediction"
@@ -75,7 +83,13 @@ for FILE in $FILES; do
   mkdir -p "$Genomad_dir"
 
   if [ ! -f "$Genomad_dir/${BASENAME}_summary/${BASENAME}_virus_summary.tsv" ]; then
-    genomad end-to-end --enable-score-calibration "$FILE" "$Genomad_dir" "$DATABASE/genomad_db" -t "$THREADS_PER_FILE"
+    if [ "$CONCENTRATION_TYPE" == "concentration" ]; then
+      echo "Running genomad in concentrated mode..."
+      genomad end-to-end --enable-score-calibration "$FILE" "$Genomad_dir" "$DATABASE/genomad_db" -t "$THREADS_PER_FILE" --default --min-score 0.7 --max-fdr 0.05 --min-number-genes 0 --min-plasmid-marker-enrichment 1.5 --min-plasmid-hallmarks 1 --min-plasmid-hallmarks-short-seqs 1 --max-uscg 2 
+    else
+      echo "Running genomad in non-concentrated mode..."
+      genomad end-to-end --enable-score-calibration "$FILE" "$Genomad_dir" "$DATABASE/genomad_db" -t "$THREADS_PER_FILE" --conservative --min-score 0.80 --max-fdr 0.05 --min-number-genes 1 --min-plasmid-marker-enrichment 1.5 --min-plasmid-hallmarks 1 --min-plasmid-hallmarks-short-seqs 1 --min-virus-hallmarks-short-seqs 1 --max-uscg 2 
+    fi
     echo -e "\n \n \n # Genomad prediction completed!!! \n \n \n"
   else
     echo "genomad prediction already completed for $FILE, skipping..."
