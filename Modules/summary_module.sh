@@ -16,6 +16,8 @@ for folder in "$OUTPUT_DIR/SeprateFile/"*/ ; do
     if [ -f "$unbined_source" ]; then
       unbined_dest="$OUTPUT_DIR/Summary/unbined/${folderName}_unbined.fasta"
       cp "$unbined_source" "$unbined_dest"
+      # 删除源文件
+      rm "$unbined_source"
     else
       echo "Warning: $unbined_source does not exist."
     fi
@@ -28,16 +30,33 @@ for folder in "$OUTPUT_DIR/SeprateFile/"*/ ; do
           fasta_filename=$(basename "$fasta_file")
           fasta_dest="$OUTPUT_DIR/Summary/bins/${folderName}_${fasta_filename}"
           cp "$fasta_file" "$fasta_dest"
+          # 删除源文件
+          rm "$fasta_file"
         else
           echo "Warning: No .fasta files found in $bestbins_source"
         fi
       done
+      # 删除Bestbins目录，如果已空
+      rmdir "$bestbins_source" 2>/dev/null || true
     else
       echo "Warning: $bestbins_source does not exist."
     fi
+
+    # 删除Finialfasta目录，如果已空
+    finialfasta_dir="${folder}Binning/Summary/Finialfasta/"
+    rmdir "$finialfasta_dir" 2>/dev/null || true
+
+    # 删除Summary目录，如果已空
+    summary_dir="${folder}Binning/Summary/"
+    rmdir "$summary_dir" 2>/dev/null || true
+
+    # 删除Binning目录，如果已空
+    binning_dir="${folder}Binning/"
+    rmdir "$binning_dir" 2>/dev/null || true
   fi
 done
 
 # Clean up intermediate files
 rm -r "$OUTPUT_DIR/Summary/temp"
-echo "All files processed successfully."
+
+echo "All files processed and cleaned up successfully."

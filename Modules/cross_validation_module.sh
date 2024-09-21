@@ -51,6 +51,9 @@ process_file() {
   fi
 
   echo "Processing for $BASENAME completed."
+
+  # 删除使用过的 ${BASENAME}_CheckRes 目录
+  rm -rf "$OUT_DIR/${BASENAME}_CheckRes"
 }
 
 export -f process_file

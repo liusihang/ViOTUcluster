@@ -100,6 +100,6 @@ for FILE in $FILES; do
   done
 
   python "${ScriptDir}/unbined.py" -i "$OUT_DIR/Binning/vRhyme_results_${BASENAME}_filtered/vRhyme_best_bins_fasta" -r "$OUT_DIR/${BASENAME}_filtered.fasta" -o "$OUT_DIR/Binning/Summary/Finialfasta/unbined.fasta"
-
+  python "${ScriptDir}/MergeRes.py" -i "$OUT_DIR/Binning/vRhyme_results_${BASENAME}_filtered/vRhyme_best_bins_fasta" -r "$OUT_DIR/${BASENAME}_filtered.fasta" -o "$OUTPUT_DIR/Summary/SeperateFa/${BASENAME}_viralseqs.fasta"
   echo "Rebinning and reassembly complete for $FILE"
 done

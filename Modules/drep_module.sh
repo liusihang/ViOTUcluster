@@ -13,7 +13,7 @@ echo "dRep for bins completed."
 
 # Concat fasta sequences
 echo "Concatenating fasta sequences..."
-python "${ScriptDir}/concat_fasta_sequences.py" "$OUTPUT_DIR/Summary/dRepRes/dereplicated_genomes" "$OUTPUT_DIR/Summary/Viralcontigs/Allbins.fasta"
+python "${ScriptDir}/concat_fasta_sequences.py" "$OUTPUT_DIR/Summary/dRepRes/dereplicated_genomes" "$OUTPUT_DIR/Summary/Viralcontigs/DrepBins.fasta"
 echo "Fasta concatenation completed."
 
 # dRep for contigs
@@ -45,12 +45,12 @@ rm -f "${newDir}/merged_sequences_blast.tsv"
 
 # Merge cluster results
 echo "Merging cluster results..."
-python "${ScriptDir}/SelectCluster.py" "${newDir}/merged_sequences.fasta" "${newDir}/merged_sequences_clusters.tsv" "$OUTPUT_DIR/Summary/Viralcontigs/drepviralcontigs.fa"
+python "${ScriptDir}/SelectCluster.py" "${newDir}/merged_sequences.fasta" "${newDir}/merged_sequences_clusters.tsv" "$OUTPUT_DIR/Summary/Viralcontigs/DrepViralcontigs.fasta"
 
 # Merge all
 echo "Merging final sequences..."
-python "${ScriptDir}/Rename.py" -i "$OUTPUT_DIR/Summary/Viralcontigs/drepviralcontigs.fa"
-cat "$OUTPUT_DIR/Summary/Viralcontigs/drepviralcontigs.fa" "$OUTPUT_DIR/Summary/Viralcontigs/Allbins.fasta" > "$OUTPUT_DIR/Summary/Viralcontigs/vOTU.fasta"
+python "${ScriptDir}/Rename.py" -i "$OUTPUT_DIR/Summary/Viralcontigs/DrepViralcontigs.fasta"
+cat "$OUTPUT_DIR/Summary/Viralcontigs/DrepViralcontigs.fasta" "$OUTPUT_DIR/Summary/Viralcontigs/DrepBins.fasta" > "$OUTPUT_DIR/Summary/Viralcontigs/vOTU.fasta"
 checkv end_to_end "$OUTPUT_DIR/Summary/Viralcontigs/vOTU.fasta" "$OUTPUT_DIR/Summary/Viralcontigs/vOTU_CheckRes" -t "${THREADS}" -d "$DATABASE/checkv-db-v1.5"
 
 echo "Combined fasta files and quality summaries completed."
