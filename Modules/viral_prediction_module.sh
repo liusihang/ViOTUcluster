@@ -38,7 +38,7 @@ process_file() {
   # Run viralverify analysis with different parameters based on CONCENTRATION_TYPE
   if [ ! -f "$Viralverify_dir/${BASENAME}_result_table.csv" ]; then
     echo "Running viralverify prediction..."
-    source ${conda_sh}
+    #source ${conda_sh}
     if [ "$CONCENTRATION_TYPE" == "concentration" ]; then
       # Parameters for 'concentration' type
       viralverify -f "$FILE" -o "$Viralverify_dir" --hmm "$DATABASE/ViralVerify/nbc_hmms.hmm" \
@@ -83,9 +83,9 @@ wait
 
 # Perform Genomad analysis based on CONCENTRATION_TYPE
 for FILE in $FILES; do
-  local BASENAME=$(basename "$FILE")
+  BASENAME=$(basename "$FILE")
   # Extract the extension
-  local EXTENSION="${BASENAME##*.}"
+  EXTENSION="${BASENAME##*.}"
   # Remove the extension if it's .fa or .fasta
   if [ "$EXTENSION" = "fa" ] || [ "$EXTENSION" = "fasta" ]; then
       BASENAME="${BASENAME%.*}"
@@ -103,19 +103,40 @@ for FILE in $FILES; do
     if [ "$CONCENTRATION_TYPE" == "concentration" ]; then
       echo "Running Genomad in concentration mode..."
       genomad end-to-end --enable-score-calibration "$FILE" "$Genomad_dir" "$DATABASE/genomad_db" \
-      -t "$THREADS_PER_FILE" --default --min-score 0.7 --max-fdr 0.05 --min-number-genes 0 \
-      --min-plasmid-marker-enrichment 0 --min-plasmid-hallmarks 1 \
+      -t "$THREADS_PER_FILE" --min-score 0.7 --max-fdr 0.05 --min-number-genes 0 \
+      --min-virus-marker-enrichment 1.5 --min-plasmid-marker-enrichment 0 --min-plasmid-hallmarks 1 \
       --min-plasmid-hallmarks-short-seqs 0 --max-uscg 2 
     else
       echo "Running Genomad in non-concentration mode..."
       genomad end-to-end --enable-score-calibration "$FILE" "$Genomad_dir" "$DATABASE/genomad_db" \
-      -t "$THREADS_PER_FILE" --conservative --min-score 0.8 --max-fdr 0.05 --min-number-genes 1 \
-      --min-plasmid-marker-enrichment 1.5 --min-plasmid-hallmarks 1 \
+      -t "$THREADS_PER_FILE" --min-score 0.8 --max-fdr 0.05 --min-number-genes 1 \
+      --min-virus-marker-enrichment 0 --min-plasmid-marker-enrichment 1.5 --min-plasmid-hallmarks 1 \
       --min-plasmid-hallmarks-short-seqs 1 --max-uscg 2 
     fi
     echo -e "\n \n \n # Genomad prediction completed!!! \n \n \n"
   else
     echo "Genomad prediction already completed for $FILE, skipping..."
+  fi
+done
+
+# Check if all Virsorter2 tasks are completed (only when it is concentration)
+all_tasks_completed=false
+while [ "$all_tasks_completed" == "false" ]; do
+  all_tasks_completed=true
+  for FILE in $FILES; do
+    BASENAME=$(basename "$FILE" .fa)
+    BASENAME=${BASENAME%.fasta}
+    Virsorter_dir="$OUTPUT_DIR/SeprateFile/${BASENAME}/RoughViralPrediction/virsorter2"
+
+    if [ ! -f "$Virsorter_dir/final-viral-score.tsv" ]; then
+      all_tasks_completed=false
+      echo "Virsorter2 still in processing"
+      break
+    fi
+  done
+
+  if [ "$all_tasks_completed" == "false" ]; then
+    sleep 30
   fi
 done
 
