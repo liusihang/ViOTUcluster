@@ -1,23 +1,28 @@
 #!/usr/bin/env bash
 
-# 记录开始时间
+# Record start time
 start_time=$(date +%s)
 
-# 初始化变量
+# Initialize variables
 INPUT_DIR=""
 RAW_SEQ_DIR=""
 OUTPUT_DIR=""
 DATABASE=""
 SAMPLETYPE=""
 REASSEMBLE=false
-VERSION="0.0.5"  # 定义版本号
+VERSION="0.0.5"  # Define version number
 CONCENTRATION_TYPE=""
-THREADS=$(nproc)  # 默认线程数为当前可用核心最大值
+THREADS=$(nproc)  # Default number of threads is the maximum available cores
 
-# 设置日志文件路径
+# Set log file path
 LOG_FILE=""
 
-# 使用 getopts 处理短选项和手动处理长选项
+# Function to add timestamp to log entries
+log_with_timestamp() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "$LOG_FILE"
+}
+
+# Use getopts to handle short options and manually handle long options
 while [[ $# -gt 0 ]]; do
   case $1 in
     -i)
@@ -30,34 +35,34 @@ while [[ $# -gt 0 ]]; do
       ;;
     -o)
       OUTPUT_DIR=$2
-      LOG_FILE="${OUTPUT_DIR}/pipeline.log"  # 设置日志文件路径
+      LOG_FILE="${OUTPUT_DIR}/pipeline.log"  # Set log file path
       shift 2
       ;;
     -d)
       DATABASE=$2
       shift 2
       ;;
-    -t) # 用 't' 代表 'type'
+    -t)
       SAMPLETYPE=$2
       shift 2
       ;;
-    -n) # 用 'n' 代表线程数
+    -n)
       THREADS=$2
       shift 2
       ;;
-    -v) # 显示版本信息
+    -v)
       echo "Version: $VERSION"
       exit 0
       ;;
-    --non-con) # non-concentration
+    --non-con)
       CONCENTRATION_TYPE="non-concentration"
       shift
       ;;
-    --con) # concentration
+    --con)
       CONCENTRATION_TYPE="concentration"
       shift
       ;;
-    -h) # 显示帮助信息
+    -h)
       echo "Usage: $0 [options]"
       echo ""
       echo "Options:"
@@ -85,47 +90,70 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# 检查必要的输入是否已提供
+# Check if necessary inputs have been provided
 if [ -z "$INPUT_DIR" ] || [ -z "$RAW_SEQ_DIR" ] || [ -z "$OUTPUT_DIR" ] || [ -z "$DATABASE" ] || [ -z "$SAMPLETYPE" ] || [ -z "$CONCENTRATION_TYPE" ]; then
     echo "Usage: $0 -i <input_path_to_search> -r <input_path_raw_seqs> -o <output_path> -d <database_path> -t <sample_type> -n <threads> --non-con/--con [--reassemble]"
     exit 1
 fi
 
-# 验证配对文件是否存在并且格式正确
+# Log the command with a timestamp
+log_with_timestamp "Run ViOTUcluster as command: $0 $@"
+
+# Log all environment variables with a timestamp
+log_with_timestamp "Environment variables at start:"
+env >> "$LOG_FILE"
+
+# Redirect all output to the log file and terminal with a timestamp
+exec > >(while IFS= read -r line; do log_with_timestamp "$line"; echo "$line"; done) 2>&1
+
+# Function to run modules and check for errors, with timestamp in log
+run_module() {
+    local module_name=$1
+    local log_file=$2
+    local command=$3
+
+    log_with_timestamp "Starting $module_name..."
+    module_start_time=$(date +%s)
+    eval "$command" > "$log_file" 2>&1
+    if [ $? -ne 0 ]; then
+        log_with_timestamp "Error: $module_name failed. Check log: $log_file"
+        exit 1
+    fi
+    module_end_time=$(date +%s)
+    module_runtime=$((module_end_time - module_start_time))
+    log_with_timestamp "$module_name completed in ${module_runtime} seconds."
+}
+
+# Check if paired files exist and have the correct format
 for FILE in "${RAW_SEQ_DIR}"/*_R1.*; do
   BASENAME=$(basename "$FILE" | sed 's/_R1\..*//')
   PREFIX="${RAW_SEQ_DIR}/${BASENAME}"
 
   if [ -f "${PREFIX}_R1.fq" ] && [ -f "${PREFIX}_R2.fq" ]; then
-    echo "Found paired files: ${PREFIX}_R1.fq and ${PREFIX}_R2.fq"
+    log_with_timestamp "Found paired files: ${PREFIX}_R1.fq and ${PREFIX}_R2.fq"
   elif [ -f "${PREFIX}_R1.fastq" ] && [ -f "${PREFIX}_R2.fastq" ]; then
-    echo "Found paired files: ${PREFIX}_R1.fastq and ${PREFIX}_R2.fastq"
+    log_with_timestamp "Found paired files: ${PREFIX}_R1.fastq and ${PREFIX}_R2.fastq"
   elif [ -f "${PREFIX}_R1.fq.gz" ] && [ -f "${PREFIX}_R2.fq.gz" ]; then
-    echo "Found paired files: ${PREFIX}_R1.fq.gz and ${PREFIX}_R2.fq.gz"
+    log_with_timestamp "Found paired files: ${PREFIX}_R1.fq.gz and ${PREFIX}_R2.fq.gz"
   elif [ -f "${PREFIX}_R1.fastq.gz" ] && [ -f "${PREFIX}_R2.fastq.gz" ]; then
-    echo "Found paired files: ${PREFIX}_R1.fastq.gz and ${PREFIX}_R2.fastq.gz"
+    log_with_timestamp "Found paired files: ${PREFIX}_R1.fastq.gz and ${PREFIX}_R2.fastq.gz"
   else
-    echo "Error: Paired-end files for ${BASENAME} not found in the expected formats (.fq, .fastq, .fq.gz, .fastq.gz)"
+    log_with_timestamp "Error: Paired-end files for ${BASENAME} not found in the expected formats (.fq, .fastq, .fq.gz, .fastq.gz)"
     exit 1
   fi
 done
 
-# 根据 CONCENTRATION_TYPE 进行不同的处理
+# Perform different processing based on CONCENTRATION_TYPE
 if [ "$CONCENTRATION_TYPE" == "non-concentration" ]; then
-    echo "Running non-concentration specific steps..."
-    # 在这里添加 non-concentration 的特定处理步骤
+    log_with_timestamp "Running non-concentration specific steps..."
 elif [ "$CONCENTRATION_TYPE" == "concentration" ]; then
-    echo "Running concentration specific steps..."
-    # 在这里添加 concentration 的特定处理步骤
+    log_with_timestamp "Running concentration specific steps..."
 else
-    echo "Error: Invalid concentration type."
+    log_with_timestamp "Error: Invalid concentration type."
     exit 1
 fi
 
-# 重定向所有输出到日志文件
-exec > >(tee -a "$LOG_FILE") 2>&1
-
-# 根据 SAMPLETYPE 设置 Group 变量
+# Set Group variable based on SAMPLETYPE
 case $SAMPLETYPE in
   DNA)
     Group="dsDNAphage, NCLDV, ssDNA, lavidaviridae"
@@ -137,177 +165,105 @@ case $SAMPLETYPE in
     Group="dsDNAphage, NCLDV, RNA, ssDNA, lavidaviridae"
     ;;
   *)
-    echo "Unknown sample type: $SAMPLETYPE"
+    log_with_timestamp "Unknown sample type: $SAMPLETYPE"
     exit 1
     ;;
 esac
 
-# 输出选择的处理类型
-echo "Processing with $CONCENTRATION_TYPE mode and $THREADS threads."
+# Output selected processing type
+log_with_timestamp "Processing with $CONCENTRATION_TYPE mode and $THREADS threads."
 
-# 获取当前 Conda 环境的 bin 文件夹位置
+# Get bin folder location of current Conda environment
 if [ -z "$CONDA_PREFIX" ]; then
-  echo "Conda environment is not activated."
+  log_with_timestamp "Conda environment is not activated."
   exit 1
 fi
 ScriptDir="${CONDA_PREFIX}/bin"
 
-# 导出参数作为环境变量
+# Export parameters as environment variables
 export RAW_SEQ_DIR OUTPUT_DIR DATABASE SAMPLETYPE REASSEMBLE ASSEMBLY_SOFTWARE
 
 mkdir -p "${OUTPUT_DIR}/Log"
-#Raw sequence Process
-echo "Starting Raw sequences Process..."
-#Raw sequences module
-module_start_time=$(date +%s)
-Preprocess_module.sh "${RAW_SEQ_DIR}" "${ASSEMBLY_SOFTWARE}" "${OUTPUT_DIR}"> "${OUTPUT_DIR}/Log/Preprocess.log" 2>&1
-module_end_time=$(date +%s)
-module_runtime=$((module_end_time - module_start_time))
-echo "Viral prediction completed in ${module_runtime} seconds." >> "${OUTPUT_DIR}/Log/Preprocess.log"
 
+# Run each module and check for errors
+run_module "Raw sequences Process" "${OUTPUT_DIR}/Log/Preprocess.log" "Preprocess_module.sh '${RAW_SEQ_DIR}' '${ASSEMBLY_SOFTWARE}' '${OUTPUT_DIR}'"
 
-# 导出参数作为环境变量
+# Update exported parameters
 CONTIGS_DIR="${OUTPUT_DIR}/Contigs"
 RAW_SEQ_DIR="${OUTPUT_DIR}/Cleanreads"
 INPUT_DIR=${CONTIGS_DIR}
 
-# 导出参数作为环境变量
+# Export parameters
 export INPUT_DIR OUTPUT_DIR DATABASE SAMPLETYPE REASSEMBLE ScriptDir RAW_SEQ_DIR
 
-
-# 过滤小于2000bp的序列
+# Run filter module
 mkdir -p "${OUTPUT_DIR}/FilteredSeqs"
-python "${ScriptDir}/filter_contigs.py" "${THREADS}" "${INPUT_DIR}" "${OUTPUT_DIR}/FilteredSeqs"
+run_module "Filter contigs" "${OUTPUT_DIR}/Log/filter_contigs.log" "python '${ScriptDir}/filter_contigs.py' '${THREADS}' '${INPUT_DIR}' '${OUTPUT_DIR}/FilteredSeqs'"
 
-# Find all .fa and .fasta files in the specified directory, assign threads to the number of available cores
+# Find all .fa and .fasta files in the specified directory
 FILES=$(find "${OUTPUT_DIR}/FilteredSeqs" -type f \( -name "*.fa" -o -name "*.fasta" \))
 RawFILES=$(find "${INPUT_DIR}" -maxdepth 1 -type f \( -name "*.fa" -o -name "*.fasta" \))
-num_files=$(echo "$FILES" | wc -l)  # Count the number of files
+num_files=$(echo "$FILES" | wc -l)
 
 # Determine THREADS_PER_FILE based on THREADS input
 if [ "$THREADS" -eq 0 ]; then
-  # If THREADS is 0, use the maximum number of available cores for each file
   THREADS_PER_FILE=$(nproc)
 else
-  # Calculate threads per file based on the number of threads and files
   if [ "$num_files" -gt 0 ]; then
     THREADS_PER_FILE=$((THREADS / num_files))
-    # Ensure at least one thread is allocated per file
     if [ "$THREADS_PER_FILE" -lt 1 ]; then
       THREADS_PER_FILE=1
     fi
   else
-    echo "Assign threads error. Exiting..."
+    log_with_timestamp "Assign threads error. Exiting..."
     exit 1
   fi
 fi
 
-
-# 导出必要的变量和函数
+# Export necessary variables and functions
 export OUTPUT_DIR DATABASE Group FILES RawFILES CONCENTRATION_TYPE ScriptDir RAW_SEQ_DIR THREADS_PER_FILE THREADS
 
-echo "Starting viral prediction..."
-#Viral prediction module
-module_start_time=$(date +%s)
-# 根据 CONCENTRATION_TYPE 进行不同的处理
-if [ "$CONCENTRATION_TYPE" == "non-concentration" ]; then
-    viral_prediction_module.sh > "${OUTPUT_DIR}/Log/viral_prediction.log" 2>&1
-else
-    viral_prediction_module.sh > "${OUTPUT_DIR}/Log/viral_prediction.log" 2>&1
-fi
-module_end_time=$(date +%s)
-module_runtime=$((module_end_time - module_start_time))
-echo "Viral prediction completed in ${module_runtime} seconds." >> "${OUTPUT_DIR}/Log/viral_prediction.log"
+# Run viral prediction module
+run_module "Viral prediction" "${OUTPUT_DIR}/Log/viral_prediction.log" "viral_prediction_module.sh"
 
 # Cross Validation module
-echo "Starting Cross Validation module..."
-# 检查日志文件是否存在以及是否包含关键字
 LOG_FILE="${OUTPUT_DIR}/Log/cross_validation.log"
 KEYWORD="Cross Validation completed"
-
 if [ -f "$LOG_FILE" ] && grep -q "$KEYWORD" "$LOG_FILE"; then
-    echo "Cross Validation module already completed, skipping..."
+    log_with_timestamp "Cross Validation module already completed, skipping..."
 else
-    module_start_time=$(date +%s)
-    # 根据 CONCENTRATION_TYPE 进行不同的处理
-    if [ "$CONCENTRATION_TYPE" == "non-concentration" ]; then
-        cross_validation_module.sh --non-concentration > "$LOG_FILE" 2>&1
-    else
-        cross_validation_module.sh --concentration > "$LOG_FILE" 2>&1
-    fi
-    module_end_time=$(date +%s)
-    module_runtime=$((module_end_time - module_start_time))
-    echo "Cross Validation completed in ${module_runtime} seconds." >> "$LOG_FILE"
+    run_module "Cross Validation" "$LOG_FILE" "cross_validation_module.sh --${CONCENTRATION_TYPE}"
 fi
 
+# Run Binning and Merge module
+run_module "Binning and merge" "${OUTPUT_DIR}/Log/binning_merge.log" "binning_merge_module.sh"
 
-#Binning and merge module
-echo "Starting Binning and merge module..."
-module_start_time=$(date +%s)
-binning_merge_module.sh > "${OUTPUT_DIR}/Log/binning_merge.log" 2>&1
-module_end_time=$(date +%s)
-module_runtime=$((module_end_time - module_start_time))
-echo "Binning completed in ${module_runtime} seconds." >> "${OUTPUT_DIR}/Log/binning_merge.log"
+# Run Summary module
+run_module "Summary" "${OUTPUT_DIR}/Log/summary.log" "summary_module.sh"
 
-#Summary module
-echo "Starting Summary module..."
-module_start_time=$(date +%s)
-summary_module.sh > "${OUTPUT_DIR}/Log/summary.log" 2>&1
-module_end_time=$(date +%s)
-module_runtime=$((module_end_time - module_start_time))
-echo "Summary completed in ${module_runtime} seconds." >> "${OUTPUT_DIR}/Log/summary.log"
-
-# dRep module
-echo "Starting dRep module..."
+# Run dRep module
 LOG_FILE="${OUTPUT_DIR}/Log/drep.log"
-# 检查日志文件是否存在且包含关键字
 if [ -f "$LOG_FILE" ] && grep -q "Combined fasta files and quality summaries completed." "$LOG_FILE"; then
-  echo "dRep module already completed, skipping..."
+    log_with_timestamp "dRep module already completed, skipping..."
 else
-  module_start_time=$(date +%s)
-  # 执行 dRep 模块
-  drep_module.sh > "$LOG_FILE" 2>&1
-  module_end_time=$(date +%s)
-  module_runtime=$((module_end_time - module_start_time))
-  echo "dRep completed in ${module_runtime} seconds." >> "$LOG_FILE"
+    run_module "dRep" "$LOG_FILE" "drep_module.sh"
 fi
 
-#TPM caculate module
+# Run TPM calculation module
 LOG_FILE="${OUTPUT_DIR}/Log/TPM_caculate.log"
-# 检查日志文件是否存在，并且是否包含 "TPM calculation completed successfully."
 if [ -f "$LOG_FILE" ] && grep -q "TPM calculation completed successfully." "$LOG_FILE"; then
-    echo "TPM calculation already completed, skipping..."
+    log_with_timestamp "TPM calculation already completed, skipping..."
 else
-    echo "Starting TPM calculate module..."
-    module_start_time=$(date +%s)
-    # 执行TPM计算模块并将日志输出到文件
-    TPM_caculate_Module.sh > "$LOG_FILE" 2>&1
-    module_end_time=$(date +%s)
-    module_runtime=$((module_end_time - module_start_time))
-    # 将运行时间追加到日志文件中
-    echo "TPM calculate completed in ${module_runtime} seconds." >> "$LOG_FILE"
+    run_module "TPM calculation" "$LOG_FILE" "TPM_caculate_Module.sh"
 fi
 
+# Run DRAM module
+run_module "DRAM" "${OUTPUT_DIR}/Log/DRAM.log" "run_dram_analysis.sh '${OUTPUT_DIR}/Summary/Viralcontigs/vOTU.fasta' '${OUTPUT_DIR}/Summary/DRAM'"
 
-#DRAM module
-echo "Starting DRAM module..."
-module_start_time=$(date +%s)
-mkdir -p "$OUTPUT_DIR/Summary/DRAM"
-run_dram_analysis.sh "$OUTPUT_DIR/Summary/Viralcontigs/vOTU.fasta" "$OUTPUT_DIR/Summary/DRAM" > "${OUTPUT_DIR}/Log/DRAM.log" 2>&1
-module_end_time=$(date +%s)
-module_runtime=$((module_end_time - module_start_time))
-echo "DRAM completed in ${module_runtime} seconds." >> "${OUTPUT_DIR}/Log/DRAM.log"
+# Run iPhop module
+run_module "iPhop" "${OUTPUT_DIR}/Log/iPhop.log" "run_iphop_analysis.sh '${OUTPUT_DIR}/Summary/Viralcontigs/vOTU.fasta' '${OUTPUT_DIR}/Summary/iPhop'"
 
-#iPhop module
-echo "Starting iPhop module..."
-module_start_time=$(date +%s)
-mkdir -p "$OUTPUT_DIR/Summary/iPhop"
-run_iphop_analysis.sh "$OUTPUT_DIR/Summary/Viralcontigs/vOTU.fasta" "$OUTPUT_DIR/Summary/iPhop" > "${OUTPUT_DIR}/Log/iPhop.log" 2>&1
-module_end_time=$(date +%s)
-module_runtime=$((module_end_time - module_start_time))
-echo "iPhop completed in ${module_runtime} seconds." >> "${OUTPUT_DIR}/Log/iPhop.log"
-
-# 记录结束时间并计算整个流程的总耗时
+# Record end time and calculate total runtime of the entire pipeline
 end_time=$(date +%s)
 total_runtime=$((end_time - start_time))
-echo "Total runtime: ${total_runtime} seconds" >> "${OUTPUT_DIR}/pipeline.log"
+log_with_timestamp "Total runtime: ${total_runtime} seconds"

@@ -295,7 +295,7 @@ def main():
 
     names_result={}
     for i in range (0,len(k)):
-      names_result[feature_table_names[i]] = [k[i][0],k[i][3],feature_table_genes[i]]
+        names_result[feature_table_names[i]] = [k[i][0],k[i][3],feature_table_genes[i]]
 
     
 
