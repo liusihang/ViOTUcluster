@@ -109,7 +109,7 @@ for FILE in $FILES; do
     else
       echo "Running Genomad in non-concentration mode..."
       genomad end-to-end --enable-score-calibration "$FILE" "$Genomad_dir" "$DATABASE/genomad_db" \
-      -t "$THREADS_PER_FILE" --conservative --min-score 0.7 --max-fdr 0.05 --min-number-genes 1 \
+      -t "$THREADS_PER_FILE" --conservative --min-score 0.8 --max-fdr 0.05 --min-number-genes 1 \
       --min-plasmid-marker-enrichment 1.5 --min-plasmid-hallmarks 1 \
       --min-plasmid-hallmarks-short-seqs 1 --max-uscg 2 
     fi
