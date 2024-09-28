@@ -10,7 +10,7 @@ OUTPUT_DIR=""
 DATABASE=""
 SAMPLETYPE=""
 REASSEMBLE=false
-VERSION="0.0.5"  # 定义版本号
+VERSION="0.1.1"  # 定义版本号
 CONCENTRATION_TYPE=""
 THREADS="0"  # 默认线程数为当前可用核心最大值
 
@@ -113,6 +113,24 @@ run_module() {
     module_runtime=$((module_end_time - module_start_time))
     log_with_timestamp "$module_name completed in ${module_runtime} seconds."
 }
+
+# Determine THREADS_PER_FILE based on THREADS input
+if [ "$THREADS" -eq 0 ]; then
+  THREADS_PER_FILE=$(nproc)
+else
+  if [ "$num_files" -gt 0 ]; then
+    THREADS_PER_FILE=$((THREADS / num_files))
+    if [ "$THREADS_PER_FILE" -lt 1 ]; then
+      THREADS_PER_FILE=1
+    fi
+  else
+    log_with_timestamp "Assign threads error. Exiting..."
+    exit 1
+  fi
+fi
+
+#Test
+THREADS_PER_FILE=$THREADS
 
 # 验证配对文件是否存在并且格式正确
 for FILE in "${RAW_SEQ_DIR}"/*_R1.*; do
