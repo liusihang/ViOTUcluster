@@ -129,7 +129,7 @@ if [ -z "$INPUT_DIR" ] || [ -z "$RAW_SEQ_DIR" ] || [ -z "$OUTPUT_DIR" ] || [ -z 
     exit 1
 fi
 
-# 运行模块并检查错误的函数，带有日志时间戳
+# 运行模块并检查错误的函数，带有日志时间戳和等待动画
 run_module() {
     local module_name=$1
     local log_file=$2
@@ -139,15 +139,47 @@ run_module() {
     local log_dir=$(dirname "$log_file")
     mkdir -p "$log_dir"
 
+    echo "Starting $module_name..."
     log_with_timestamp "Starting $module_name..."
+
+    # 启动等待动画（转圈）
+    spin='-\|/'
+    i=0
+    tput civis  # 隐藏光标
+
+    # 在后台启动一个显示转圈动画的进程
+    while true; do
+        i=$(( (i+1) % 4 ))
+        printf "\rRunning $module_name... ${spin:$i:1}"
+        sleep 0.1
+    done &
+    spinner_pid=$!
+
     module_start_time=$(date +%s)
+    
+    # 运行实际的命令并将日志重定向到 log_file
     eval "$command" > "$log_file" 2>&1
-    if [ $? -ne 0 ]; then
+
+    # 捕获退出状态
+    result=$?
+
+    # 停止等待动画
+    kill $spinner_pid  # 停止 spinner 进程
+    wait $spinner_pid 2>/dev/null  # 确保 spinner 进程已结束
+    tput cnorm  # 恢复光标
+
+    # 检查模块执行是否成功
+    if [ $result -ne 0 ]; then
+        echo "$module_name failed. Check log: $log_file"
         log_with_timestamp "Error: $module_name failed. Check log: $log_file"
         cleanup
     fi
+
     module_end_time=$(date +%s)
     module_runtime=$((module_end_time - module_start_time))
+    
+    # 记录模块完成信息
+    echo "$module_name completed in ${module_runtime} seconds."
     log_with_timestamp "$module_name completed in ${module_runtime} seconds."
 }
 
@@ -192,7 +224,8 @@ else
 fi
 
 # 重定向所有输出到日志文件
-exec > >(tee -a "$LOG_FILE" | while IFS= read -r line; do log_with_timestamp "$line"; done) 2>&1
+# 重定向所有输出到日志文件，并在终端显示
+exec > >(tee -a "$LOG_FILE" | while IFS= read -r line; do echo "$(date '+%Y-%m-%d %H:%M:%S') - $line"; done) 2>&1c
 
 # 输出选择的处理类型
 echo "Processing with $CONCENTRATION_TYPE mode and $THREADS threads."
