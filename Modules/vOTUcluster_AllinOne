@@ -112,7 +112,7 @@ env >> "$LOG_FILE"
 # Redirect all output to the log file and terminal with a timestamp
 exec > >(while IFS= read -r line; do log_with_timestamp "$line"; echo "$line"; done) 2>&1
 
-# Function to run modules and check for errors, with timestamp in log
+# Function to display a spinning wheel animation while running modules
 run_module() {
     local module_name=$1
     local log_file=$2
@@ -120,13 +120,39 @@ run_module() {
 
     log_with_timestamp "Starting $module_name..."
     module_start_time=$(date +%s)
+
+    # Start spinner in the background
+    spin='-\|/'
+    i=0
+    tput civis  # Hide cursor
+    while true; do
+        i=$(( (i+1) % 4 ))
+        printf "\rRunning $module_name... ${spin:$i:1}"
+        sleep 0.1
+    done &
+    spinner_pid=$!
+
+    # Run the actual command and log its output
     eval "$command" > "$log_file" 2>&1
-    if [ $? -ne 0 ]; then
+    result=$?
+
+    # Stop the spinner
+    kill $spinner_pid
+    wait $spinner_pid 2>/dev/null
+    tput cnorm  # Restore cursor
+
+    # Handle module success or failure
+    if [ $result -ne 0 ]; then
+        echo "$module_name failed. Check log: $log_file"
         log_with_timestamp "Error: $module_name failed. Check log: $log_file"
         exit 1
     fi
+
     module_end_time=$(date +%s)
     module_runtime=$((module_end_time - module_start_time))
+
+    # Log and display the completion message
+    echo "$module_name completed in ${module_runtime} seconds."
     log_with_timestamp "$module_name completed in ${module_runtime} seconds."
 }
 
@@ -209,17 +235,13 @@ run_module "Filter contigs" "${OUTPUT_DIR}/Log/filter_contigs.log" "python '${Sc
 # Find all .fa and .fasta files in the specified directory
 FILES=$(find "${OUTPUT_DIR}/FilteredSeqs" -type f \( -name "*.fa" -o -name "*.fasta" \))
 RawFILES=$(find "${INPUT_DIR}" -maxdepth 1 -type f \( -name "*.fa" -o -name "*.fasta" \))
-#num_files=$(echo "$FILES" | wc -l)
 
-# 根据 THREADS 输入确定每个文件的线程数
+# Determine threads per file based on input
 if [ "$THREADS" -eq 0 ]; then
   THREADS_PER_FILE=$(nproc)
 else
   THREADS_PER_FILE=$THREADS
 fi
-
-#Test
-THREADS_PER_FILE=$THREADS
 
 # Export necessary variables and functions
 export OUTPUT_DIR DATABASE Group FILES RawFILES CONCENTRATION_TYPE ScriptDir RAW_SEQ_DIR THREADS_PER_FILE THREADS
