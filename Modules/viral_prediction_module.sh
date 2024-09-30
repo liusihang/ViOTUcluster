@@ -85,7 +85,7 @@ process_file() {
 export -f process_file
 
 # Run the process_file function in parallel for all input files
-parallel niceload --load "$THREADS_PER_FILE" -- process_file ::: $FILES
+niceload --load "$THREADS_PER_FILE" process_file ::: $FILES
 
 # Check if all Virsorter2 tasks are completed (only when it is concentration)
 all_tasks_completed=false

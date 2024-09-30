@@ -17,11 +17,6 @@ THREADS=$(nproc)  # Default number of threads is the maximum available cores
 # Set log file path
 LOG_FILE=""
 
-# Function to add timestamp to log entries
-log_with_timestamp() {
-    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "$LOG_FILE"
-}
-
 # Use getopts to handle short options and manually handle long options
 while [[ $# -gt 0 ]]; do
   case $1 in
@@ -90,11 +85,22 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# Check if necessary inputs have been provided
-if [ -z "$INPUT_DIR" ] || [ -z "$RAW_SEQ_DIR" ] || [ -z "$OUTPUT_DIR" ] || [ -z "$DATABASE" ] || [ -z "$SAMPLETYPE" ] || [ -z "$CONCENTRATION_TYPE" ]; then
-    echo "Usage: $0 -i <input_path_to_search> -r <input_path_raw_seqs> -o <output_path> -d <database_path> -t <sample_type> -n <threads> --non-con/--con [--reassemble]"
-    exit 1
+# Ensure output directory and log file are created
+if [ -z "$OUTPUT_DIR" ]; then
+  echo "Error: Output directory not specified"
+  exit 1
 fi
+
+# Function to add timestamp to log entries
+log_with_timestamp() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "$LOG_FILE"
+}
+
+# Create output directory if it doesn't exist
+mkdir -p "$OUTPUT_DIR"
+
+# Create log file if it doesn't exist
+touch "$LOG_FILE"
 
 # Log the command with a timestamp
 log_with_timestamp "Run ViOTUcluster as command: $0 $@"
@@ -203,21 +209,13 @@ run_module "Filter contigs" "${OUTPUT_DIR}/Log/filter_contigs.log" "python '${Sc
 # Find all .fa and .fasta files in the specified directory
 FILES=$(find "${OUTPUT_DIR}/FilteredSeqs" -type f \( -name "*.fa" -o -name "*.fasta" \))
 RawFILES=$(find "${INPUT_DIR}" -maxdepth 1 -type f \( -name "*.fa" -o -name "*.fasta" \))
-num_files=$(echo "$FILES" | wc -l)
+#num_files=$(echo "$FILES" | wc -l)
 
-# Determine THREADS_PER_FILE based on THREADS input
+# 根据 THREADS 输入确定每个文件的线程数
 if [ "$THREADS" -eq 0 ]; then
   THREADS_PER_FILE=$(nproc)
 else
-  if [ "$num_files" -gt 0 ]; then
-    THREADS_PER_FILE=$((THREADS / num_files))
-    if [ "$THREADS_PER_FILE" -lt 1 ]; then
-      THREADS_PER_FILE=1
-    fi
-  else
-    log_with_timestamp "Assign threads error. Exiting..."
-    exit 1
-  fi
+  THREADS_PER_FILE=$THREADS
 fi
 
 #Test

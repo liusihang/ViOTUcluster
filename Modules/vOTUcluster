@@ -17,7 +17,18 @@ THREADS="0"  # 默认线程数为当前可用核心最大值
 # 设置日志文件路径
 LOG_FILE=""
 
-# 记录日志时添加时间戳的函数
+# 捕获 SIGINT (Ctrl+C) 和 SIGTERM 信号并杀死所有子进程
+trap 'cleanup' SIGINT SIGTERM
+
+# 清理函数，用于终止所有子进程
+cleanup() {
+    log_with_timestamp "Caught termination signal. Cleaning up..."
+    # 终止当前进程组中的所有子进程
+    kill 0
+    exit 1
+}
+
+# 添加时间戳到日志条目的函数
 log_with_timestamp() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "$LOG_FILE"
 }
@@ -90,47 +101,66 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# 检查必要的输入是否已提供
+# 确保输出目录和日志文件已创建
+if [ -z "$OUTPUT_DIR" ]; then
+  echo "Error: Output directory not specified"
+  exit 1
+fi
+
+# 创建输出目录（如果不存在）
+mkdir -p "$OUTPUT_DIR"
+
+# 创建日志文件（如果不存在）
+touch "$LOG_FILE"
+
+# 将命令记录到日志中
+log_with_timestamp "Run ViOTUcluster as command: $0 $@"
+
+# 将所有环境变量记录到日志中
+log_with_timestamp "Environment variables at start:"
+env >> "$LOG_FILE"
+
+# 重定向所有输出到日志文件和终端，并加上时间戳
+exec > >(while IFS= read -r line; do log_with_timestamp "$line"; echo "$line"; done) 2>&1
+
+# 检查是否提供了必要的输入
 if [ -z "$INPUT_DIR" ] || [ -z "$RAW_SEQ_DIR" ] || [ -z "$OUTPUT_DIR" ] || [ -z "$DATABASE" ] || [ -z "$SAMPLETYPE" ] || [ -z "$CONCENTRATION_TYPE" ]; then
     echo "Usage: $0 -i <input_path_to_search> -r <input_path_raw_seqs> -o <output_path> -d <database_path> -t <sample_type> -n <threads> --non-con/--con [--reassemble]"
     exit 1
 fi
 
-# 模块执行函数，检查是否报错并添加时间戳
+# 运行模块并检查错误的函数，带有日志时间戳
 run_module() {
     local module_name=$1
     local log_file=$2
     local command=$3
+
+    # 确保日志文件的目录已存在
+    local log_dir=$(dirname "$log_file")
+    mkdir -p "$log_dir"
 
     log_with_timestamp "Starting $module_name..."
     module_start_time=$(date +%s)
     eval "$command" > "$log_file" 2>&1
     if [ $? -ne 0 ]; then
         log_with_timestamp "Error: $module_name failed. Check log: $log_file"
-        exit 1
+        cleanup
     fi
     module_end_time=$(date +%s)
     module_runtime=$((module_end_time - module_start_time))
     log_with_timestamp "$module_name completed in ${module_runtime} seconds."
 }
 
-# Determine THREADS_PER_FILE based on THREADS input
+# 查找指定目录中的所有 .fa 和 .fasta 文件，并根据可用的核心数分配线程
+FILES=$(find "${OUTPUT_DIR}/FilteredSeqs" -type f \( -name "*.fa" -o -name "*.fasta" \))
+RawFILES=$(find "${INPUT_DIR}" -maxdepth 1 -type f \( -name "*.fa" -o -name "*.fasta" \))
+
+# 根据 THREADS 输入确定每个文件的线程数
 if [ "$THREADS" -eq 0 ]; then
   THREADS_PER_FILE=$(nproc)
 else
-  if [ "$num_files" -gt 0 ]; then
-    THREADS_PER_FILE=$((THREADS / num_files))
-    if [ "$THREADS_PER_FILE" -lt 1 ]; then
-      THREADS_PER_FILE=1
-    fi
-  else
-    log_with_timestamp "Assign threads error. Exiting..."
-    exit 1
-  fi
+  THREADS_PER_FILE=$THREADS
 fi
-
-#Test
-THREADS_PER_FILE=$THREADS
 
 # 验证配对文件是否存在并且格式正确
 for FILE in "${RAW_SEQ_DIR}"/*_R1.*; do
@@ -147,7 +177,7 @@ for FILE in "${RAW_SEQ_DIR}"/*_R1.*; do
     log_with_timestamp "Found paired files: ${PREFIX}_R1.fastq.gz and ${PREFIX}_R2.fastq.gz"
   else
     log_with_timestamp "Error: Paired-end files for ${BASENAME} not found in the expected formats (.fq, .fastq, .fq.gz, .fastq.gz)"
-    exit 1
+    cleanup
   fi
 done
 
@@ -158,11 +188,35 @@ elif [ "$CONCENTRATION_TYPE" == "concentration" ]; then
     log_with_timestamp "Running concentration specific steps..."
 else
     log_with_timestamp "Error: Invalid concentration type."
-    exit 1
+    cleanup
 fi
 
 # 重定向所有输出到日志文件
 exec > >(tee -a "$LOG_FILE" | while IFS= read -r line; do log_with_timestamp "$line"; done) 2>&1
+
+# 输出选择的处理类型
+echo "Processing with $CONCENTRATION_TYPE mode and $THREADS threads."
+
+# 获取当前 Conda 环境的 bin 文件夹位置
+if [ -z "$CONDA_PREFIX" ]; then
+  echo "Conda environment is not activated."
+  cleanup
+fi
+ScriptDir="${CONDA_PREFIX}/bin"
+
+# 导出参数作为环境变量
+export INPUT_DIR OUTPUT_DIR DATABASE SAMPLETYPE REASSEMBLE ScriptDir RAW_SEQ_DIR THREADS
+
+# 过滤小于2000bp的序列
+mkdir -p "${OUTPUT_DIR}/FilteredSeqs"
+python "${ScriptDir}/filter_contigs.py" "300" "${INPUT_DIR}" "${OUTPUT_DIR}/FilteredSeqs"
+
+
+# 导出必要的变量和函数
+export OUTPUT_DIR DATABASE Group FILES RawFILES CONCENTRATION_TYPE ScriptDir RAW_SEQ_DIR THREADS_PER_FILE THREADS
+
+# 按顺序执行各个模块并记录时间和日志
+mkdir -p "${OUTPUT_DIR}/Log"
 
 # 导出参数作为环境变量
 export INPUT_DIR OUTPUT_DIR DATABASE SAMPLETYPE REASSEMBLE RAW_SEQ_DIR THREADS
