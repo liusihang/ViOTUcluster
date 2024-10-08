@@ -12,7 +12,7 @@ conda_sh="$BASE_CONDA_PREFIX/etc/profile.d/conda.sh"
 export OUTPUT_DIR DATABASE Group CONCENTRATION_TYPE THREADS_PER_FILE FILES
 
 # Function
-python -c 'import os; print(os.environ.get("OUTPUT_DIR"))'
+#python -c 'import os; print(os.environ.get("OUTPUT_DIR"))'
 python "${ScriptDir}/viralprediction.py"
 
 # Check if all Virsorter2 tasks are completed 
@@ -23,6 +23,7 @@ while [ "$all_tasks_completed" == "false" ]; do
     BASENAME=$(basename "$FILE" .fa)
     BASENAME=${BASENAME%.fasta}
     Virsorter_dir="$OUTPUT_DIR/SeprateFile/${BASENAME}/RoughViralPrediction/virsorter2"
+    echo "$Virsorter_dir"
 
     if [ ! -f "$Virsorter_dir/final-viral-score.tsv" ]; then
       all_tasks_completed=false
@@ -35,5 +36,6 @@ while [ "$all_tasks_completed" == "false" ]; do
     sleep 30
   fi
 done
+
 
 echo "$(date '+%Y-%m-%d %H:%M:%S') - All Viral predictions completed."

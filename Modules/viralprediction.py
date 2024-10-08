@@ -49,7 +49,11 @@ print(f"Assigning tasks to cores: {assigned_cores}")
 
 # 处理单个文件的函数
 def process_file(file_path):
-    basename = os.path.basename(file_path).replace('.fa', '').replace('.fasta', '')
+    basename = os.path.basename(file_path)
+    if basename.endswith('.fasta'):
+        basename = basename[:-6]  # 去掉 ".fasta"
+    elif basename.endswith('.fa'):
+        basename = basename[:-3]  # 去掉 ".fa"
 
     out_dir = os.path.join(OUTPUT_DIR, 'SeprateFile', basename)
     os.makedirs(out_dir, exist_ok=True)
