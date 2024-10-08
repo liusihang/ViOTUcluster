@@ -9,103 +9,100 @@ BASE_CONDA_PREFIX=$(conda info --base)
 conda_sh="$BASE_CONDA_PREFIX/etc/profile.d/conda.sh"
 
 # Export necessary variables and functions
-export OUTPUT_DIR DATABASE Group CONCENTRATION_TYPE THREADS_PER_FILE FILES
+export OUTPUT_DIR DATABASE Group CONCENTRATION_TYPE THREADS_PER_FILE
 
-# Function to run viralverify
-run_viralverify() {
+# Main function to process files
+process_file() {
   local FILE=$1
-  local BASENAME=$(basename "$FILE")
-  local OUT_DIR="$OUTPUT_DIR/SeprateFile/${BASENAME%.*}/RoughViralPrediction/viralverify"
+  local BASENAME=$(basename "$FILE" .fa)
+  BASENAME=${BASENAME%.fasta}
+
+  local OUT_DIR="$OUTPUT_DIR/SeprateFile/${BASENAME}"
   mkdir -p "$OUT_DIR"
 
-  if [ ! -f "$OUT_DIR/${BASENAME}_result_table.csv" ]; then
-    echo "Running viralverify prediction for $FILE..."
-    viralverify -f "$FILE" -o "$OUT_DIR" --hmm "$DATABASE/ViralVerify/nbc_hmms.hmm" \
-    -t "$THREADS_PER_FILE" > "$OUT_DIR/viralverify.log" 2>&1
+  local PREDICTION_DIR="$OUT_DIR/RoughViralPrediction"
+  mkdir -p "$PREDICTION_DIR"
+
+  local Genomad_dir="$PREDICTION_DIR/genomadres"
+  mkdir -p "$Genomad_dir"
+  local Viralverify_dir="$PREDICTION_DIR/viralverify"
+  mkdir -p "$Viralverify_dir"
+
+  echo "Processing $FILE"
+
+  # Run viralverify analysis
+  if [ ! -f "$Viralverify_dir/${BASENAME}_result_table.csv" ]; then
+    echo "Running viralverify prediction..."
+    source ${conda_sh}
+    viralverify -f "$FILE" -o "$Viralverify_dir" --hmm "$DATABASE/ViralVerify/nbc_hmms.hmm" -t "$THREADS_PER_FILE" > "$Viralverify_dir/viralverify.log" 2>&1
   else
     echo "viralverify prediction already completed for $FILE, skipping..."
   fi
-}
 
-# Function to run VirSorter2
-run_virsorter() {
-  local FILE=$1
-  local BASENAME=$(basename "$FILE")
-  local OUT_DIR="$OUTPUT_DIR/SeprateFile/${BASENAME%.*}/RoughViralPrediction/virsorter2"
-  mkdir -p "$OUT_DIR"
-
-  if [ ! -f "$OUT_DIR/final-viral-score.tsv" ]; then
-    echo "Running VirSorter2 prediction for $FILE..."
-    virsorter run -w "$OUT_DIR" -i "$FILE" --include-groups "$Group" \
-    -j "$THREADS_PER_FILE" all --min-score 0.5 --min-length 300 \
-    --keep-original-seq -d "$DATABASE/db" > "$OUT_DIR/virsorter.log" 2>&1
-  else
-    echo "VirSorter2 prediction already completed for $FILE, skipping..."
-  fi
-}
-
-# Function to run Genomad
-run_genomad() {
-  local FILE=$1
-  local BASENAME=$(basename "$FILE")
-  local OUT_DIR="$OUTPUT_DIR/SeprateFile/${BASENAME%.*}/RoughViralPrediction/genomadres"
-  mkdir -p "$OUT_DIR"
-
-  if [ ! -f "$OUT_DIR/${BASENAME}_summary/${BASENAME}_virus_summary.tsv" ]; then
-    echo "Running Genomad prediction for $FILE..."
-    if [ "$CONCENTRATION_TYPE" == "concentration" ]; then
-      genomad end-to-end --enable-score-calibration "$FILE" "$OUT_DIR" "$DATABASE/genomad_db" \
-      -t "$THREADS_PER_FILE" --min-score 0.7 --max-fdr 0.05 --min-number-genes 0 \
-      --min-virus-marker-enrichment 1.5 --min-plasmid-marker-enrichment 0 --min-plasmid-hallmarks 1 \
-      --min-plasmid-hallmarks-short-seqs 0 --max-uscg 2 
-    else
-      genomad end-to-end --enable-score-calibration "$FILE" "$OUT_DIR" "$DATABASE/genomad_db" \
-      -t "$THREADS_PER_FILE" --min-score 0.8 --max-fdr 0.05 --min-number-genes 1 \
-      --min-virus-marker-enrichment 0 --min-plasmid-marker-enrichment 1.5 --min-plasmid-hallmarks 1 \
-      --min-plasmid-hallmarks-short-seqs 1 --max-uscg 2 
-    fi
-  else
-    echo "Genomad prediction already completed for $FILE, skipping..."
-  fi
-}
-
-# Export the functions to be used by parallel
-export -f run_viralverify
-export -f run_virsorter
-export -f run_genomad
-
-# Main function to process files with all three predictions in parallel
-process_file() {
-  local FILE=$1
-  run_viralverify "$FILE"
-  run_virsorter "$FILE"
-  run_genomad "$FILE"
-}
-
-export -f process_file
-
-# Run the process_file function in parallel for all input files
-niceload --load "$THREADS_PER_FILE" process_file ::: $FILES
-
-# Check if all Virsorter2 tasks are completed (only when it is concentration)
-all_tasks_completed=false
-while [ "$all_tasks_completed" == "false" ]; do
-  all_tasks_completed=true
-  for FILE in $FILES; do
-    BASENAME=$(basename "$FILE" .fa)
-    BASENAME=${BASENAME%.fasta}
-    Virsorter_dir="$OUTPUT_DIR/SeprateFile/${BASENAME}/RoughViralPrediction/virsorter2"
+  # Run Virsorter2 only when it is concentration
+  if [ "$CONCENTRATION_TYPE" == "concentration" ]; then
+    local Virsorter_dir="$PREDICTION_DIR/virsorter2"
+    mkdir -p "$Virsorter_dir"
 
     if [ ! -f "$Virsorter_dir/final-viral-score.tsv" ]; then
-      all_tasks_completed=false
-      echo "Virsorter2 still in processing"
-      break
+      echo "Running Virsorter2 prediction..."
+      virsorter run -w "$Virsorter_dir" -i "$FILE" --include-groups "$Group" -j "$THREADS_PER_FILE" all --min-score 0.5 --min-length 300 --keep-original-seq -d "$DATABASE/db" > "$Virsorter_dir/virsorter.log" 2>&1
+    else
+      echo "Virsorter2 prediction already completed for $FILE, skipping..."
     fi
-  done
+  fi
 
-  if [ "$all_tasks_completed" == "false" ]; then
-    sleep 30
+  echo "All predictions completed for $FILE"
+}
+
+# Submit SLURM job for each file
+for FILE in $FILES; do
+  sbatch --cpus-per-task='32' --wrap="process_file $FILE"
+done
+
+# Perform Genomad analysis
+for FILE in $FILES; do
+  echo "Processing $FILE"
+  BASENAME=$(basename "$FILE" .fa)
+  BASENAME=${BASENAME%.fasta}
+
+  OUT_DIR="$OUTPUT_DIR/SeprateFile/${BASENAME}"
+  PREDICTION_DIR="$OUT_DIR/RoughViralPrediction"
+
+  # Genomad prediction
+  echo -e "\n \n \n # Performing genomad prediction!!! \n \n \n"
+  Genomad_dir="$PREDICTION_DIR/genomadres"
+  mkdir -p "$Genomad_dir"
+
+  if [ ! -f "$Genomad_dir/${BASENAME}_summary/${BASENAME}_virus_summary.tsv" ]; then
+    sbatch --cpus-per-task='32' --wrap="genomad end-to-end --enable-score-calibration $FILE $Genomad_dir $DATABASE/genomad_db -t $THREADS_PER_FILE"
+    echo -e "\n \n \n # Genomad prediction submitted!!! \n \n \n"
+  else
+    echo "genomad prediction already completed for $FILE, skipping..."
   fi
 done
+
+# Check if all Virsorter2 tasks are completed (only when it is concentration)
+if [ "$CONCENTRATION_TYPE" == "concentration" ]; then
+  all_tasks_completed=false
+  while [ "$all_tasks_completed" == "false" ]; do
+    all_tasks_completed=true
+    for FILE in $FILES; do
+      BASENAME=$(basename "$FILE" .fa)
+      BASENAME=${BASENAME%.fasta}
+      Virsorter_dir="$OUTPUT_DIR/SeprateFile/${BASENAME}/RoughViralPrediction/virsorter2"
+
+      if [ ! -f "$Virsorter_dir/final-viral-score.tsv" ]; then
+        all_tasks_completed=false
+        echo "Virsorter2 still in processing"
+        break
+      fi
+    done
+
+    if [ "$all_tasks_completed" == "false" ]; then
+      sleep 30
+    fi
+  done
+fi
 
 echo "All files have been processed."

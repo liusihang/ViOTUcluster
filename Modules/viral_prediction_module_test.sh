@@ -12,9 +12,10 @@ conda_sh="$BASE_CONDA_PREFIX/etc/profile.d/conda.sh"
 export OUTPUT_DIR DATABASE Group CONCENTRATION_TYPE THREADS_PER_FILE FILES
 
 # Function
-python viralprediction.py
+python -c 'import os; print(os.environ.get("OUTPUT_DIR"))'
+python "${ScriptDir}/viralprediction.py"
 
-# Check if all Virsorter2 tasks are completed (only when it is concentration)
+# Check if all Virsorter2 tasks are completed 
 all_tasks_completed=false
 while [ "$all_tasks_completed" == "false" ]; do
   all_tasks_completed=true
@@ -25,7 +26,7 @@ while [ "$all_tasks_completed" == "false" ]; do
 
     if [ ! -f "$Virsorter_dir/final-viral-score.tsv" ]; then
       all_tasks_completed=false
-      echo "Virsorter2 still in processing"
+      echo "$(date '+%Y-%m-%d %H:%M:%S') - Viral prediction still in processing"
       break
     fi
   done
@@ -35,4 +36,4 @@ while [ "$all_tasks_completed" == "false" ]; do
   fi
 done
 
-echo "All files have been processed."
+echo "$(date '+%Y-%m-%d %H:%M:%S') - All Viral predictions completed."

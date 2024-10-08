@@ -89,41 +89,25 @@ if CONCENTRATION_TYPE == "concentration":
 
     # Merge Pass1 results for concentration type
     AllPass_series = merge_lists(virsorter2_list1, genomad_list1, viralverify_list1)
-    # Read and filter plasmid data from Genomad data
-    plasmid_sequences = read_plasmid_data(Genomadpath)
-
-    # Read and filter non-viral sequences (Plasmid, Chromosome, Uncertain - plasmid or chromosomal) from ViralVerify data
-    nonviral_sequences = read_and_filter_viralverify_nonviral(Viralverifypath)
-
-    # Remove all sequences in plasmid_sequences and nonviral_sequences from AllPass_series
-    AllPass_series = AllPass_series[~AllPass_series.isin(plasmid_sequences)]
-
-    # Create DataFrame
-    AllPass_df = pd.DataFrame(AllPass_series, columns=['Sequence Id'])
-
-    # Save to file
-    filename = Inputfile + "_viral_predictionsList.csv"
-    AllPass_df.to_csv(os.path.join(OUT_DIR, filename), index=False)
-    
 else:  # Non-concentration type
-    virsorter2_list1 = read_and_filter_virsorter2(os.path.join(Virsorterpath, "final-viral-score.tsv"), 'pass1')
     genomad_list1 = read_and_filter_genomad(os.path.join(Genomadpath), 'pass1')
     viralverify_list1 = read_and_filter_viralverify(os.path.join(Viralverifypath), 'pass1')
 
-    # Merge Pass1 results for concentration type
-    AllPass_series = merge_lists(virsorter2_list1, genomad_list1, viralverify_list1)
-    # Read and filter plasmid data from Genomad data
-    plasmid_sequences = read_plasmid_data(Genomadpath)
+    # Merge Pass1 results for non-concentration type
+    AllPass_series = merge_lists(genomad_list1, viralverify_list1)
 
-    # Read and filter non-viral sequences (Plasmid, Chromosome, Uncertain - plasmid or chromosomal) from ViralVerify data
-    nonviral_sequences = read_and_filter_viralverify_nonviral(Viralverifypath)
+# Read and filter plasmid data from Genomad data
+plasmid_sequences = read_plasmid_data(Genomadpath)
 
-    # Remove all sequences in plasmid_sequences and nonviral_sequences from AllPass_series
-    AllPass_series = AllPass_series[~AllPass_series.isin(plasmid_sequences | nonviral_sequences)]
+# Read and filter non-viral sequences (Plasmid, Chromosome, Uncertain - plasmid or chromosomal) from ViralVerify data
+nonviral_sequences = read_and_filter_viralverify_nonviral(Viralverifypath)
 
-    # Create DataFrame
-    AllPass_df = pd.DataFrame(AllPass_series, columns=['Sequence Id'])
+# Remove all sequences in plasmid_sequences and nonviral_sequences from AllPass_series
+AllPass_series = AllPass_series[~AllPass_series.isin(plasmid_sequences | nonviral_sequences)]
 
-    # Save to file
-    filename = Inputfile + "_viral_predictionsList.csv"
-    AllPass_df.to_csv(os.path.join(OUT_DIR, filename), index=False)
+# Create DataFrame
+AllPass_df = pd.DataFrame(AllPass_series, columns=['Sequence Id'])
+
+# Save to file
+filename = Inputfile + "_viral_predictionsList.csv"
+AllPass_df.to_csv(os.path.join(OUT_DIR, filename), index=False)

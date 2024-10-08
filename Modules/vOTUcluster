@@ -183,6 +183,24 @@ run_module() {
     log_with_timestamp "$module_name completed in ${module_runtime} seconds."
 }
 
+# Set Group variable based on SAMPLETYPE
+case $SAMPLETYPE in
+  DNA)
+    Group="dsDNAphage, NCLDV, ssDNA, lavidaviridae"
+    ;;
+  RNA)
+    Group="RNA, lavidaviridae"
+    ;;
+  Mix)
+    Group="dsDNAphage, NCLDV, RNA, ssDNA, lavidaviridae"
+    ;;
+  *)
+    log_with_timestamp "Unknown sample type: $SAMPLETYPE"
+    exit 1
+    ;;
+esac
+
+
 # 查找指定目录中的所有 .fa 和 .fasta 文件，并根据可用的核心数分配线程
 FILES=$(find "${OUTPUT_DIR}/FilteredSeqs" -type f \( -name "*.fa" -o -name "*.fasta" \))
 RawFILES=$(find "${INPUT_DIR}" -maxdepth 1 -type f \( -name "*.fa" -o -name "*.fasta" \))
@@ -255,7 +273,7 @@ mkdir -p "${OUTPUT_DIR}/Log"
 export INPUT_DIR OUTPUT_DIR DATABASE SAMPLETYPE REASSEMBLE RAW_SEQ_DIR THREADS
 
 # 执行模块
-run_module "Viral prediction" "${OUTPUT_DIR}/Log/viral_prediction.log" "viral_prediction_module.sh"
+run_module "Viral prediction" "${OUTPUT_DIR}/Log/viral_prediction.log" "viral_prediction_module_test.sh"
 run_module "Cross Validation" "${OUTPUT_DIR}/Log/cross_validation.log" "cross_validation_module.sh --${CONCENTRATION_TYPE}"
 run_module "Binning and merge" "${OUTPUT_DIR}/Log/binning_merge.log" "binning_merge_module.sh"
 run_module "Summary" "${OUTPUT_DIR}/Log/summary.log" "summary_module.sh"
