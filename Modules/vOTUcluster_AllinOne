@@ -13,13 +13,22 @@ REASSEMBLE=false
 VERSION="0.1.1"  # Define version number
 CONCENTRATION_TYPE=""
 THREADS=$(nproc)  # Default number of threads is the maximum available cores
-
-# Set log file path
 LOG_FILE=""
 
-# Function to add timestamp to log entries
+# Capture SIGINT (Ctrl+C) and SIGTERM signals and clean up all child processes
+trap 'cleanup' SIGINT SIGTERM
+
+# Cleanup function to terminate all child processes
+cleanup() {
+  log_with_timestamp "Caught termination signal. Cleaning up..."
+  # Terminate all child processes in the current process group
+  kill 0
+  exit 1
+}
+
+# Function to add a timestamp to log entries
 log_with_timestamp() {
-    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "$LOG_FILE"
+  echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "$LOG_FILE"
 }
 
 # Use getopts to handle short options and manually handle long options
@@ -90,39 +99,87 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# Check if necessary inputs have been provided
+# Ensure required inputs are provided
 if [ -z "$INPUT_DIR" ] || [ -z "$RAW_SEQ_DIR" ] || [ -z "$OUTPUT_DIR" ] || [ -z "$DATABASE" ] || [ -z "$SAMPLETYPE" ] || [ -z "$CONCENTRATION_TYPE" ]; then
     echo "Usage: $0 -i <input_path_to_search> -r <input_path_raw_seqs> -o <output_path> -d <database_path> -t <sample_type> -n <threads> --non-con/--con [--reassemble]"
     exit 1
 fi
 
-# Log the command with a timestamp
-log_with_timestamp "Run ViOTUcluster as command: $0 $@"
+# Ensure log file is created
+mkdir -p "$OUTPUT_DIR"
+touch "$LOG_FILE"
+
+# Log the command to the log file
+log_with_timestamp "Run ViOTUcluster as command: $0 \"$@\""
 
 # Log all environment variables with a timestamp
-log_with_timestamp "Environment variables at start:"
-env >> "$LOG_FILE"
+#log_with_timestamp "Environment variables at start:"
+#env >> "$LOG_FILE"
 
 # Redirect all output to the log file and terminal with a timestamp
 exec > >(while IFS= read -r line; do log_with_timestamp "$line"; echo "$line"; done) 2>&1
 
 # Function to run modules and check for errors, with timestamp in log
 run_module() {
-    local module_name=$1
-    local log_file=$2
-    local command=$3
+  local module_name="$1"
+  local log_file="$2"
+  local command="$3"
 
-    log_with_timestamp "Starting $module_name..."
-    module_start_time=$(date +%s)
-    eval "$command" > "$log_file" 2>&1
-    if [ $? -ne 0 ]; then
-        log_with_timestamp "Error: $module_name failed. Check log: $log_file"
-        exit 1
-    fi
-    module_end_time=$(date +%s)
-    module_runtime=$((module_end_time - module_start_time))
-    log_with_timestamp "$module_name completed in ${module_runtime} seconds."
+  # Ensure the directory for the module log file exists
+  mkdir -p "$(dirname "$log_file")"
+
+  echo "Starting $module_name..."
+  log_with_timestamp "Starting $module_name..."
+
+  # Start spinner animation
+  local spin='-\|/'
+  local i=0
+  tput civis > /dev/tty  # Hide cursor, output directed to terminal
+
+  # Start a background process to display the spinner animation, output only to terminal
+  (
+    while true; do
+      i=$(( (i+1) % 4 ))
+      printf "\rRunning %s... %s" "$module_name" "${spin:$i:1}" > /dev/tty
+      sleep 0.1
+    done
+  ) &
+  local spinner_pid=$!
+
+  local module_start_time
+  module_start_time=$(date +%s)
+
+  # Run the actual command, append output to the module log file, and display timestamped logs in the terminal
+  eval "$command" | tee -a "$log_file" | while IFS= read -r line; do
+    log_with_timestamp "$line"
+  done
+
+  # Capture the exit status of the command
+  local result=${PIPESTATUS[0]}
+
+  # Stop the spinner animation
+  kill "$spinner_pid" 2>/dev/null
+  wait "$spinner_pid" 2>/dev/null
+  tput cnorm > /dev/tty  # Restore cursor, only affects terminal
+
+  # Clear the spinner line
+  printf "\r\033[K" > /dev/tty
+
+  # Check if the module execution was successful
+  if [ "$result" -ne 0 ]; then
+    echo "$module_name failed. Check log: $log_file"
+    log_with_timestamp "Error: $module_name failed. Check log: $log_file"
+    cleanup
+  fi
+
+  local module_end_time
+  module_end_time=$(date +%s)
+  local module_runtime=$((module_end_time - module_start_time))
+
+  echo "$module_name completed in ${module_runtime} seconds."
+  log_with_timestamp "$module_name completed in ${module_runtime} seconds."
 }
+
 
 # Check if paired files exist and have the correct format
 for FILE in "${RAW_SEQ_DIR}"/*_R1.*; do
@@ -170,10 +227,10 @@ case $SAMPLETYPE in
     ;;
 esac
 
-# Output selected processing type
+# Log selected processing type
 log_with_timestamp "Processing with $CONCENTRATION_TYPE mode and $THREADS threads."
 
-# Get bin folder location of current Conda environment
+# Get bin folder location of the current Conda environment
 if [ -z "$CONDA_PREFIX" ]; then
   log_with_timestamp "Conda environment is not activated."
   exit 1
@@ -181,47 +238,36 @@ fi
 ScriptDir="${CONDA_PREFIX}/bin"
 
 # Export parameters as environment variables
-export RAW_SEQ_DIR OUTPUT_DIR DATABASE SAMPLETYPE REASSEMBLE ASSEMBLY_SOFTWARE
+export RAW_SEQ_DIR OUTPUT_DIR DATABASE SAMPLETYPE REASSEMBLE ScriptDir
 
+# Prepare directories for logs
 mkdir -p "${OUTPUT_DIR}/Log"
 
-# Run each module and check for errors
-run_module "Raw sequences Process" "${OUTPUT_DIR}/Log/Preprocess.log" "Preprocess_module.sh '${RAW_SEQ_DIR}' '${ASSEMBLY_SOFTWARE}' '${OUTPUT_DIR}'"
+# Run preprocessing module
+run_module "Preprocess raw sequences" "${OUTPUT_DIR}/Log/Preprocess.log" "Preprocess_module.sh '${RAW_SEQ_DIR}' '${OUTPUT_DIR}'"
 
-# Update exported parameters
+# Update exported parameters for filtering
 CONTIGS_DIR="${OUTPUT_DIR}/Contigs"
+INPUT_DIR="${CONTIGS_DIR}"
 RAW_SEQ_DIR="${OUTPUT_DIR}/Cleanreads"
-INPUT_DIR=${CONTIGS_DIR}
 
-# Export parameters
-export INPUT_DIR OUTPUT_DIR DATABASE SAMPLETYPE REASSEMBLE ScriptDir RAW_SEQ_DIR
-
-# Run filter module
+# Run filtering module
 mkdir -p "${OUTPUT_DIR}/FilteredSeqs"
 run_module "Filter contigs" "${OUTPUT_DIR}/Log/filter_contigs.log" "python '${ScriptDir}/filter_contigs.py' '${THREADS}' '${INPUT_DIR}' '${OUTPUT_DIR}/FilteredSeqs'"
 
 # Find all .fa and .fasta files in the specified directory
 FILES=$(find "${OUTPUT_DIR}/FilteredSeqs" -type f \( -name "*.fa" -o -name "*.fasta" \))
 RawFILES=$(find "${INPUT_DIR}" -maxdepth 1 -type f \( -name "*.fa" -o -name "*.fasta" \))
-num_files=$(echo "$FILES" | wc -l)
 
 # Determine THREADS_PER_FILE based on THREADS input
-if [ "$THREADS" -eq 0 ]; then
-  THREADS_PER_FILE=$(nproc)
-else
-  if [ "$num_files" -gt 0 ]; then
+num_files=$(echo "$FILES" | wc -l)
+if [ "$num_files" -gt 0 ]; then
     THREADS_PER_FILE=$((THREADS / num_files))
-    if [ "$THREADS_PER_FILE" -lt 1 ]; then
-      THREADS_PER_FILE=1
-    fi
-  else
+    [ "$THREADS_PER_FILE" -lt 1 ] && THREADS_PER_FILE=1
+else
     log_with_timestamp "Assign threads error. Exiting..."
     exit 1
-  fi
 fi
-
-#Test
-THREADS_PER_FILE=$THREADS
 
 # Export necessary variables and functions
 export OUTPUT_DIR DATABASE Group FILES RawFILES CONCENTRATION_TYPE ScriptDir RAW_SEQ_DIR THREADS_PER_FILE THREADS
@@ -229,7 +275,7 @@ export OUTPUT_DIR DATABASE Group FILES RawFILES CONCENTRATION_TYPE ScriptDir RAW
 # Run viral prediction module
 run_module "Viral prediction" "${OUTPUT_DIR}/Log/viral_prediction.log" "viral_prediction_module.sh"
 
-# Cross Validation module
+# Run cross-validation module if not already completed
 LOG_FILE="${OUTPUT_DIR}/Log/cross_validation.log"
 KEYWORD="Cross Validation completed"
 if [ -f "$LOG_FILE" ] && grep -q "$KEYWORD" "$LOG_FILE"; then
@@ -238,13 +284,13 @@ else
     run_module "Cross Validation" "$LOG_FILE" "cross_validation_module.sh --${CONCENTRATION_TYPE}"
 fi
 
-# Run Binning and Merge module
+# Run binning and merging module
 run_module "Binning and merge" "${OUTPUT_DIR}/Log/binning_merge.log" "binning_merge_module.sh"
 
-# Run Summary module
+# Run summary module
 run_module "Summary" "${OUTPUT_DIR}/Log/summary.log" "summary_module.sh"
 
-# Run dRep module
+# Run dRep module if not already completed
 LOG_FILE="${OUTPUT_DIR}/Log/drep.log"
 if [ -f "$LOG_FILE" ] && grep -q "Combined fasta files and quality summaries completed." "$LOG_FILE"; then
     log_with_timestamp "dRep module already completed, skipping..."
@@ -252,7 +298,7 @@ else
     run_module "dRep" "$LOG_FILE" "drep_module.sh"
 fi
 
-# Run TPM calculation module
+# Run TPM calculation module if not already completed
 LOG_FILE="${OUTPUT_DIR}/Log/TPM_caculate.log"
 if [ -f "$LOG_FILE" ] && grep -q "TPM calculation completed successfully." "$LOG_FILE"; then
     log_with_timestamp "TPM calculation already completed, skipping..."
@@ -266,7 +312,7 @@ run_module "DRAM" "${OUTPUT_DIR}/Log/DRAM.log" "run_dram_analysis.sh '${OUTPUT_D
 # Run iPhop module
 run_module "iPhop" "${OUTPUT_DIR}/Log/iPhop.log" "run_iphop_analysis.sh '${OUTPUT_DIR}/Summary/Viralcontigs/vOTU.fasta' '${OUTPUT_DIR}/Summary/iPhop'"
 
-# Record end time and calculate total runtime of the entire pipeline
+# Record end time and calculate total runtime
 end_time=$(date +%s)
 total_runtime=$((end_time - start_time))
 log_with_timestamp "Total runtime: ${total_runtime} seconds"
