@@ -1,278 +1,268 @@
 #!/usr/bin/env bash
 
-# 记录开始时间
+# Record start time
 start_time=$(date +%s)
 
-# 初始化变量
+# Initialize variables
 INPUT_DIR=""
 RAW_SEQ_DIR=""
 OUTPUT_DIR=""
 DATABASE=""
 SAMPLETYPE=""
 REASSEMBLE=false
-VERSION="0.1.1"  # 定义版本号
+VERSION="0.1.1"  # Define version number
 CONCENTRATION_TYPE=""
-THREADS="0"  # 默认线程数为当前可用核心最大值
-
-# 设置日志文件路径
+THREADS="0"  # Default number of threads is the maximum available cores
 LOG_FILE=""
 
-# 捕获 SIGINT (Ctrl+C) 和 SIGTERM 信号并杀死所有子进程
+# Capture SIGINT (Ctrl+C) and SIGTERM signals and clean up all child processes
 trap 'cleanup' SIGINT SIGTERM
 
-# 清理函数，用于终止所有子进程
+# Cleanup function to terminate all child processes
 cleanup() {
-    log_with_timestamp "Caught termination signal. Cleaning up..."
-    # 终止当前进程组中的所有子进程
-    kill 0
-    exit 1
+  log_with_timestamp "Caught termination signal. Cleaning up..."
+  # Terminate all child processes in the current process group
+  kill 0
+  exit 1
 }
 
-# 添加时间戳到日志条目的函数
+# Function to add a timestamp to log entries
 log_with_timestamp() {
-    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "$LOG_FILE"
+  echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "$LOG_FILE"
 }
 
-# 使用 getopts 处理短选项和手动处理长选项
+# Use getopts to handle short options and manually handle long options
 while [[ $# -gt 0 ]]; do
   case $1 in
-    -i)
-      INPUT_DIR=$2
-      shift 2
-      ;;
-    -r)
-      RAW_SEQ_DIR=$2
-      shift 2
-      ;;
-    -o)
-      OUTPUT_DIR=$2
-      LOG_FILE="${OUTPUT_DIR}/pipeline.log"  # 设置日志文件路径
-      shift 2
-      ;;
-    -d)
-      DATABASE=$2
-      shift 2
-      ;;
-    -t)
-      SAMPLETYPE=$2
-      shift 2
-      ;;
-    -n)
-      THREADS=$2
-      shift 2
-      ;;
-    -v)
-      echo "Version: $VERSION"
-      exit 0
-      ;;
-    --non-con)
-      CONCENTRATION_TYPE="non-concentration"
-      shift
-      ;;
-    --con)
-      CONCENTRATION_TYPE="concentration"
-      shift
-      ;;
-    -h)
-      echo "Usage: $0 [options]"
-      echo ""
-      echo "Options:"
-      echo "  -i <input_path_to_search>   Specify the input directory to search for FASTA files."
-      echo "  -r <input_path_raw_seqs>    Specify the input directory to search for raw seqs files."
-      echo "  -o <output_path>            Specify the output directory for the results."
-      echo "  -d <database_path>          Specify the path to the database required for analysis."
-      echo "  -t <sample_type>            Specify the sample type: DNA, RNA, or Mix."
-      echo "  -n <threads>                Specify the number of threads to use (default: Use max available cores throughout the entire pipeline)."
-      echo "  --non-con                   Specify non-concentration processing."
-      echo "  --con                       Specify concentration processing."
-      echo "  --reassemble                Enable reassembly of bins."
-      echo "  -v                          Display the version of this script."
-      echo "  -h                          Display this help and exit."
-      exit 0
-      ;;
-    --reassemble)
-      REASSEMBLE=true
-      shift
-      ;;
-    *)
-      echo "Unknown option: $1" >&2
-      exit 1
-      ;;
+  -i)
+    INPUT_DIR=$2
+    shift 2
+    ;;
+  -r)
+    RAW_SEQ_DIR=$2
+    shift 2
+    ;;
+  -o)
+    OUTPUT_DIR=$2
+    LOG_FILE="${OUTPUT_DIR}/pipeline.log"  # Set log file path
+    shift 2
+    ;;
+  -d)
+    DATABASE=$2
+    shift 2
+    ;;
+  -t)
+    SAMPLETYPE=$2
+    shift 2
+    ;;
+  -n)
+    THREADS=$2
+    shift 2
+    ;;
+  -v)
+    echo "Version: $VERSION"
+    exit 0
+    ;;
+  --non-con)
+    CONCENTRATION_TYPE="non-concentration"
+    shift
+    ;;
+  --con)
+    CONCENTRATION_TYPE="concentration"
+    shift
+    ;;
+  --reassemble)
+    REASSEMBLE=true
+    shift
+    ;;
+  -h)
+    echo "Usage: $0 [options]"
+    echo ""
+    echo "Options:"
+    echo "  -i <input_path_to_search>   Specify the input directory to search for FASTA files."
+    echo "  -r <input_path_raw_seqs>    Specify the input directory to search for raw seqs files."
+    echo "  -o <output_path>            Specify the output directory for the results."
+    echo "  -d <database_path>          Specify the path to the database required for analysis."
+    echo "  -t <sample_type>            Specify the sample type: DNA, RNA, or Mix."
+    echo "  -n <threads>                Specify the number of threads to use (default: Use max available cores)."
+    echo "  --non-con                   Specify non-concentration processing."
+    echo "  --con                       Specify concentration processing."
+    echo "  --reassemble                Enable reassembly of bins."
+    echo "  -v                          Display the version of this script."
+    echo "  -h                          Display this help and exit."
+    exit 0
+    ;;
+  *)
+    echo "Unknown option: $1" >&2
+    exit 1
+    ;;
   esac
 done
 
-# 确保输出目录和日志文件已创建
-if [ -z "$OUTPUT_DIR" ]; then
+# Ensure output directory and log file are created
+if [ -z "$OUTPUT_DIR" ];then
   echo "Error: Output directory not specified"
   exit 1
 fi
 
-# 创建输出目录（如果不存在）
+# Create output directory (if it doesn't exist)
 mkdir -p "$OUTPUT_DIR"
-
-# 创建日志文件（如果不存在）
 touch "$LOG_FILE"
 
-# 将命令记录到日志中
-log_with_timestamp "Run ViOTUcluster as command: $0 $@"
+# Log the command to the log file
+log_with_timestamp "Run ViOTUcluster as command: $0 \"$@\""
 
-# 将所有环境变量记录到日志中
-log_with_timestamp "Environment variables at start:"
-env >> "$LOG_FILE"
+# Redirect all output to the log file and terminal, with timestamps
+exec > >(tee -a "$LOG_FILE" | while IFS= read -r line; do echo "$(date '+%Y-%m-%d %H:%M:%S') - $line"; done) 2>&1
 
-# 重定向所有输出到日志文件和终端，并加上时间戳
-exec > >(while IFS= read -r line; do log_with_timestamp "$line"; echo "$line"; done) 2>&1
-
-# 检查是否提供了必要的输入
+# Check if necessary inputs are provided
 if [ -z "$INPUT_DIR" ] || [ -z "$RAW_SEQ_DIR" ] || [ -z "$OUTPUT_DIR" ] || [ -z "$DATABASE" ] || [ -z "$SAMPLETYPE" ] || [ -z "$CONCENTRATION_TYPE" ]; then
-    echo "Usage: $0 -i <input_path_to_search> -r <input_path_raw_seqs> -o <output_path> -d <database_path> -t <sample_type> -n <threads> --non-con/--con [--reassemble]"
-    exit 1
+  echo "Usage: $0 -i <input_path_to_search> -r <input_path_raw_seqs> -o <output_path> -d <database_path> -t <sample_type> -n <threads> --non-con/--con [--reassemble]"
+  exit 1
 fi
 
-# 运行模块并检查错误的函数，带有日志时间戳和等待动画
+# Define a function to run a module and check for errors, with log timestamps and a spinner animation
 run_module() {
-    local module_name=$1
-    local log_file=$2
-    local command=$3
+  local module_name="$1"
+  local log_file="$2"
+  local command="$3"
 
-    # 确保日志文件的目录已存在
-    local log_dir=$(dirname "$log_file")
-    mkdir -p "$log_dir"
+  # Ensure the directory for the module log file exists
+  mkdir -p "$(dirname "$log_file")"
 
-    echo "Starting $module_name..."
-    log_with_timestamp "Starting $module_name..."
+  echo "Starting $module_name..."
+  log_with_timestamp "Starting $module_name..."
 
-    # 启动等待动画（转圈）
-    spin='-\|/'
-    i=0
-    tput civis  # 隐藏光标
+  # Start spinner animation
+  local spin='-\|/'
+  local i=0
+  tput civis > /dev/tty  # Hide cursor, output directed to terminal
 
-    # 在后台启动一个显示转圈动画的进程
+  # Start a background process to display the spinner animation, output only to terminal
+  (
     while true; do
-        i=$(( (i+1) % 4 ))
-        printf "\rRunning $module_name... ${spin:$i:1}"
-        sleep 0.1
-    done &
-    spinner_pid=$!
+      i=$(( (i+1) % 4 ))
+      printf "\rRunning %s... %s" "$module_name" "${spin:$i:1}" > /dev/tty
+      sleep 0.1
+    done
+  ) &
+  local spinner_pid=$!
 
-    module_start_time=$(date +%s)
-    
-    # 运行实际的命令并将日志重定向到 log_file
-    eval "$command" > "$log_file" 2>&1
+  local module_start_time
+  module_start_time=$(date +%s)
 
-    # 捕获退出状态
-    result=$?
+  # Run the actual command, append output to the module log file, and display timestamped logs in the terminal
+  eval "$command" | tee -a "$log_file" | while IFS= read -r line; do
+    log_with_timestamp "$line"
+  done
 
-    # 停止等待动画
-    kill $spinner_pid  # 停止 spinner 进程
-    wait $spinner_pid 2>/dev/null  # 确保 spinner 进程已结束
-    tput cnorm  # 恢复光标
+  # Capture the exit status of the command
+  local result=${PIPESTATUS[0]}
 
-    # 检查模块执行是否成功
-    if [ $result -ne 0 ]; then
-        echo "$module_name failed. Check log: $log_file"
-        log_with_timestamp "Error: $module_name failed. Check log: $log_file"
-        cleanup
-    fi
+  # Stop the spinner animation
+  kill "$spinner_pid" 2>/dev/null
+  wait "$spinner_pid" 2>/dev/null
+  tput cnorm > /dev/tty  # Restore cursor, only affects terminal
 
-    module_end_time=$(date +%s)
-    module_runtime=$((module_end_time - module_start_time))
-    
-    # 记录模块完成信息
-    echo "$module_name completed in ${module_runtime} seconds."
-    log_with_timestamp "$module_name completed in ${module_runtime} seconds."
+  # Clear the spinner line
+  printf "\r\033[K" > /dev/tty
+
+  # Check if the module execution was successful
+  if [ "$result" -ne 0 ]; then
+    echo "$module_name failed. Check log: $log_file"
+    log_with_timestamp "Error: $module_name failed. Check log: $log_file"
+    cleanup
+  fi
+
+  local module_end_time
+  module_end_time=$(date +%s)
+  local module_runtime=$((module_end_time - module_start_time))
+
+  echo "$module_name completed in ${module_runtime} seconds."
+  log_with_timestamp "$module_name completed in ${module_runtime} seconds."
 }
 
-# Set Group variable based on SAMPLETYPE
-case $SAMPLETYPE in
+# Set the Group variable based on SAMPLETYPE
+case "$SAMPLETYPE" in
   DNA)
-    Group="dsDNAphage, NCLDV, ssDNA, lavidaviridae"
-    ;;
+  Group="dsDNAphage, NCLDV, ssDNA, lavidaviridae"
+  ;;
   RNA)
-    Group="RNA, lavidaviridae"
-    ;;
+  Group="RNA, lavidaviridae"
+  ;;
   Mix)
-    Group="dsDNAphage, NCLDV, RNA, ssDNA, lavidaviridae"
-    ;;
+  Group="dsDNAphage, NCLDV, RNA, ssDNA, lavidaviridae"
+  ;;
   *)
-    log_with_timestamp "Unknown sample type: $SAMPLETYPE"
-    exit 1
-    ;;
+  log_with_timestamp "Unknown sample type: $SAMPLETYPE"
+  exit 1
+  ;;
 esac
 
-
-# 查找指定目录中的所有 .fa 和 .fasta 文件，并根据可用的核心数分配线程
+# Find all .fa and .fasta files in the specified directory and allocate threads based on available cores
 FILES=$(find "${OUTPUT_DIR}/FilteredSeqs" -type f \( -name "*.fa" -o -name "*.fasta" \))
 RawFILES=$(find "${INPUT_DIR}" -maxdepth 1 -type f \( -name "*.fa" -o -name "*.fasta" \))
 
-# 根据 THREADS 输入确定每个文件的线程数
+# Determine the number of threads per file based on the THREADS input
 if [ "$THREADS" -eq 0 ]; then
   THREADS_PER_FILE=$(nproc)
 else
-  THREADS_PER_FILE=$THREADS
+  THREADS_PER_FILE="$THREADS"
 fi
 
-# 验证配对文件是否存在并且格式正确
+# Validate paired files exist and are in the correct format
 for FILE in "${RAW_SEQ_DIR}"/*_R1.*; do
   BASENAME=$(basename "$FILE" | sed 's/_R1\..*//')
   PREFIX="${RAW_SEQ_DIR}/${BASENAME}"
 
   if [ -f "${PREFIX}_R1.fq" ] && [ -f "${PREFIX}_R2.fq" ]; then
-    log_with_timestamp "Found paired files: ${PREFIX}_R1.fq and ${PREFIX}_R2.fq"
+  log_with_timestamp "Found paired files: ${PREFIX}_R1.fq and ${PREFIX}_R2.fq"
   elif [ -f "${PREFIX}_R1.fastq" ] && [ -f "${PREFIX}_R2.fastq" ]; then
-    log_with_timestamp "Found paired files: ${PREFIX}_R1.fastq and ${PREFIX}_R2.fastq"
+  log_with_timestamp "Found paired files: ${PREFIX}_R1.fastq and ${PREFIX}_R2.fastq"
   elif [ -f "${PREFIX}_R1.fq.gz" ] && [ -f "${PREFIX}_R2.fq.gz" ]; then
-    log_with_timestamp "Found paired files: ${PREFIX}_R1.fq.gz and ${PREFIX}_R2.fq.gz"
+  log_with_timestamp "Found paired files: ${PREFIX}_R1.fq.gz and ${PREFIX}_R2.fq.gz"
   elif [ -f "${PREFIX}_R1.fastq.gz" ] && [ -f "${PREFIX}_R2.fastq.gz" ]; then
-    log_with_timestamp "Found paired files: ${PREFIX}_R1.fastq.gz and ${PREFIX}_R2.fastq.gz"
+  log_with_timestamp "Found paired files: ${PREFIX}_R1.fastq.gz and ${PREFIX}_R2.fastq.gz"
   else
-    log_with_timestamp "Error: Paired-end files for ${BASENAME} not found in the expected formats (.fq, .fastq, .fq.gz, .fastq.gz)"
-    cleanup
+  log_with_timestamp "Error: Paired-end files for ${BASENAME} not found in the expected formats (.fq, .fastq, .fq.gz, .fastq.gz)"
+  cleanup
   fi
 done
 
-# 根据 CONCENTRATION_TYPE 进行不同的处理
+# Perform different processing based on CONCENTRATION_TYPE
 if [ "$CONCENTRATION_TYPE" == "non-concentration" ]; then
-    log_with_timestamp "Running non-concentration specific steps..."
+  log_with_timestamp "Running non-concentration specific steps..."
 elif [ "$CONCENTRATION_TYPE" == "concentration" ]; then
-    log_with_timestamp "Running concentration specific steps..."
+  log_with_timestamp "Running concentration specific steps..."
 else
-    log_with_timestamp "Error: Invalid concentration type."
-    cleanup
+  log_with_timestamp "Error: Invalid concentration type."
+  cleanup
 fi
 
-# 重定向所有输出到日志文件
-# 重定向所有输出到日志文件，并在终端显示
-exec > >(tee -a "$LOG_FILE" | while IFS= read -r line; do echo "$(date '+%Y-%m-%d %H:%M:%S') - $line"; done) 2>&1c
-
-# 输出选择的处理类型
+# Output the selected processing type
 echo "Processing with $CONCENTRATION_TYPE mode and $THREADS threads."
 
-# 获取当前 Conda 环境的 bin 文件夹位置
+# Get the bin folder location of the current Conda environment
 if [ -z "$CONDA_PREFIX" ]; then
   echo "Conda environment is not activated."
   cleanup
 fi
 ScriptDir="${CONDA_PREFIX}/bin"
 
-# 导出参数作为环境变量
+# Export parameters as environment variables
 export INPUT_DIR OUTPUT_DIR DATABASE SAMPLETYPE REASSEMBLE ScriptDir RAW_SEQ_DIR THREADS
 
-# 过滤小于2000bp的序列
+# Filter sequences shorter than 2000bp
 mkdir -p "${OUTPUT_DIR}/FilteredSeqs"
 python "${ScriptDir}/filter_contigs.py" "300" "${INPUT_DIR}" "${OUTPUT_DIR}/FilteredSeqs"
 
-
-# 导出必要的变量和函数
+# Export necessary variables and functions
 export OUTPUT_DIR DATABASE Group FILES RawFILES CONCENTRATION_TYPE ScriptDir RAW_SEQ_DIR THREADS_PER_FILE THREADS
 
-# 按顺序执行各个模块并记录时间和日志
+# Execute each module in sequence, logging time and output
 mkdir -p "${OUTPUT_DIR}/Log"
 
-# 导出参数作为环境变量
-export INPUT_DIR OUTPUT_DIR DATABASE SAMPLETYPE REASSEMBLE RAW_SEQ_DIR THREADS
-
-# 执行模块
+# Execute modules
 run_module "Viral prediction" "${OUTPUT_DIR}/Log/viral_prediction.log" "viral_prediction_module_test.sh"
 run_module "Cross Validation" "${OUTPUT_DIR}/Log/cross_validation.log" "cross_validation_module.sh --${CONCENTRATION_TYPE}"
 run_module "Binning and merge" "${OUTPUT_DIR}/Log/binning_merge.log" "binning_merge_module.sh"
@@ -282,7 +272,7 @@ run_module "TPM calculate" "${OUTPUT_DIR}/Log/TPM_caculate.log" "TPM_caculate_Mo
 run_module "DRAM" "${OUTPUT_DIR}/Log/DRAM.log" "run_dram_analysis.sh ${OUTPUT_DIR}/Summary/Viralcontigs/vOTU.fasta ${OUTPUT_DIR}/Summary/DRAM"
 run_module "iPhop" "${OUTPUT_DIR}/Log/iPhop.log" "run_iphop_analysis.sh ${OUTPUT_DIR}/Summary/Viralcontigs/vOTU.fasta ${OUTPUT_DIR}/Summary/iPhop"
 
-# 记录结束时间并计算整个流程的总耗时
+# Record end time and calculate total runtime
 end_time=$(date +%s)
 total_runtime=$((end_time - start_time))
 log_with_timestamp "Total runtime: ${total_runtime} seconds"
