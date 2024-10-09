@@ -152,10 +152,9 @@ run_module() {
   module_start_time=$(date +%s)
 
   # Run the actual command, append output to the module log file, and display timestamped logs in the terminal
-  eval "$command" | tee -a "$log_file" | while IFS= read -r line; do
-    log_with_timestamp "$line"
+  eval "stdbuf -oL $command" | tee -a "$log_file" | while IFS= read -r line; do
+      log_with_timestamp "$line"
   done
-
   # Capture the exit status of the command
   local result=${PIPESTATUS[0]}
 

@@ -10,26 +10,25 @@ import time
 import glob
 import signal
 
-# 确保必要的环境变量已设置
+# Ensure necessary environment variables are set
 required_env_vars = ['OUTPUT_DIR', 'DATABASE', 'Group', 'CONCENTRATION_TYPE', 'THREADS']
 for var in required_env_vars:
     if var not in os.environ:
         print(f"Environment variable {var} is not set.")
         sys.exit(1)
 
-# 获取环境变量
+# Get environment variables
 OUTPUT_DIR = os.environ['OUTPUT_DIR']
 DATABASE = os.environ['DATABASE']
 Group = os.environ['Group']
 CONCENTRATION_TYPE = os.environ['CONCENTRATION_TYPE']
-THREADS = int(os.environ['THREADS'])  # 获取最大线程数
+THREADS = int(os.environ['THREADS'])  # Get the maximum number of threads
 
-# 从环境变量 $FILES 获取文件列表，或从默认目录获取
+# Get file list from environment variable $FILES, or from default directory
 FILES = os.environ.get('FILES')
 if FILES:
     files_list = FILES.strip().split()
 else:
-    # 假设文件位于默认目录；根据需要调整
     files_list = glob.glob(os.path.join(OUTPUT_DIR, 'FilteredSeqs', '*.fa')) + \
                  glob.glob(os.path.join(OUTPUT_DIR, 'FilteredSeqs', '*.fasta'))
 
@@ -37,23 +36,24 @@ if not files_list:
     print("No files to process.")
     sys.exit(1)
 
-# 计算所需的核心数。例如，16 个线程可以使用 8 个核心（每个核心 2 个线程）
-CORES_TO_USE = THREADS  # 例如 16 线程 -> 8 核心
+# Calculate the number of cores needed. For example, 16 threads can use 8 cores (2 threads per core)
+CORES_TO_USE = THREADS  # For example, 16 threads -> 8 cores
 
-# 获取可用的所有核心，假设系统总共有 16 个核心（您可以动态获取核心数）
-all_cores = list(range(multiprocessing.cpu_count()))  # 获取系统所有核心编号
+# Get all available cores, assuming the system has a total of 16 cores (you can dynamically get the number of cores)
+all_cores = list(range(multiprocessing.cpu_count()))  # Get all core numbers of the system
 
-# 获取前 CORES_TO_USE 个核心
+# Get the first CORES_TO_USE cores
 assigned_cores = all_cores[:CORES_TO_USE]
 print(f"Assigning tasks to cores: {assigned_cores}")
 
-# 处理单个文件的函数
+# Function to process a single file
 def process_file(file_path):
     basename = os.path.basename(file_path)
     if basename.endswith('.fasta'):
         basename = basename[:-6]  # 去掉 ".fasta"
     elif basename.endswith('.fa'):
         basename = basename[:-3]  # 去掉 ".fa"
+
 
     out_dir = os.path.join(OUTPUT_DIR, 'SeprateFile', basename)
     os.makedirs(out_dir, exist_ok=True)
@@ -70,54 +70,94 @@ def process_file(file_path):
     genomad_dir = os.path.join(prediction_dir, 'genomadres')
     os.makedirs(genomad_dir, exist_ok=True)
 
-    print(f"Processing {file_path}")
-
     try:
-        # 启动外部任务并绑定到指定的核心
-        process = subprocess.Popen(['viralverify', '-f', file_path, '-o', viralverify_dir,
-                                    '--hmm', os.path.join(DATABASE, 'ViralVerify', 'nbc_hmms.hmm'),
-                                    '-t', str(THREADS)])
+        # Start ViralVerify task and bind to specified cores
+        viralverify_result = os.path.join(viralverify_dir,basename,'_result_table.csv')
+        if not os.path.isfile(viralverify_result):
+            process = subprocess.Popen(
+                ['viralverify', '-f', file_path, '-o', viralverify_dir,
+                '--hmm', os.path.join(DATABASE, 'ViralVerify', 'nbc_hmms.hmm'),
+                '-t', str(THREADS)],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+            )
 
-        # 将进程绑定到指定核心
-        os.sched_setaffinity(process.pid, assigned_cores)
+            # Bind process to specified cores
+            os.sched_setaffinity(process.pid, assigned_cores)
 
-        # 运行 Genomad 任务
-        #logging.info(f"{basename}: Running Genomad end-to-end with up to {THREADS_PER_FILE} threads...")
-        genomad_cmd = [
-            'genomad', 'end-to-end', '--enable-score-calibration', file_path,
-            genomad_dir, os.path.join(DATABASE, 'genomad_db'), '-t', str(THREADS)
-        ]
-        process = subprocess.Popen(genomad_cmd)
+            # Wait for the process to complete
+            #process.wait()
+            print(f"Viralverify prediction completed for {file_path}.")
+        else:
+            print(f"Viralverify prediction already completed for {file_path}, skipping...")
+        
+        # VirSorter2 task
+        virsorter_result = os.path.join(virsorter_dir, 'final-viral-score.tsv')
+        if not os.path.isfile(virsorter_result):
+            virsorter_cmd = [
+                'virsorter', 'run', '-w', virsorter_dir, '-i', file_path,
+                '--include-groups', Group, '-j', str(THREADS),
+                'all', '--min-score', '0.5', '--min-length', '300',
+                '--keep-original-seq', '-d', os.path.join(DATABASE, 'db')
+            ]
+            process = subprocess.Popen(virsorter_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-        # 绑定 Genomad 任务到指定核心
-        os.sched_setaffinity(process.pid, assigned_cores)
+            # Bind Virsorter2 task to specified cores
+            os.sched_setaffinity(process.pid, assigned_cores)
+            #process.wait()
+            print(f"Virsorter2 prediction completed for {file_path}.")
+        else:
+            print(f"Virsorter2 prediction already completed for {file_path}, skipping...")
 
+        # Genomad task
+        genomad_result_dir = os.path.join(genomad_dir, f"{basename}_summary")
+        os.makedirs(genomad_result_dir, exist_ok=True)
 
-        # VirSorter2 任务
-        if CONCENTRATION_TYPE == "concentration":
-            virsorter_result = os.path.join(virsorter_dir, 'final-viral-score.tsv')
-            if not os.path.isfile(virsorter_result):
-                print(f"{basename}: Running Virsorter2 with up to {THREADS} threads...")
-                virsorter_cmd = [
-                    'virsorter', 'run', '-w', virsorter_dir, '-i', file_path,
-                    '--include-groups', Group, '-j', str(THREADS),
-                    'all', '--min-score', '0.5', '--min-length', '300',
-                    '--keep-original-seq', '-d', os.path.join(DATABASE, 'db')
-                ]
-                process = subprocess.Popen(virsorter_cmd)
+        if not os.path.isfile(os.path.join(genomad_result_dir, f"{basename}_virus_summary.tsv")):
+            genomad_cmd = [
+                'genomad', 'end-to-end', '--enable-score-calibration', file_path,
+                genomad_dir, os.path.join(DATABASE, 'genomad_db'), '-t', str(THREADS)
+            ]
+            process = subprocess.Popen(genomad_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-                # 绑定 Virsorter2 任务到指定核心
-                os.sched_setaffinity(process.pid, assigned_cores)
-                #process.wait()
+            # Bind Genomad task to specified cores
+            os.sched_setaffinity(process.pid, assigned_cores)
+            process.wait()
+        else:
+            print(f"{basename}: Genomad prediction already completed, skipping...")
 
         print(f"All predictions completed for {file_path}")
 
     except Exception as e:
         print(f"An error occurred while processing {file_path}: {e}")
         raise
-# 主函数
+
+# Check if VirSorter2 and Genomad tasks are completed
+def check_virsorter_completion():
+    all_tasks_completed = False
+    while not all_tasks_completed:
+        all_tasks_completed = True
+        for file_path in files_list:
+            basename = os.path.basename(file_path)
+            if basename.endswith('.fasta'):
+                basename = basename[:-6]  # 去掉 ".fasta"
+            elif basename.endswith('.fa'):
+                basename = basename[:-3]  # 去掉 ".fa"
+            virsorter_dir = os.path.join(
+                OUTPUT_DIR, 'SeprateFile', basename, 'RoughViralPrediction', 'virsorter2'
+            )
+
+            virsorter_result = os.path.join(virsorter_dir, 'final-viral-score.tsv')
+            if not os.path.isfile(virsorter_result):
+                all_tasks_completed = False
+                print("Virsorter2 still in processing")
+                break
+
+        if not all_tasks_completed:
+            time.sleep(30)
+
+# Main function
 def main():
-    # 处理终止信号
+    # Handle termination signals
     def signal_handler(sig, frame):
         print("Process interrupted. Exiting gracefully...")
         sys.exit(0)
@@ -128,20 +168,25 @@ def main():
     print(f"Total available threads: {THREADS}")
     print(f"Using {CORES_TO_USE} cores.")
 
-    # 使用 ThreadPoolExecutor 同时启动所有任务
+    # Use ThreadPoolExecutor to start all tasks simultaneously
     with ThreadPoolExecutor(max_workers=len(files_list)) as executor:
         futures = []
         for file_path in files_list:
-            # 提交任务到线程池
+            # Submit task to thread pool
             future = executor.submit(process_file, file_path)
             futures.append(future)
 
-        # 等待所有任务完成
+        # Wait for all tasks to complete
         for future in as_completed(futures):
             try:
                 future.result()
             except Exception as e:
                 print(f"Task generated an exception: {e}")
+
+    # Check if VirSorter2 and Genomad tasks are completed
+    check_virsorter_completion()
+
+    print("All files have been processed.")
 
 if __name__ == "__main__":
     main()
