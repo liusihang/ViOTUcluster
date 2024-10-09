@@ -53,6 +53,7 @@ def process_file(file_path):
         basename = basename[:-6]  # 去掉 ".fasta"
     elif basename.endswith('.fa'):
         basename = basename[:-3]  # 去掉 ".fa"
+    
 
 
     out_dir = os.path.join(OUTPUT_DIR, 'SeprateFile', basename)
@@ -72,78 +73,102 @@ def process_file(file_path):
 
     try:
         # Start ViralVerify task and bind to specified cores
-        process = subprocess.Popen(
-            ['viralverify', '-f', file_path, '-o', viralverify_dir,
-             '--hmm', os.path.join(DATABASE, 'ViralVerify', 'nbc_hmms.hmm'),
-             '-t', str(THREADS)],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-        )
+        viralverify_result = os.path.join(viralverify_dir, f'{basename}_result_table.csv')
+        if not os.path.isfile(viralverify_result):
+            print(f"Starting Viralverify prediction for {file_path}.")
+            process = subprocess.Popen(
+                ['viralverify', '-f', file_path, '-o', viralverify_dir,
+                '--hmm', os.path.join(DATABASE, 'ViralVerify', 'nbc_hmms.hmm'),
+                '-t', str(THREADS)],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            )
+            
 
-        # Bind process to specified cores
-        os.sched_setaffinity(process.pid, assigned_cores)
+            # Bind process to specified cores if supported
+            if hasattr(os, 'sched_setaffinity'):
+                os.sched_setaffinity(process.pid, assigned_cores)
 
-        # Wait for the process to complete
-        process.wait()
+            process.wait()
+            if process.returncode != 0:
+                raise RuntimeError(f"Viralverify failed with exit code {process.returncode}")
+
+            print(f"Viralverify prediction completed for {file_path}.")
+        else:
+            print(f"Viralverify prediction already completed for {file_path}, skipping...")
 
         # VirSorter2 task
-        if CONCENTRATION_TYPE == "concentration":
-            virsorter_result = os.path.join(virsorter_dir, 'final-viral-score.tsv')
-            if not os.path.isfile(virsorter_result):
-                virsorter_cmd = [
-                    'virsorter', 'run', '-w', virsorter_dir, '-i', file_path,
-                    '--include-groups', Group, '-j', str(THREADS),
-                    'all', '--min-score', '0.5', '--min-length', '300',
-                    '--keep-original-seq', '-d', os.path.join(DATABASE, 'db')
-                ]
-                process = subprocess.Popen(virsorter_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        virsorter_result = os.path.join(virsorter_dir, 'final-viral-score.tsv')
+        if not os.path.isfile(virsorter_result):
+            print(f"Starting Virsorter2 prediction for {file_path}.")
+            virsorter_cmd = [
+                'virsorter', 'run', '-w', virsorter_dir, '-i', file_path,
+                '--include-groups', Group, '-j', str(THREADS),
+                'all', '--min-score', '0.5', '--min-length', '300',
+                '--keep-original-seq', '-d', os.path.join(DATABASE, 'db')
+            ]
+            process = subprocess.Popen(virsorter_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-                # Bind Virsorter2 task to specified cores
+            # Bind Virsorter2 task to specified cores
+            if hasattr(os, 'sched_setaffinity'):
                 os.sched_setaffinity(process.pid, assigned_cores)
-                process.wait()
+
+            process.wait()
+            if process.returncode != 0:
+                raise RuntimeError(f"Virsorter2 failed with exit code {process.returncode}")
+
+            print(f"Virsorter2 prediction completed for {file_path}.")
+        else:
+            print(f"Virsorter2 prediction already completed for {file_path}, skipping...")
 
         # Genomad task
         genomad_result_dir = os.path.join(genomad_dir, f"{basename}_summary")
         os.makedirs(genomad_result_dir, exist_ok=True)
 
         if not os.path.isfile(os.path.join(genomad_result_dir, f"{basename}_virus_summary.tsv")):
+            print(f"Starting Genomad prediction for {file_path}.")
             genomad_cmd = [
                 'genomad', 'end-to-end', '--enable-score-calibration', file_path,
                 genomad_dir, os.path.join(DATABASE, 'genomad_db'), '-t', str(THREADS)
             ]
-            process = subprocess.Popen(genomad_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            process = subprocess.Popen(genomad_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
             # Bind Genomad task to specified cores
-            os.sched_setaffinity(process.pid, assigned_cores)
+            if hasattr(os, 'sched_setaffinity'):
+                os.sched_setaffinity(process.pid, assigned_cores)
+
             process.wait()
+            if process.returncode != 0:
+                raise RuntimeError(f"Genomad failed with exit code {process.returncode}")
+
+            print(f"Genomad prediction completed for {file_path}.")
         else:
             print(f"{basename}: Genomad prediction already completed, skipping...")
 
         print(f"All predictions completed for {file_path}")
 
-    except Exception as e:
+    except (subprocess.CalledProcessError, OSError) as e:
         print(f"An error occurred while processing {file_path}: {e}")
         raise
 
 # Check if VirSorter2 and Genomad tasks are completed
 def check_virsorter_completion():
-    if CONCENTRATION_TYPE == "concentration":
-        all_tasks_completed = False
-        while not all_tasks_completed:
-            all_tasks_completed = True
-            for file_path in files_list:
-                basename = os.path.basename(file_path).replace('.fa', '').replace('.fasta', '')
-                virsorter_dir = os.path.join(
-                    OUTPUT_DIR, 'SeprateFile', basename, 'RoughViralPrediction', 'virsorter2'
-                )
+    all_tasks_completed = False
+    while not all_tasks_completed:
+        all_tasks_completed = True
+        for file_path in files_list:
+            basename = os.path.basename(file_path).replace('.fa', '').replace('.fasta', '')
+            virsorter_dir = os.path.join(
+                OUTPUT_DIR, 'SeprateFile', basename, 'RoughViralPrediction', 'virsorter2'
+            )
 
-                virsorter_result = os.path.join(virsorter_dir, 'final-viral-score.tsv')
-                if not os.path.isfile(virsorter_result):
-                    all_tasks_completed = False
-                    print("Virsorter2 still in processing")
-                    break
+            virsorter_result = os.path.join(virsorter_dir, 'final-viral-score.tsv')
+            if not os.path.isfile(virsorter_result):
+                all_tasks_completed = False
+                print("Virsorter2 still in processing")
+                break
 
-            if not all_tasks_completed:
-                time.sleep(30)
+        if not all_tasks_completed:
+            time.sleep(30)
 
 # Main function
 def main():
