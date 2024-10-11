@@ -1,18 +1,17 @@
 #!/usr/bin/env bash
 
-# Record start time
+# 记录开始时间
 start_time=$(date +%s)
 
-# Initialize variables
-INPUT_DIR=""
+# 初始化变量
 RAW_SEQ_DIR=""
 OUTPUT_DIR=""
 DATABASE=""
 SAMPLETYPE=""
+ASSEMBLY_SOFTWARE=""
 REASSEMBLE=false
-VERSION="0.1.1"  # Define version number
+VERSION="0.1.1"  # 定义版本号
 CONCENTRATION_TYPE=""
-THREADS=$(nproc)  # Default number of threads is the maximum available cores
 
 # Set log file path
 LOG_FILE=""
@@ -22,56 +21,51 @@ log_with_timestamp() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "$LOG_FILE"
 }
 
-# Use getopts to handle short options and manually handle long options
+# 使用 getopts 处理短选项和手动处理长选项
 while [[ $# -gt 0 ]]; do
   case $1 in
-    -i)
-      INPUT_DIR=$2
-      shift 2
-      ;;
     -r)
       RAW_SEQ_DIR=$2
       shift 2
       ;;
     -o)
       OUTPUT_DIR=$2
-      LOG_FILE="${OUTPUT_DIR}/pipeline.log"  # Set log file path
+      LOG_FILE="${OUTPUT_DIR}/pipeline.log"  # 设置日志文件路径
       shift 2
       ;;
     -d)
       DATABASE=$2
       shift 2
       ;;
-    -t)
+    -t) # 用 't' 代表 'type'
       SAMPLETYPE=$2
       shift 2
       ;;
-    -n)
-      THREADS=$2
+    -a) # 用 'a' 代表 'assembly software'
+      ASSEMBLY_SOFTWARE=$2
       shift 2
       ;;
-    -v)
+    -v) # 显示版本信息
       echo "Version: $VERSION"
       exit 0
       ;;
-    --non-con)
+    --non-con) # non-concentration
       CONCENTRATION_TYPE="non-concentration"
       shift
       ;;
-    --con)
+    --con) # concentration
       CONCENTRATION_TYPE="concentration"
       shift
       ;;
-    -h)
+    -h) # 显示帮助信息
       echo "Usage: $0 [options]"
       echo ""
       echo "Options:"
-      echo "  -i <input_path_to_search>   Specify the input directory to search for FASTA files."
       echo "  -r <input_path_raw_seqs>    Specify the input directory to search for raw seqs files."
       echo "  -o <output_path>            Specify the output directory for the results."
       echo "  -d <database_path>          Specify the path to the database required for analysis."
       echo "  -t <sample_type>            Specify the sample type: DNA, RNA, or Mix."
-      echo "  -n <threads>                Specify the number of threads to use (default: max available cores)."
+      echo "  -a <assembly_software>      Specify the assembly software: megahit, metaspades."
       echo "  --non-con                   Specify non-concentration processing."
       echo "  --con                       Specify concentration processing."
       echo "  --reassemble                Enable reassembly of bins."
@@ -90,9 +84,15 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# Check if necessary inputs have been provided
-if [ -z "$INPUT_DIR" ] || [ -z "$RAW_SEQ_DIR" ] || [ -z "$OUTPUT_DIR" ] || [ -z "$DATABASE" ] || [ -z "$SAMPLETYPE" ] || [ -z "$CONCENTRATION_TYPE" ]; then
-    echo "Usage: $0 -i <input_path_to_search> -r <input_path_raw_seqs> -o <output_path> -d <database_path> -t <sample_type> -n <threads> --non-con/--con [--reassemble]"
+# 检查必要的输入是否已提供
+if [ -z "$RAW_SEQ_DIR" ] || [ -z "$OUTPUT_DIR" ] || [ -z "$DATABASE" ] || [ -z "$SAMPLETYPE" ] || [ -z "$CONCENTRATION_TYPE" ] || [ -z "$ASSEMBLY_SOFTWARE" ]; then
+    echo "Usage: $0 -r <input_path_raw_seqs> -o <output_path> -d <database_path> -t <sample_type> -a <assembly_software> --non-con/--con [--reassemble]"
+    exit 1
+fi
+
+# 验证组装软件选项
+if [[ "$ASSEMBLY_SOFTWARE" != "megahit" && "$ASSEMBLY_SOFTWARE" != "metaspades" ]]; then
+    echo "Error: Invalid assembly software. Please choose either 'megahit' or 'metaspades'."
     exit 1
 fi
 

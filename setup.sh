@@ -43,3 +43,10 @@ chmod +x "$CONDA_ENV_PATH/bin/*"
 virsorter setup -d "$DB_DIR" -j "$NUM_THREADS"
 checkv download_database "$DB_DIR"
 genomad download-database "$DB_DIR"
+
+# Download and unzip ViralVerify database
+echo "Downloading ViralVerify database..."
+curl -L -o "$DB_DIR/viralverify.zip" "https://figshare.com/ndownloader/files/17904323?private_link=f897d463b31a35ad7bf0"
+
+echo "Unzipping ViralVerify database..."
+unzip "$DB_DIR/viralverify.zip" -d "$DB_DIR/viralverify"

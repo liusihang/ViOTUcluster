@@ -25,17 +25,10 @@ This guide will help you set up and use the vOTUcluster environment, as well as 
     ```
     Replace `/path/to/db` with the desired database directory and `num` with the number of threads you wish to use.
 
-3. **Download viralverify database**
-
-   Download viralverify database from https://figshare.com/s/f897d463b31a35ad7bf0.
-
-   Unzip it to `/path/to/db/viralverify`
-
-   The finial folder for viralverify should looks like `/path/to/db/viralverify/nbc_hmms.hmm`
    
 ## Setup vRhyme Environment
 
-If you already have vRhyme, you can skip this section.
+If you already have vRhyme environment, you can skip this section.
 
 1. **Create and activate the vRhyme environment**
 
@@ -53,15 +46,6 @@ If you already have vRhyme, you can skip this section.
     pip install .
     ```
 
-```bash
-mamba activate vOTUcluster
-```
-
-
-## Parameters
-- **`-d <database_path>`**: Path to the directory where the VirSorter database will be set up.
-
-- **`-j <Number of Threads>`**: Number of threads to use for setting up the database and running analyses.
 ## Troubleshooting
 If you encounter any issues during the setup or usage of these environments, please refer to the following steps:
 
@@ -70,39 +54,36 @@ Check that all dependencies are correctly installed.
 Verify that the paths and environment variables are set correctly.
 For additional help, feel free to open an issue on the respective GitHub repositories.
 
-## License
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Acknowledgements
-Special thanks to the developers of the following tools and libraries used in this project:
-
-mamba
-conda-forge
-bioconda
-
 
 ## How to Use
 
 To run the pipeline, use the following command structure:
 
-```markdown
-vOTUcluster -i <input_path_to_contigs> -r <input_path_fastq> -o <output_path> -d <database_path> -t <sample_type> [--reassemble]
-```
+1. **Create and activate the vRhyme environment**
 
+    ```bash
+    vOTUcluster -i <input_path_to_contigs> -r <input_path_raw_seqs> -o <output_path> -d <database_path> -n <threads> --non-con/--con [--reassemble]
+    ```
+
+2. **Start with raw fastq files**
+    ```bash
+    vOTUcluster_AllinOne -r <input_path_raw_seqs> -o <output_path> -d <database_path> -t <sample_type> -a <assembly_software> --non-con/--con [--reassemble]"
+    ```
 ## Parameters
 
-- **`-i <input_path_to_contigs>`**: Specifies the input directory containing the assembled contigs files. These files should be in FASTA format (e.g., `example1.fasta`). Each contig file should have corresponding FASTQ files with the same prefix in the raw sequence directory.
+- **`-i <input_path_to_contigs>`**: Specifies the directory containing the assembled contig files in FASTA format (e.g., `example1.fasta`). Each contig file should have corresponding raw sequencing FASTQ files in the raw sequence directory, sharing the same prefix.
 
-- **`-r <input_path_fastq>`**: Specifies the input directory containing the raw sequencing files (FASTQ format). The FASTQ files should have the same prefix as the corresponding contigs file. For instance, if the contigs file is named `example1.fasta`, the FASTQ files should be named `example1_R1.fq` and `example1_R2.fq`.
+- **`-r <input_path_raw_seqs>`**: Specifies the directory with raw sequencing data in FASTQ format. The FASTQ files must have the same prefix as the corresponding contigs file. For example, if the contigs file is `example1.fasta`, the FASTQ files should be named `example1_R1.fq` and `example1_R2.fq`.
 
-- **`-o <output_path>`**: Specifies the output directory where the processed results will be stored. This directory will include filtered sequences, prediction results, binning outcomes, and final dereplicated viral contigs.
+- **`-o <output_path>`**: Defines the output directory for storing the processed results. This will include filtered sequences, prediction outcomes, binning results, and the final dereplicated viral contigs.
 
-- **`-d <database_path>`**: Specifies the path to the database required for various analysis steps, such as viral prediction, binning, and dereplication.
+- **`-d <database_path>`**: Points to the required database for performing viral prediction, binning, and dereplication steps.
 
-- **`-t <sample_type>`**: Specifies the type of sample being analyzed. Possible values are `DNA`, `RNA`, or `Mix`, which will determine the viral groups used during the prediction step.
+- **`--non-con/--con`**: Specifies the viral prediction criteria based on the sample preparation method. Use `--non-con` for samples that were not enriched using viral-particle concentration methods, typically containing a low viral proportion. Use `--con` for samples subjected to concentration methods, which are expected to have a medium to high viral proportion.
 
-- **`--reassemble`**: (Optional) If included, this option enables the reassembly of bins after the initial binning process. This step can improve the accuracy and quality of the final contigs. Notably, this function is still in beta stage. Enable `--reassemble` will significantly increase running time.
+- **`--reassemble`**: (Optional) Enables reassembly of bins after the initial binning process to enhance the accuracy and quality of the final contigs. This feature is still in beta and can significantly increase runtime.
 
+- **`-a <assembly_software>`**: (For `vOTUcluster_AllinOne` only) Specifies the assembly software used during the raw sequence processing. Accepted values are `-a megahit` or `-a metaspades`.
 ### File Structure Example
 
 Below is a tree list of how the file structure should be organized, assuming the prefix for the example files is `example1`:
@@ -111,20 +92,32 @@ Below is a tree list of how the file structure should be organized, assuming the
 <project_directory>/
 │
 ├── input_contigs/
-│   └── example1.fasta
+│   ├── example1.fasta
+│   └── example2.fasta
 │
 ├── input_fastq/
 │   ├── example1_R1.fq
-│   └── example1_R2.fq
+│   ├── example1_R2.fq
+│   ├── example2_R1.fq
+│   └── example2_R2.fq
 │
-├── output_results/
-│   ├── FilteredSeqs/
-│   ├── SeprateFile/
+├── output_path/
 │   ├── Summary/
-│   │   ├── unbined/
-│   │   ├── bins/
-│   │   └── Viralcontigs/
-│   └── CheckRes/
+│   │   ├── SeparateRes
+│   │   │   ├── example1
+│   │   │   │    ├── CheckVRes
+│   │   │   │    └── example1_ViralList.fasta
+│   │   │   └── example2
+│   │   │        ├── CheckVRes
+│   │   │        └── example2_ViralList.fasta
+│   │   └── vOTU
+│   │        ├── vOTU.fasta
+│   │        ├── vOTU.Abundance.csv
+│   │        ├── vOTU.Taxonomy.csv
+│   │        ├── CheckVRes
+│   │        ├── DRAMRes(Optional)
+│   │        └── iPhopRes(Optional)
+│   └── (IntermediateFile....)
 │
 └── databases/
     ├── db/                # VirSorter2 database
@@ -143,19 +136,30 @@ In this structure:
   - `checkv-db-v1.5/`: The CheckV database (version 1.5).
   - `genomad_db/`: The Genomad database.
 
-
 ### Final Output
 
-The processed data is organized in the following directory structure under the specified `OUTPUT_DIR`:
+The processed data is organized under the specified `output_path/`, with the following structure:
 
-- **`OUTPUT_DIR/FilteredSeqs`**: Contains the filtered sequences that are longer than 2000bp.
-- **`OUTPUT_DIR/SeprateFile`**: Holds individual directories for each sample, including:
-  - **`RoughViralPrediction`**: Contains the results from ViralVerify, VirSorter2, and Genomad predictions.
-  - **`Binning`**: Holds the results from vRhyme binning, including reassembly (if enabled).
-  - **`Summary`**: Contains the summarized results from binning, reassembly, and cross-validation.
-  
-- **`OUTPUT_DIR/Summary`**: Contains the final summary of all processed sequences, organized as follows:
-  - **`bins`**: Contains dereplicated bins from all samples.
-  - **`Viralcontigs`**: Final viral contigs (`vOTU.fasta`) combining both bins and unbinned sequences after clustering.
-  - **`CheckRes`**: Quality summary results from CheckV, assessing the quality of the final viral contigs.
+- **`output_path/Summary`**: Contains the final results and summaries for all processed samples, organized into the following subdirectories:
+  - **`SeparateRes`**: Holds individual directories for each sample (e.g., `example1`, `example2`), with subdirectories for specific result types, including:
+    - **`CheckVRes`**: Stores quality assessment results from CheckV for each sample.
+    - **`<sample>_ViralList.fasta`**: The list of predicted viral contigs for the respective sample.
+  - **`vOTU/`**: Contains the final processed viral OTU (vOTU) results across all samples:
+    - **`vOTU.fasta`**: The final dereplicated viral contigs after clustering from all samples.
+    - **`vOTU.Abundance.csv`**: Abundance data of the vOTUs across samples.
+    - **`vOTU.Taxonomy.csv`**: Taxonomic assignments for the vOTUs, if available.
+    - **`CheckVRes`**: Summarized CheckV quality assessments for all vOTUs.
+    - **`DRAMRes (Optional)`**: Optional results from DRAM annotation if included in the workflow.
+    - **`iPhopRes (Optional)`**: Optional results from iPhop annotation if included in the workflow.
 
+- **`output_path/IntermediateFile`**: This directory holds intermediate files generated during the processing pipeline, such as filtered sequences and any temporary data.
+
+- **`databases/`**: Stores the necessary databases used for various stages of the analysis:
+  - **`db/`**: The VirSorter2 database.
+  - **`ViralVerify/`**: The ViralVerify database, used for viral prediction.
+  - **`checkv-db-v1.5/`**: The CheckV database (version 1.5) for quality control of viral sequences.
+  - **`genomad_db/`**: The Genomad database for viral identification and dereplication.
+
+
+## License
+This project is licensed under the MIT License - see the LICENSE file for details.
