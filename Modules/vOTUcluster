@@ -51,10 +51,6 @@ while [[ $# -gt 0 ]]; do
     DATABASE=$2
     shift 2
     ;;
-  -t)
-    SAMPLETYPE=$2
-    shift 2
-    ;;
   -n)
     THREADS=$2
     shift 2
@@ -83,7 +79,7 @@ while [[ $# -gt 0 ]]; do
     echo "  -r <input_path_raw_seqs>    Specify the input directory to search for raw seqs files."
     echo "  -o <output_path>            Specify the output directory for the results."
     echo "  -d <database_path>          Specify the path to the database required for analysis."
-    echo "  -t <sample_type>            Specify the sample type: DNA, RNA, or Mix."
+    #echo "  -t <sample_type>            Specify the sample type: DNA, RNA, or Mix."
     echo "  -n <threads>                Specify the number of threads to use (default: Use max available cores)."
     echo "  --non-con                   Specify non-concentration processing."
     echo "  --con                       Specify concentration processing."
@@ -116,8 +112,8 @@ log_with_timestamp "Run ViOTUcluster as command: $0 \"$@\""
 exec > >(tee -a "$LOG_FILE" | while IFS= read -r line; do echo "$(date '+%Y-%m-%d %H:%M:%S') - $line"; done) 2>&1
 
 # Check if necessary inputs are provided
-if [ -z "$INPUT_DIR" ] || [ -z "$RAW_SEQ_DIR" ] || [ -z "$OUTPUT_DIR" ] || [ -z "$DATABASE" ] || [ -z "$SAMPLETYPE" ] || [ -z "$CONCENTRATION_TYPE" ]; then
-  echo "Usage: $0 -i <input_path_to_search> -r <input_path_raw_seqs> -o <output_path> -d <database_path> -t <sample_type> -n <threads> --non-con/--con [--reassemble]"
+if [ -z "$INPUT_DIR" ] || [ -z "$RAW_SEQ_DIR" ] || [ -z "$OUTPUT_DIR" ] || [ -z "$DATABASE" ] ||  [ -z "$CONCENTRATION_TYPE" ]; then
+  echo "Usage: $0 -i <input_path_to_search> -r <input_path_raw_seqs> -o <output_path> -d <database_path> -n <threads> --non-con/--con [--reassemble]"
   exit 1
 fi
 
@@ -182,6 +178,7 @@ run_module() {
 }
 
 # Set the Group variable based on SAMPLETYPE
+SAMPLETYPE="Mix"
 case "$SAMPLETYPE" in
   DNA)
   Group="dsDNAphage, NCLDV, ssDNA, lavidaviridae"

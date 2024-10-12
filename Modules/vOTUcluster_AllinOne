@@ -10,7 +10,7 @@ DATABASE=""
 SAMPLETYPE=""
 ASSEMBLY_SOFTWARE=""
 REASSEMBLE=false
-VERSION="0.1.1"  # 定义版本号
+VERSION="0.2.0"  # 定义版本号
 CONCENTRATION_TYPE=""
 
 # Set log file path
@@ -37,10 +37,6 @@ while [[ $# -gt 0 ]]; do
       DATABASE=$2
       shift 2
       ;;
-    -t) # 用 't' 代表 'type'
-      SAMPLETYPE=$2
-      shift 2
-      ;;
     -a) # 用 'a' 代表 'assembly software'
       ASSEMBLY_SOFTWARE=$2
       shift 2
@@ -64,7 +60,7 @@ while [[ $# -gt 0 ]]; do
       echo "  -r <input_path_raw_seqs>    Specify the input directory to search for raw seqs files."
       echo "  -o <output_path>            Specify the output directory for the results."
       echo "  -d <database_path>          Specify the path to the database required for analysis."
-      echo "  -t <sample_type>            Specify the sample type: DNA, RNA, or Mix."
+      #echo "  -t <sample_type>            Specify the sample type: DNA, RNA, or Mix."
       echo "  -a <assembly_software>      Specify the assembly software: megahit, metaspades."
       echo "  --non-con                   Specify non-concentration processing."
       echo "  --con                       Specify concentration processing."
@@ -85,8 +81,8 @@ while [[ $# -gt 0 ]]; do
 done
 
 # 检查必要的输入是否已提供
-if [ -z "$RAW_SEQ_DIR" ] || [ -z "$OUTPUT_DIR" ] || [ -z "$DATABASE" ] || [ -z "$SAMPLETYPE" ] || [ -z "$CONCENTRATION_TYPE" ] || [ -z "$ASSEMBLY_SOFTWARE" ]; then
-    echo "Usage: $0 -r <input_path_raw_seqs> -o <output_path> -d <database_path> -t <sample_type> -a <assembly_software> --non-con/--con [--reassemble]"
+if [ -z "$RAW_SEQ_DIR" ] || [ -z "$OUTPUT_DIR" ] || [ -z "$DATABASE" ] || [ -z "$CONCENTRATION_TYPE" ] || [ -z "$ASSEMBLY_SOFTWARE" ]; then
+    echo "Usage: $0 -r <input_path_raw_seqs> -o <output_path> -d <database_path> -a <assembly_software> --non-con/--con [--reassemble]"
     exit 1
 fi
 
@@ -153,21 +149,22 @@ else
     exit 1
 fi
 
-# Set Group variable based on SAMPLETYPE
-case $SAMPLETYPE in
+# Set the Group variable based on SAMPLETYPE
+SAMPLETYPE="Mix"
+case "$SAMPLETYPE" in
   DNA)
-    Group="dsDNAphage, NCLDV, ssDNA, lavidaviridae"
-    ;;
+  Group="dsDNAphage, NCLDV, ssDNA, lavidaviridae"
+  ;;
   RNA)
-    Group="RNA, lavidaviridae"
-    ;;
+  Group="RNA, lavidaviridae"
+  ;;
   Mix)
-    Group="dsDNAphage, NCLDV, RNA, ssDNA, lavidaviridae"
-    ;;
+  Group="dsDNAphage, NCLDV, RNA, ssDNA, lavidaviridae"
+  ;;
   *)
-    log_with_timestamp "Unknown sample type: $SAMPLETYPE"
-    exit 1
-    ;;
+  log_with_timestamp "Unknown sample type: $SAMPLETYPE"
+  exit 1
+  ;;
 esac
 
 # Output selected processing type
