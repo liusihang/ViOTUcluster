@@ -261,10 +261,10 @@ else
 fi
 
 # Run DRAM module
-run_module "DRAM" "${OUTPUT_DIR}/Log/DRAM.log" "run_dram_analysis.sh '${OUTPUT_DIR}/Summary/Viralcontigs/vOTU.fasta' '${OUTPUT_DIR}/Summary/DRAM'"
+run_module "DRAM" "${OUTPUT_DIR}/Log/DRAM.log" "run_dram_analysis.sh "${OUTPUT_DIR}/Summary/vOTU/vOTU.fasta" ${OUTPUT_DIR}/Summary/DRAMRes"
 
 # Run iPhop module
-run_module "iPhop" "${OUTPUT_DIR}/Log/iPhop.log" "run_iphop_analysis.sh '${OUTPUT_DIR}/Summary/Viralcontigs/vOTU.fasta' '${OUTPUT_DIR}/Summary/iPhop'"
+run_module "iPhop" "${OUTPUT_DIR}/Log/iPhop.log" "run_iphop_analysis.sh "${OUTPUT_DIR}/Summary/vOTU/vOTU.fasta" ${OUTPUT_DIR}/Summary/iPhopRes"
 
 # Record end time and calculate total runtime of the entire pipeline
 end_time=$(date +%s)

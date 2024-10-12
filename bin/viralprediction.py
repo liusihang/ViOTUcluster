@@ -156,7 +156,11 @@ def check_virsorter_completion():
     while not all_tasks_completed:
         all_tasks_completed = True
         for file_path in files_list:
-            basename = os.path.basename(file_path).replace('.fa', '').replace('.fasta', '')
+            basename = os.path.basename(file_path)
+            if basename.endswith('.fasta'):
+                basename = basename[:-6]  # 去掉 ".fasta"
+            elif basename.endswith('.fa'):
+                basename = basename[:-3]  # 去掉 ".fa"
             virsorter_dir = os.path.join(
                 OUTPUT_DIR, 'SeprateFile', basename, 'RoughViralPrediction', 'virsorter2'
             )

@@ -268,8 +268,8 @@ run_module "Binning and merge" "${OUTPUT_DIR}/Log/binning_merge.log" "binning_me
 run_module "Summary" "${OUTPUT_DIR}/Log/summary.log" "summary_module.sh"
 run_module "dRep" "${OUTPUT_DIR}/Log/drep.log" "drep_module.sh"
 run_module "TPM calculate" "${OUTPUT_DIR}/Log/TPM_caculate.log" "TPM_caculate_Module.sh"
-run_module "DRAM" "${OUTPUT_DIR}/Log/DRAM.log" "run_dram_analysis.sh ${OUTPUT_DIR}/Summary/Viralcontigs/vOTU.fasta ${OUTPUT_DIR}/Summary/DRAM"
-run_module "iPhop" "${OUTPUT_DIR}/Log/iPhop.log" "run_iphop_analysis.sh ${OUTPUT_DIR}/Summary/Viralcontigs/vOTU.fasta ${OUTPUT_DIR}/Summary/iPhop"
+run_module "DRAM" "${OUTPUT_DIR}/Log/DRAM.log" "run_dram_analysis.sh "${OUTPUT_DIR}/Summary/vOTU/vOTU.fasta" ${OUTPUT_DIR}/Summary/DRAMRes"
+run_module "iPhop" "${OUTPUT_DIR}/Log/iPhop.log" "run_iphop_analysis.sh "${OUTPUT_DIR}/Summary/vOTU/vOTU.fasta" ${OUTPUT_DIR}/Summary/iPhopRes"
 
 # Record end time and calculate total runtime
 end_time=$(date +%s)

@@ -52,12 +52,16 @@ CURRENT_ENV=$(basename "$CONDA_DEFAULT_ENV")
 
 # 激活vRhyme环境并运行vRhyme
 source ${conda_sh}
-conda activate iphop
+if ! conda activate iphop; then
+    echo "Failed to activate conda environment 'iphop'. Exiting."
+    exit 1
+fi
+
 echo "Conda environment activated: $(conda info --envs)"
 which iphop
 
-# 使用 GNU Parallel 并行执行 iPhop host prediction
-cat iPhop | parallel -j 2 'fa_file={}; iphop predict --fa_file "${fa_file}" --db_dir /media/em/student/db/Virus/Aug_2023_pub_rw --out_dir "${fa_file}_iPhopResult" -t 10'
+# 使用 Python 控制 iPhop 预测
+python "${ScriptDir}/run_iphop.py" >> "$OUTPUT_DIR/iphop.log" 2>&1
 
 # 监控任务是否完成
 all_tasks_completed=false

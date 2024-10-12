@@ -50,14 +50,19 @@ BASE_CONDA_PREFIX=$(conda info --base)
 conda_sh="$BASE_CONDA_PREFIX/etc/profile.d/conda.sh"
 CURRENT_ENV=$(basename "$CONDA_DEFAULT_ENV")
 
-# 激活vRhyme环境并运行vRhyme
+# 激活DRAM环境并运行DRAM注释
 source ${conda_sh}
-conda activate DRAM
+if ! conda activate DRAM; then
+    echo "Failed to activate DRAM environment. Exiting."
+    exit 1
+fi
+
 echo "Conda environment activated: $(conda info --envs)"
 which DRAM-v.py
 
-# 使用 GNU Parallel 并行执行 DRAM 注释
-cat DRAM | parallel 'fq1={}; DRAM-v.py annotate -i "${fq1}" -o "${fq1}_DRAMAnnot" --threads "${THREADS_PER_FILE}"'
+# 使用 Python 脚本进行 DRAM 注释
+ScriptDir=$(dirname "$0")
+python "${ScriptDir}/run_DRAM.py" >> "$OUTPUT_DIR/DRAM.log" 2>&1
 
 # 监控任务是否完成
 all_tasks_completed=false

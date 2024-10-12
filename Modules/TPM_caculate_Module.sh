@@ -85,7 +85,7 @@ for FILE in $FILES; do
 done
 
 # Run the TPM calculation Python script
-python ${ScriptDir}/TPM_caculate.py "$OUTPUT_DIR/Summary/Viralcontigs/Temp" "$OUTPUT_DIR/Summary/Viralcontigs/Merged_vOTU_TPM.csv"
+python ${ScriptDir}/TPM_caculate.py "$OUTPUT_DIR/Summary/Viralcontigs/Temp" "$OUTPUT_DIR/Summary/vOTU/vOTU.Abundance.csv"
 if [ $? -ne 0 ]; then
     echo "Error: Failed to run TPM calculation."
     exit 1
