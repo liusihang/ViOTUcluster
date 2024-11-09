@@ -1,19 +1,17 @@
 #!/usr/bin/env bash
 
-# 记录开始时间
+# Record start time
 start_time=$(date +%s)
 
-# 初始化变量
+# Initialize variables
 RAW_SEQ_DIR=""
 OUTPUT_DIR=""
 DATABASE=""
 SAMPLETYPE=""
 ASSEMBLY_SOFTWARE=""
 REASSEMBLE=false
-VERSION="0.2.0"  # 定义版本号
+VERSION="0.2.0"  # Define version number
 CONCENTRATION_TYPE=""
-
-# Set log file path
 LOG_FILE=""
 
 # Function to add timestamp to log entries
@@ -21,249 +19,136 @@ log_with_timestamp() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "$LOG_FILE"
 }
 
-# 使用 getopts 处理短选项和手动处理长选项
+# Function to run modules with a spinner animation and error handling
+run_module() {
+    local module_name="$1"
+    local log_file="$2"
+    local command="$3"
+
+    log_with_timestamp "Starting $module_name..."
+    echo "Starting $module_name..."
+
+    # Start spinner animation
+    local spin='-\|/'
+    local i=0
+    tput civis > /dev/tty  # Hide cursor
+    (
+        while true; do
+            i=$(( (i+1) % 4 ))
+            printf "\rRunning %s... %s" "$module_name" "${spin:$i:1}" > /dev/tty
+            sleep 0.1
+        done
+    ) &
+    local spinner_pid=$!
+
+    local module_start_time=$(date +%s)
+
+    # Run the command with timestamped logs
+    eval "$command" | tee -a "$log_file" | while IFS= read -r line; do
+        log_with_timestamp "$line"
+    done
+
+    local result=${PIPESTATUS[0]}
+
+    # Stop spinner
+    kill "$spinner_pid" 2>/dev/null
+    wait "$spinner_pid" 2>/dev/null
+    tput cnorm > /dev/tty  # Show cursor
+
+    # Clear spinner line
+    printf "\r\033[K"
+
+    if [ "$result" -ne 0 ]; then
+        log_with_timestamp "Error: $module_name failed. Check log: $log_file"
+        echo "$module_name failed. Check log: $log_file"
+        exit 1
+    fi
+
+    local module_end_time=$(date +%s)
+    local module_runtime=$((module_end_time - module_start_time))
+    log_with_timestamp "$module_name completed in ${module_runtime} seconds."
+    echo "$module_name completed in ${module_runtime} seconds."
+}
+
+# Handle command-line arguments
 while [[ $# -gt 0 ]]; do
   case $1 in
-    -r)
-      RAW_SEQ_DIR=$2
-      shift 2
-      ;;
-    -o)
-      OUTPUT_DIR=$2
-      LOG_FILE="${OUTPUT_DIR}/pipeline.log"  # 设置日志文件路径
-      shift 2
-      ;;
-    -d)
-      DATABASE=$2
-      shift 2
-      ;;
-    -a) # 用 'a' 代表 'assembly software'
-      ASSEMBLY_SOFTWARE=$2
-      shift 2
-      ;;
-    -v) # 显示版本信息
-      echo "Version: $VERSION"
-      exit 0
-      ;;
-    --non-con) # non-concentration
-      CONCENTRATION_TYPE="non-concentration"
-      shift
-      ;;
-    --con) # concentration
-      CONCENTRATION_TYPE="concentration"
-      shift
-      ;;
-    -h) # 显示帮助信息
+    -r) RAW_SEQ_DIR=$2; shift 2 ;;
+    -o) OUTPUT_DIR=$2; LOG_FILE="${OUTPUT_DIR}/pipeline.log"; shift 2 ;;
+    -d) DATABASE=$2; shift 2 ;;
+    -a) ASSEMBLY_SOFTWARE=$2; shift 2 ;;
+    --non-con) CONCENTRATION_TYPE="non-concentration"; shift ;;
+    --con) CONCENTRATION_TYPE="concentration"; shift ;;
+    --reassemble) REASSEMBLE=true; shift ;;
+    -h)
       echo "Usage: $0 [options]"
-      echo ""
-      echo "Options:"
-      echo "  -r <input_path_raw_seqs>    Specify the input directory to search for raw seqs files."
-      echo "  -o <output_path>            Specify the output directory for the results."
-      echo "  -d <database_path>          Specify the path to the database required for analysis."
-      #echo "  -t <sample_type>            Specify the sample type: DNA, RNA, or Mix."
-      echo "  -a <assembly_software>      Specify the assembly software: megahit, metaspades."
-      echo "  --non-con                   Specify non-concentration processing."
-      echo "  --con                       Specify concentration processing."
-      echo "  --reassemble                Enable reassembly of bins."
-      echo "  -v                          Display the version of this script."
-      echo "  -h                          Display this help and exit."
+      echo "  -r <input_path_raw_seqs>"
+      echo "  -o <output_path>"
+      echo "  -d <database_path>"
+      echo "  -a <assembly_software>"
+      echo "  --non-con | --con"
       exit 0
       ;;
-    --reassemble)
-      REASSEMBLE=true
-      shift
-      ;;
-    *)
-      echo "Unknown option: $1" >&2
-      exit 1
-      ;;
+    *) echo "Unknown option: $1"; exit 1 ;;
   esac
 done
 
-# 检查必要的输入是否已提供
+# Ensure necessary inputs are provided
 if [ -z "$RAW_SEQ_DIR" ] || [ -z "$OUTPUT_DIR" ] || [ -z "$DATABASE" ] || [ -z "$CONCENTRATION_TYPE" ] || [ -z "$ASSEMBLY_SOFTWARE" ]; then
-    echo "Usage: $0 -r <input_path_raw_seqs> -o <output_path> -d <database_path> -a <assembly_software> --non-con/--con [--reassemble]"
+    echo "Error: Missing required parameters."
     exit 1
 fi
 
-# 验证组装软件选项
+# Validate assembly software
 if [[ "$ASSEMBLY_SOFTWARE" != "megahit" && "$ASSEMBLY_SOFTWARE" != "metaspades" ]]; then
-    echo "Error: Invalid assembly software. Please choose either 'megahit' or 'metaspades'."
+    echo "Error: Invalid assembly software."
     exit 1
 fi
+
+# Create log file
+mkdir -p "$OUTPUT_DIR"
+touch "$LOG_FILE"
 
 # Log the command with a timestamp
-log_with_timestamp "Run ViOTUcluster as command: $0 $@"
+log_with_timestamp "Run script as command: $0 $@"
 
-# Log all environment variables with a timestamp
-log_with_timestamp "Environment variables at start:"
-env >> "$LOG_FILE"
+# Redirect all output to the log file and terminal
+exec > >(tee -a "$LOG_FILE" | while IFS= read -r line; do log_with_timestamp "$line"; done) 2>&1
 
-# Redirect all output to the log file and terminal with a timestamp
-exec > >(while IFS= read -r line; do log_with_timestamp "$line"; echo "$line"; done) 2>&1
-
-# Function to run modules and check for errors, with timestamp in log
-run_module() {
-    local module_name=$1
-    local log_file=$2
-    local command=$3
-
-    log_with_timestamp "Starting $module_name..."
-    module_start_time=$(date +%s)
-    eval "$command" > "$log_file" 2>&1
-    if [ $? -ne 0 ]; then
-        log_with_timestamp "Error: $module_name failed. Check log: $log_file"
-        exit 1
-    fi
-    module_end_time=$(date +%s)
-    module_runtime=$((module_end_time - module_start_time))
-    log_with_timestamp "$module_name completed in ${module_runtime} seconds."
-}
-
-# Check if paired files exist and have the correct format
+# Check if paired files exist and validate their formats
 for FILE in "${RAW_SEQ_DIR}"/*_R1.*; do
   BASENAME=$(basename "$FILE" | sed 's/_R1\..*//')
   PREFIX="${RAW_SEQ_DIR}/${BASENAME}"
 
   if [ -f "${PREFIX}_R1.fq" ] && [ -f "${PREFIX}_R2.fq" ]; then
     log_with_timestamp "Found paired files: ${PREFIX}_R1.fq and ${PREFIX}_R2.fq"
-  elif [ -f "${PREFIX}_R1.fastq" ] && [ -f "${PREFIX}_R2.fastq" ]; then
-    log_with_timestamp "Found paired files: ${PREFIX}_R1.fastq and ${PREFIX}_R2.fastq"
-  elif [ -f "${PREFIX}_R1.fq.gz" ] && [ -f "${PREFIX}_R2.fq.gz" ]; then
-    log_with_timestamp "Found paired files: ${PREFIX}_R1.fq.gz and ${PREFIX}_R2.fq.gz"
-  elif [ -f "${PREFIX}_R1.fastq.gz" ] && [ -f "${PREFIX}_R2.fastq.gz" ]; then
-    log_with_timestamp "Found paired files: ${PREFIX}_R1.fastq.gz and ${PREFIX}_R2.fastq.gz"
   else
-    log_with_timestamp "Error: Paired-end files for ${BASENAME} not found in the expected formats (.fq, .fastq, .fq.gz, .fastq.gz)"
+    log_with_timestamp "Error: Paired-end files for ${BASENAME} not found."
     exit 1
   fi
 done
 
-# Perform different processing based on CONCENTRATION_TYPE
-if [ "$CONCENTRATION_TYPE" == "non-concentration" ]; then
-    log_with_timestamp "Running non-concentration specific steps..."
-elif [ "$CONCENTRATION_TYPE" == "concentration" ]; then
-    log_with_timestamp "Running concentration specific steps..."
-else
-    log_with_timestamp "Error: Invalid concentration type."
-    exit 1
-fi
+# Run preprocessing module
+run_module "Preprocessing" "${OUTPUT_DIR}/Log/preprocess.log" "Preprocess_module.sh '${RAW_SEQ_DIR}' '${ASSEMBLY_SOFTWARE}' '${OUTPUT_DIR}'"
 
-# Set the Group variable based on SAMPLETYPE
-SAMPLETYPE="Mix"
-case "$SAMPLETYPE" in
-  DNA)
-  Group="dsDNAphage, NCLDV, ssDNA, lavidaviridae"
-  ;;
-  RNA)
-  Group="RNA, lavidaviridae"
-  ;;
-  Mix)
-  Group="dsDNAphage, NCLDV, RNA, ssDNA, lavidaviridae"
-  ;;
-  *)
-  log_with_timestamp "Unknown sample type: $SAMPLETYPE"
-  exit 1
-  ;;
-esac
+# Export necessary variables
+export OUTPUT_DIR DATABASE SAMPLETYPE ASSEMBLY_SOFTWARE RAW_SEQ_DIR
 
-# Output selected processing type
-log_with_timestamp "Processing with $CONCENTRATION_TYPE mode and $THREADS threads."
-
-# Get bin folder location of current Conda environment
-if [ -z "$CONDA_PREFIX" ]; then
-  log_with_timestamp "Conda environment is not activated."
-  exit 1
-fi
-ScriptDir="${CONDA_PREFIX}/bin"
-
-# Export parameters as environment variables
-export RAW_SEQ_DIR OUTPUT_DIR DATABASE SAMPLETYPE REASSEMBLE ASSEMBLY_SOFTWARE
-
-mkdir -p "${OUTPUT_DIR}/Log"
-
-# Run each module and check for errors
-run_module "Raw sequences Process" "${OUTPUT_DIR}/Log/Preprocess.log" "Preprocess_module.sh '${RAW_SEQ_DIR}' '${ASSEMBLY_SOFTWARE}' '${OUTPUT_DIR}'"
-
-# Update exported parameters
-CONTIGS_DIR="${OUTPUT_DIR}/Contigs"
-RAW_SEQ_DIR="${OUTPUT_DIR}/Cleanreads"
-INPUT_DIR=${CONTIGS_DIR}
-
-# Export parameters
-export INPUT_DIR OUTPUT_DIR DATABASE SAMPLETYPE REASSEMBLE ScriptDir RAW_SEQ_DIR
-
-# Run filter module
+# Run filtering module
 mkdir -p "${OUTPUT_DIR}/FilteredSeqs"
-run_module "Filter contigs" "${OUTPUT_DIR}/Log/filter_contigs.log" "python '${ScriptDir}/filter_contigs.py' '${THREADS}' '${INPUT_DIR}' '${OUTPUT_DIR}/FilteredSeqs'"
+run_module "Filtering" "${OUTPUT_DIR}/Log/filtering.log" "python filter_contigs.py 300 ${RAW_SEQ_DIR} ${OUTPUT_DIR}/FilteredSeqs"
 
-# Find all .fa and .fasta files in the specified directory
-FILES=$(find "${OUTPUT_DIR}/FilteredSeqs" -type f \( -name "*.fa" -o -name "*.fasta" \))
-RawFILES=$(find "${INPUT_DIR}" -maxdepth 1 -type f \( -name "*.fa" -o -name "*.fasta" \))
-num_files=$(echo "$FILES" | wc -l)
-
-# Determine THREADS_PER_FILE based on THREADS input
-if [ "$THREADS" -eq 0 ]; then
-  THREADS_PER_FILE=$(nproc)
+# Define concentration-specific processing
+if [ "$CONCENTRATION_TYPE" == "concentration" ]; then
+    log_with_timestamp "Running concentration-specific steps..."
+    run_module "Concentration Analysis" "${OUTPUT_DIR}/Log/concentration.log" "concentration_analysis.sh"
 else
-  if [ "$num_files" -gt 0 ]; then
-    THREADS_PER_FILE=$((THREADS / num_files))
-    if [ "$THREADS_PER_FILE" -lt 1 ]; then
-      THREADS_PER_FILE=1
-    fi
-  else
-    log_with_timestamp "Assign threads error. Exiting..."
-    exit 1
-  fi
+    log_with_timestamp "Running non-concentration-specific steps..."
+    run_module "Non-Concentration Analysis" "${OUTPUT_DIR}/Log/non_concentration.log" "non_concentration_analysis.sh"
 fi
 
-#Test
-THREADS_PER_FILE=$THREADS
-
-# Export necessary variables and functions
-export OUTPUT_DIR DATABASE Group FILES RawFILES CONCENTRATION_TYPE ScriptDir RAW_SEQ_DIR THREADS_PER_FILE THREADS
-
-# Run viral prediction module
-run_module "Viral prediction" "${OUTPUT_DIR}/Log/viral_prediction.log" "viral_prediction_module.sh"
-
-# Cross Validation module
-LOG_FILE="${OUTPUT_DIR}/Log/cross_validation.log"
-KEYWORD="Cross Validation completed"
-if [ -f "$LOG_FILE" ] && grep -q "$KEYWORD" "$LOG_FILE"; then
-    log_with_timestamp "Cross Validation module already completed, skipping..."
-else
-    run_module "Cross Validation" "$LOG_FILE" "cross_validation_module.sh --${CONCENTRATION_TYPE}"
-fi
-
-# Run Binning and Merge module
-run_module "Binning and merge" "${OUTPUT_DIR}/Log/binning_merge.log" "binning_merge_module.sh"
-
-# Run Summary module
-run_module "Summary" "${OUTPUT_DIR}/Log/summary.log" "summary_module.sh"
-
-# Run dRep module
-LOG_FILE="${OUTPUT_DIR}/Log/drep.log"
-if [ -f "$LOG_FILE" ] && grep -q "Combined fasta files and quality summaries completed." "$LOG_FILE"; then
-    log_with_timestamp "dRep module already completed, skipping..."
-else
-    run_module "dRep" "$LOG_FILE" "drep_module.sh"
-fi
-
-# Run TPM calculation module
-LOG_FILE="${OUTPUT_DIR}/Log/TPM_caculate.log"
-if [ -f "$LOG_FILE" ] && grep -q "TPM calculation completed successfully." "$LOG_FILE"; then
-    log_with_timestamp "TPM calculation already completed, skipping..."
-else
-    run_module "TPM calculation" "$LOG_FILE" "TPM_caculate_Module.sh"
-fi
-
-# Run DRAM module
-run_module "DRAM" "${OUTPUT_DIR}/Log/DRAM.log" "run_dram_analysis.sh "${OUTPUT_DIR}/Summary/vOTU/vOTU.fasta" ${OUTPUT_DIR}/Summary/DRAMRes"
-
-# Run iPhop module
-run_module "iPhop" "${OUTPUT_DIR}/Log/iPhop.log" "run_iphop_analysis.sh "${OUTPUT_DIR}/Summary/vOTU/vOTU.fasta" ${OUTPUT_DIR}/Summary/iPhopRes"
-
-# Record end time and calculate total runtime of the entire pipeline
+# Record end time and calculate total runtime
 end_time=$(date +%s)
 total_runtime=$((end_time - start_time))
-log_with_timestamp "Total runtime: ${total_runtime} seconds"
+log_with_timestamp "Total runtime: ${total_runtime} seconds."
+echo "Total runtime: ${total_runtime} seconds."

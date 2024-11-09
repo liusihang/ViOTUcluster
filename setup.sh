@@ -50,3 +50,15 @@ curl -L -o "$DB_DIR/viralverify.zip" "https://figshare.com/ndownloader/files/179
 
 echo "Unzipping ViralVerify database..."
 unzip "$DB_DIR/viralverify.zip" -d "$DB_DIR/viralverify"
+
+#Convert to binnary format
+hmmconvert -b "$DB_DIR/viralverify/nbc_hmms.hmm" > "$DB_DIR/viralverify/nbc_hmms.h3m"
+hmmconvert -b "$DB_DIR/db/hmm/viral/combined.hmm" > "$DB_DIR/db/hmm/viral/combined.h3m"
+
+for hmm_file in "$DB_DIR"/db/hmm/pfam/*.hmm; do
+    base_name=$(basename "$hmm_file" .hmm)
+    output_file="$input_dir/$base_name.h3m"
+    hmmconvert -b "$hmm_file" > "$output_file"
+done
+
+

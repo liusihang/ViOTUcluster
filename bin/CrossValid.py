@@ -22,7 +22,7 @@ def find_file(directory, filename):
 def read_and_filter_virsorter2(file_path, pass_type='pass1'):
     data = pd.read_csv(file_path, sep='\t')
     if pass_type == 'pass1':
-        filtered_data = data[(data['max_score'] > 0.95) | (data['hallmark'] >= 2)]
+        filtered_data = data[(data['max_score'] > 0.90) | (data['hallmark'] >= 2)]
     else:
         filtered_data = data[(data['max_score'] <= 0.95) & (data['max_score'] > 0.6)]
     filtered_data.iloc[:, 0] = filtered_data.iloc[:, 0].apply(lambda x: x.split('||')[0] if pd.notnull(x) else x)
@@ -34,9 +34,9 @@ def read_and_filter_genomad(Path, pass_type='pass1'):
     found_path = find_file(Path, filename)
     data = pd.read_csv(found_path, sep='\t')
     if pass_type == 'pass1':
-        filtered_data = data[(data['virus_score'] > 0.8) & (data['n_hallmarks'] >= 1) & (data['fdr'] <= 0.05)]
+        filtered_data = data[(data['virus_score'] > 0.8) & (data['n_hallmarks'] >= 2) & (data['fdr'] <= 0.05)]
     else:
-        filtered_data = data[(data['virus_score'] > 0.6) & (data['virus_score'] <= 0.8) & (data['fdr'] <= 0.05)]
+        filtered_data = data[(data['virus_score'] > 0.7) & (data['fdr'] <= 0.05)]
     filtered_data.iloc[:, 0] = filtered_data.iloc[:, 0].apply(lambda x: x.split('||')[0] if pd.notnull(x) else x)
     return filtered_data.iloc[:, 0]
 
@@ -90,7 +90,7 @@ if CONCENTRATION_TYPE == "concentration":
     # Merge Pass1 results for concentration type
     AllPass_series = merge_lists(virsorter2_list1, genomad_list1, viralverify_list1)
 else:  # Non-concentration type
-    genomad_list1 = read_and_filter_genomad(os.path.join(Genomadpath), 'pass1')
+    genomad_list1 = read_and_filter_genomad(os.path.join(Genomadpath), 'pass2')
     viralverify_list1 = read_and_filter_viralverify(os.path.join(Viralverifypath), 'pass1')
 
     # Merge Pass1 results for non-concentration type

@@ -57,30 +57,38 @@ def run_pyhmmer(faa_file, hmm_db_file, threads, evalue, bitscore):
     # Define result named tuple
     Result = collections.namedtuple("Result", ["protein", "phrog", "bitscore", "evalue"])
 
-    # Run hmmscan and get all results
+    # Run hmmscan with pre-fetching targets into memory
     results = []
     with pyhmmer.plan7.HMMFile(hmm_db_file) as hmms:  # Load HMMs
-        with pyhmmer.easel.SequenceFile(faa_file, digital=True) as seqs:  # Load sequences
-            for hits in pyhmmer.hmmer.hmmscan(seqs, hmms, cpus=int(threads), E=float(evalue), T=bitscore):  # Run hmmscan
+        with pyhmmer.easel.SequenceFile(faa_file, digital=True) as seq_file:
+            # Pre-fetch all sequences into memory
+            seqs = seq_file.read_block()  
+            
+            # Run hmmscan on the pre-fetched sequences
+            for hits in pyhmmer.hmmer.hmmsearch(hmms, seqs, cpus=int(threads), E=float(evalue), T=bitscore):
                 protein = hits.query_name.decode()  # Get protein from the hit
                 for hit in hits:
                     if hit.included:
                         # Include the hit to the result collection
                         results.append(Result(protein, hit.name.decode(), hit.score, hit.evalue))
+                        #print results to csv
+                        #print(protein, hit.name.decode(), hit.score, hit.evalue)
     
-    # Group results by protein prefix
+    # Group results by phrog prefix
     grouped_results = collections.defaultdict(list)
     for result in results:
-        protein_prefix = result.protein.split('_')[0] + "_" + result.protein.split('_')[1]
-        grouped_results[protein_prefix].append(result.phrog)
-    
+        phrog_prefix = result.phrog.split('_')[0] + "_" + result.phrog.split('_')[1]
+        grouped_results[phrog_prefix].append(result.protein)
+
     # Create feature table
     feature_table = []
-    for protein, phrogs in grouped_results.items():
-        phrog_str = ' '.join(phrogs)
-        feature_table.append((protein, phrog_str))  # Use tuple instead of string concatenation
-    
+    for phrog_prefix, proteins in grouped_results.items():
+        # Join protein names into a single string for each phrog prefix
+        protein_str = ' '.join(proteins)
+        feature_table.append((phrog_prefix, protein_str))  # Use tuple with phrog prefix and proteins
+
     return feature_table
+
     
 
 

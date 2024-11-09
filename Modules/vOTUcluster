@@ -259,7 +259,7 @@ export OUTPUT_DIR DATABASE Group FILES RawFILES CONCENTRATION_TYPE ScriptDir RAW
 mkdir -p "${OUTPUT_DIR}/Log"
 
 # Execute modules
-run_module "Viral prediction" "${OUTPUT_DIR}/Log/viral_prediction.log" "viral_prediction_module_test.sh"
+run_module "Viral prediction" "${OUTPUT_DIR}/Log/viral_prediction.log" "viral_prediction_module.sh"
 run_module "Cross Validation" "${OUTPUT_DIR}/Log/cross_validation.log" "cross_validation_module.sh --${CONCENTRATION_TYPE}"
 run_module "Binning and merge" "${OUTPUT_DIR}/Log/binning_merge.log" "binning_merge_module.sh"
 run_module "Summary" "${OUTPUT_DIR}/Log/summary.log" "summary_module.sh"

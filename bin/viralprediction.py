@@ -36,12 +36,11 @@ if not files_list:
     print("No files to process.")
     sys.exit(1)
 
-# Calculate the number of cores needed. For example, 16 threads can use 8 cores (2 threads per core)
-CORES_TO_USE = THREADS  # For example, 16 threads -> 8 cores
+# Calculate the number of cores needed. 
+CORES_TO_USE = THREADS 
 
-# Get all available cores, assuming the system has a total of 16 cores (you can dynamically get the number of cores)
-all_cores = list(range(multiprocessing.cpu_count()))  # Get all core numbers of the system
-
+# Get all available cores
+all_cores = list(range(multiprocessing.cpu_count()))
 # Get the first CORES_TO_USE cores
 assigned_cores = all_cores[:CORES_TO_USE]
 print(f"Assigning tasks to cores: {assigned_cores}")
@@ -54,8 +53,6 @@ def process_file(file_path):
     elif basename.endswith('.fa'):
         basename = basename[:-3]  # 去掉 ".fa"
     
-
-
     out_dir = os.path.join(OUTPUT_DIR, 'SeprateFile', basename)
     os.makedirs(out_dir, exist_ok=True)
 
@@ -78,12 +75,11 @@ def process_file(file_path):
             print(f"Starting Viralverify prediction for {file_path}.")
             process = subprocess.Popen(
                 ['viralverify', '-f', file_path, '-o', viralverify_dir,
-                '--hmm', os.path.join(DATABASE, 'ViralVerify', 'nbc_hmms.hmm'),
+                '--hmm', os.path.join(DATABASE, 'ViralVerify', 'nbc_hmms.h3m'),
                 '-t', str(THREADS)],
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE
             )
             
-
             # Bind process to specified cores if supported
             if hasattr(os, 'sched_setaffinity'):
                 os.sched_setaffinity(process.pid, assigned_cores)
@@ -95,30 +91,33 @@ def process_file(file_path):
             print(f"Viralverify prediction completed for {file_path}.")
         else:
             print(f"Viralverify prediction already completed for {file_path}, skipping...")
-
+        
         # VirSorter2 task
         virsorter_result = os.path.join(virsorter_dir, 'final-viral-score.tsv')
-        if not os.path.isfile(virsorter_result):
-            print(f"Starting Virsorter2 prediction for {file_path}.")
-            virsorter_cmd = [
-                'virsorter', 'run', '-w', virsorter_dir, '-i', file_path,
-                '--include-groups', Group, '-j', str(THREADS),
-                'all', '--min-score', '0.5', '--min-length', '300',
-                '--keep-original-seq', '-d', os.path.join(DATABASE, 'db')
-            ]
-            process = subprocess.Popen(virsorter_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-            # Bind Virsorter2 task to specified cores
-            if hasattr(os, 'sched_setaffinity'):
-                os.sched_setaffinity(process.pid, assigned_cores)
-
-            process.wait()
-            if process.returncode != 0:
-                raise RuntimeError(f"Virsorter2 failed with exit code {process.returncode}")
-
-            print(f"Virsorter2 prediction completed for {file_path}.")
+        if CONCENTRATION_TYPE == 'non-concentration':
+            print(f"Skipping Virsorter2 prediction for {file_path} due to non-concentration mode.")
         else:
-            print(f"Virsorter2 prediction already completed for {file_path}, skipping...")
+            if not os.path.isfile(virsorter_result):
+                print(f"Starting Virsorter2 prediction for {file_path}.")
+                virsorter_cmd = [
+                    'virsorter', 'run', '-w', virsorter_dir, '-i', file_path,
+                    '--include-groups', Group, '-j', str(THREADS),
+                    'all', '--min-score', '0.5', '--min-length', '300',
+                    '--keep-original-seq', '-d', os.path.join(DATABASE, 'db')
+                ]
+                process = subprocess.Popen(virsorter_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+                # 将任务绑定到指定核心
+                if hasattr(os, 'sched_setaffinity'):
+                    os.sched_setaffinity(process.pid, assigned_cores)
+
+                process.wait()
+                if process.returncode != 0:
+                    raise RuntimeError(f"Virsorter2 failed with exit code {process.returncode}")
+
+                print(f"Virsorter2 prediction completed for {file_path}.")
+            else:
+                print(f"Virsorter2 prediction already completed for {file_path}, skipping...")
 
         # Genomad task
         genomad_result_dir = os.path.join(genomad_dir, f"{basename}_summary")
@@ -126,10 +125,36 @@ def process_file(file_path):
 
         if not os.path.isfile(os.path.join(genomad_result_dir, f"{basename}_virus_summary.tsv")):
             print(f"Starting Genomad prediction for {file_path}.")
-            genomad_cmd = [
-                'genomad', 'end-to-end', '--enable-score-calibration', file_path,
-                genomad_dir, os.path.join(DATABASE, 'genomad_db'), '-t', str(THREADS)
-            ]
+            if CONCENTRATION_TYPE == 'non-concentration':
+                genomad_cmd = [
+                    'genomad', 'end-to-end', '--enable-score-calibration',
+                    '--min-score', '0.7',
+                    '--max-fdr', '0.05',
+                    '--min-number-genes', '0',
+                    '--min-plasmid-marker-enrichment', '0',
+                    '--min-virus-marker-enrichment', '0',
+                    '--min-plasmid-hallmarks', '1',
+                    '--min-plasmid-hallmarks-short-seqs', '0',
+                    '--min-virus-hallmarks', '0',
+                    '--min-virus-hallmarks-short-seqs', '0',
+                    '--max-uscg', '2',
+                    file_path, genomad_dir, os.path.join(DATABASE, 'genomad_db'), '-t', str(THREADS)
+                ]
+            else:
+                genomad_cmd = [
+                    'genomad', 'end-to-end', '--enable-score-calibration',
+                    '--min-score', '0.85',
+                    '--max-fdr', '0.05',
+                    '--min-number-genes', '1',
+                    '--min-plasmid-marker-enrichment', '1.5',
+                    '--min-virus-marker-enrichment', '1.5',
+                    '--min-plasmid-hallmarks', '1',
+                    '--min-plasmid-hallmarks-short-seqs', '1',
+                    '--min-virus-hallmarks', '0',
+                    '--min-virus-hallmarks-short-seqs', '1',
+                    '--max-uscg', '2',
+                    file_path, genomad_dir, os.path.join(DATABASE, 'genomad_db'), '-t', str(THREADS)
+                ]
             process = subprocess.Popen(genomad_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
             # Bind Genomad task to specified cores
@@ -158,9 +183,9 @@ def check_virsorter_completion():
         for file_path in files_list:
             basename = os.path.basename(file_path)
             if basename.endswith('.fasta'):
-                basename = basename[:-6]  # 去掉 ".fasta"
+                basename = basename[:-6]  #".fasta"
             elif basename.endswith('.fa'):
-                basename = basename[:-3]  # 去掉 ".fa"
+                basename = basename[:-3]  #".fa"
             virsorter_dir = os.path.join(
                 OUTPUT_DIR, 'SeprateFile', basename, 'RoughViralPrediction', 'virsorter2'
             )
