@@ -103,24 +103,36 @@ for FILE in $FILES; do
     mkdir -p "${OUTPUT_DIR}/Summary/SeperateRes/bins"
   fi
 
-  for vRhymeFILE in "$VRHYME_DIR/vRhyme_best_bins_fasta/"*.fasta; do
-    NEW_NAME=$(basename "$vRhymeFILE" | sed "s/^vRhyme_/${BASENAME}_/")
-    NEW_PATH="$OUT_DIR/Binning/Summary/Finialfasta/Bestbins/$NEW_NAME"
-    if [ ! -d "${OUT_DIR}/Binning/Summary/Finialfasta/Bestbins" ]; then
-      mkdir -p "${OUT_DIR}/Binning/Summary/Finialfasta/Bestbins"
-    fi
-    mv "$vRhymeFILE" "$NEW_PATH"
-    cp "$NEW_PATH" "${OUTPUT_DIR}/Summary/SeperateRes/bins"
-  done
+  # 定义 unbined 输出文件路径
+  UNBINNED_FASTA="$OUTPUT_DIR/Summary/SeperateRes/unbined/${BASENAME}_unbined.fasta"
 
-  # 获取合并的 bins 和 unbined 序列
-  python "${ScriptDir}/MergeRes.py" -i "$VRHYME_DIR/vRhyme_best_bins_fasta" -r "$OUT_DIR/${BASENAME}_filtered.fasta" -o "$OUT_DIR/Binning/Summary/Finialfasta/${BASENAME}_viralseqs.fasta"
+  # 如果 unbined fasta 文件已存在，则跳过以下所有步骤
+  if [ -f "$UNBINNED_FASTA" ]; then
+      echo "All processing steps already completed for $FILE, skipping..."
+  else
+      # 重命名并复制 vRhyme 结果
+      for vRhymeFILE in "$VRHYME_DIR/vRhyme_best_bins_fasta/"*.fasta; do
+          NEW_NAME=$(basename "$vRhymeFILE" | sed "s/^vRhyme_/${BASENAME}_/")
+          NEW_PATH="$OUT_DIR/Binning/Summary/Finialfasta/Bestbins/$NEW_NAME"
+          
+          # 检查目标文件夹是否存在，如果不存在则创建
+          if [ ! -d "${OUT_DIR}/Binning/Summary/Finialfasta/Bestbins" ]; then
+              mkdir -p "${OUT_DIR}/Binning/Summary/Finialfasta/Bestbins"
+          fi
+          
+          mv "$vRhymeFILE" "$NEW_PATH"
+          cp "$NEW_PATH" "${OUTPUT_DIR}/Summary/SeperateRes/bins"
+      done
 
-  # 获取 unbined 序列用于 dRep
-  if [ ! -d "$OUTPUT_DIR/Summary/SeperateFa/unbined" ]; then
-    mkdir -p "$OUTPUT_DIR/Summary/SeperateFa/unbined"
+      # 获取合并的 bins 和 unbined 序列
+      python "${ScriptDir}/MergeRes.py" -i "$VRHYME_DIR/vRhyme_best_bins_fasta" -r "$OUT_DIR/${BASENAME}_filtered.fasta" -o "$OUT_DIR/Binning/Summary/Finialfasta/${BASENAME}_viralseqs.fasta"
+
+      # 生成 unbined 序列
+      if [ ! -d "$OUTPUT_DIR/Summary/SeperateRes/unbined" ]; then
+          mkdir -p "$OUTPUT_DIR/Summary/SeperateRes/unbined"
+      fi
+      python "${ScriptDir}/unbined.py" -i "$VRHYME_DIR/vRhyme_best_bins_fasta" -r "$OUT_DIR/${BASENAME}_filtered.fasta" -o "$UNBINNED_FASTA"
+
+      echo "Rebinning and reassembly complete for $FILE"
   fi
-  python "${ScriptDir}/unbined.py" -i "$VRHYME_DIR/vRhyme_best_bins_fasta" -r "$OUT_DIR/${BASENAME}_filtered.fasta" -o "$OUTPUT_DIR/Summary/SeperateRes/unbined/${BASENAME}_unbined.fasta"
-
-  echo "Rebinning and reassembly complete for $FILE"
 done
