@@ -232,7 +232,7 @@ elif [ "$CONCENTRATION_TYPE" == "concentration" ]; then
   log_with_timestamp "Running concentration specific steps..."
 else
   log_with_timestamp "Error: Invalid concentration type."
-  cleanup
+  #cleanup
 fi
 
 # Output the selected processing type

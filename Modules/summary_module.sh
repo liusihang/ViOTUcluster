@@ -2,8 +2,8 @@
 # Merge all
 echo "Merging final sequences..."
 mkdir "$OUTPUT_DIR/Summary/vOTU"
-python "${ScriptDir}/Rename.py" -i "$OUTPUT_DIR/Summary/Viralcontigs/DrepViralcontigs.fasta"
-cat "$OUTPUT_DIR/Summary/Viralcontigs/DrepViralcontigs.fasta" "$OUTPUT_DIR/Summary/Viralcontigs/DrepBins.fasta" > "$OUTPUT_DIR/Summary/vOTU/vOTU.fasta"
+python "${ScriptDir}/Rename.py" -i "$OUTPUT_DIR/Summary/temp/DrepViralcontigs.fasta"
+cat "$OUTPUT_DIR/Summary/temp/DrepViralcontigs.fasta" "$OUTPUT_DIR/Summary/temp/DrepBins.fasta" > "$OUTPUT_DIR/Summary/vOTU/vOTU.fasta"
 checkv end_to_end "$OUTPUT_DIR/Summary/vOTU/vOTU.fasta" "$OUTPUT_DIR/Summary/vOTU/vOTU_CheckRes" -t "${THREADS}" -d "$DATABASE/checkv-db-v1.5"
 
 # 创建目标目录用于存放汇总后的 ViralList.fasta 文件

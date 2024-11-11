@@ -32,7 +32,7 @@ while [ "$all_tasks_completed" == "false" ]; do
 
     # Define file paths
     virsorter_file="$Virsorter_dir/final-viral-score.tsv"
-    genomad_file="$Genomad_dir/${BASENAME}_summary.log"
+    genomad_file="$Genomad_dir/${BASENAME}_summary/${BASENAME}_virus.fna"
     viralverify_file="$ViralVerify_dir/${BASENAME}_result_table.csv"
 
     # Check completion status based on CONCENTRATION_TYPE

@@ -46,13 +46,19 @@ assigned_cores = all_cores[:CORES_TO_USE]
 print(f"Assigning tasks to cores: {assigned_cores}")
 
 # Function to process a single file
+
+def run_command(cmd, cores=None):
+    """ 运行外部命令并绑定到指定核心（如果支持）"""
+    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if hasattr(os, 'sched_setaffinity') and cores:
+        os.sched_setaffinity(process.pid, cores)
+    stdout, stderr = process.communicate()
+    if process.returncode != 0:
+        raise RuntimeError(f"Command {' '.join(cmd)} failed with exit code {process.returncode}.\nError: {stderr.decode()}")
+    return stdout.decode()
+
 def process_file(file_path):
-    basename = os.path.basename(file_path)
-    if basename.endswith('.fasta'):
-        basename = basename[:-6]  # 去掉 ".fasta"
-    elif basename.endswith('.fa'):
-        basename = basename[:-3]  # 去掉 ".fa"
-    
+    basename = os.path.basename(file_path).replace('.fasta', '').replace('.fa', '')
     out_dir = os.path.join(OUTPUT_DIR, 'SeprateFile', basename)
     os.makedirs(out_dir, exist_ok=True)
 
@@ -68,112 +74,78 @@ def process_file(file_path):
     genomad_dir = os.path.join(prediction_dir, 'genomadres')
     os.makedirs(genomad_dir, exist_ok=True)
 
-    try:
-        # Start ViralVerify task and bind to specified cores
+    # 准备并行任务
+    tasks = []
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        # ViralVerify 任务
         viralverify_result = os.path.join(viralverify_dir, f'{basename}_result_table.csv')
         if not os.path.isfile(viralverify_result):
-            print(f"Starting Viralverify prediction for {file_path}.")
-            process = subprocess.Popen(
-                ['viralverify', '-f', file_path, '-o', viralverify_dir,
+            viralverify_cmd = [
+                'viralverify', '-f', file_path, '-o', viralverify_dir,
                 '--hmm', os.path.join(DATABASE, 'ViralVerify', 'nbc_hmms.h3m'),
-                '-t', str(THREADS)],
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE
-            )
-            
-            # Bind process to specified cores if supported
-            if hasattr(os, 'sched_setaffinity'):
-                os.sched_setaffinity(process.pid, assigned_cores)
-
-            process.wait()
-            if process.returncode != 0:
-                raise RuntimeError(f"Viralverify failed with exit code {process.returncode}")
-
-            print(f"Viralverify prediction completed for {file_path}.")
+                '-t', str(THREADS)
+            ]
+            tasks.append(executor.submit(run_command, viralverify_cmd, assigned_cores))
         else:
             print(f"Viralverify prediction already completed for {file_path}, skipping...")
-        
-        # VirSorter2 task
+
+        # VirSorter2 任务
         virsorter_result = os.path.join(virsorter_dir, 'final-viral-score.tsv')
-        if CONCENTRATION_TYPE == 'non-concentration':
-            print(f"Skipping Virsorter2 prediction for {file_path} due to non-concentration mode.")
+        if CONCENTRATION_TYPE != 'non-concentration' and not os.path.isfile(virsorter_result):
+            virsorter_cmd = [
+                'virsorter', 'run', '-w', virsorter_dir, '-i', file_path,
+                '--include-groups', Group, '-j', str(THREADS),
+                'all', '--min-score', '0.5', '--min-length', '300',
+                '--keep-original-seq', '-d', os.path.join(DATABASE, 'db')
+            ]
+            tasks.append(executor.submit(run_command, virsorter_cmd, assigned_cores))
         else:
-            if not os.path.isfile(virsorter_result):
-                print(f"Starting Virsorter2 prediction for {file_path}.")
-                virsorter_cmd = [
-                    'virsorter', 'run', '-w', virsorter_dir, '-i', file_path,
-                    '--include-groups', Group, '-j', str(THREADS),
-                    'all', '--min-score', '0.5', '--min-length', '300',
-                    '--keep-original-seq', '-d', os.path.join(DATABASE, 'db')
-                ]
-                process = subprocess.Popen(virsorter_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            print(f"Virsorter2 prediction already completed for {file_path}, skipping...")
 
-                # 将任务绑定到指定核心
-                if hasattr(os, 'sched_setaffinity'):
-                    os.sched_setaffinity(process.pid, assigned_cores)
-
-                process.wait()
-                if process.returncode != 0:
-                    raise RuntimeError(f"Virsorter2 failed with exit code {process.returncode}")
-
-                print(f"Virsorter2 prediction completed for {file_path}.")
-            else:
-                print(f"Virsorter2 prediction already completed for {file_path}, skipping...")
-
-        # Genomad task
+        # Genomad 任务
         genomad_result_dir = os.path.join(genomad_dir, f"{basename}_summary")
         os.makedirs(genomad_result_dir, exist_ok=True)
 
-        if not os.path.isfile(os.path.join(genomad_result_dir, f"{basename}_virus_summary.tsv")):
-            print(f"Starting Genomad prediction for {file_path}.")
-            if CONCENTRATION_TYPE == 'non-concentration':
+        genomad_result = os.path.join(genomad_result_dir, f"{basename}_virus_summary.tsv")
+        if not os.path.isfile(genomad_result):
+            if CONCENTRATION_TYPE == "concentration":
                 genomad_cmd = [
                     'genomad', 'end-to-end', '--enable-score-calibration',
-                    '--min-score', '0.7',
-                    '--max-fdr', '0.05',
+                    file_path, genomad_dir, os.path.join(DATABASE, 'genomad_db'),
+                    '-t', str(THREADS),
+                    '--min-score', '0.7', '--max-fdr', '0.05',
                     '--min-number-genes', '0',
+                    '--min-virus-marker-enrichment', '1.5',
                     '--min-plasmid-marker-enrichment', '0',
-                    '--min-virus-marker-enrichment', '0',
                     '--min-plasmid-hallmarks', '1',
                     '--min-plasmid-hallmarks-short-seqs', '0',
-                    '--min-virus-hallmarks', '0',
-                    '--min-virus-hallmarks-short-seqs', '0',
-                    '--max-uscg', '2',
-                    file_path, genomad_dir, os.path.join(DATABASE, 'genomad_db'), '-t', str(THREADS)
+                    '--max-uscg', '2'
                 ]
             else:
                 genomad_cmd = [
                     'genomad', 'end-to-end', '--enable-score-calibration',
-                    '--min-score', '0.85',
-                    '--max-fdr', '0.05',
+                    file_path, genomad_dir, os.path.join(DATABASE, 'genomad_db'),
+                    '-t', str(THREADS),
+                    '--min-score', '0.8', '--max-fdr', '0.05',
                     '--min-number-genes', '1',
+                    '--min-virus-marker-enrichment', '0',
                     '--min-plasmid-marker-enrichment', '1.5',
-                    '--min-virus-marker-enrichment', '1.5',
                     '--min-plasmid-hallmarks', '1',
                     '--min-plasmid-hallmarks-short-seqs', '1',
-                    '--min-virus-hallmarks', '0',
-                    '--min-virus-hallmarks-short-seqs', '1',
-                    '--max-uscg', '2',
-                    file_path, genomad_dir, os.path.join(DATABASE, 'genomad_db'), '-t', str(THREADS)
+                    '--max-uscg', '2'
                 ]
-            process = subprocess.Popen(genomad_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-            # Bind Genomad task to specified cores
-            if hasattr(os, 'sched_setaffinity'):
-                os.sched_setaffinity(process.pid, assigned_cores)
-
-            process.wait()
-            if process.returncode != 0:
-                raise RuntimeError(f"Genomad failed with exit code {process.returncode}")
-
-            print(f"Genomad prediction completed for {file_path}.")
+            tasks.append(executor.submit(run_command, genomad_cmd, assigned_cores))
         else:
-            print(f"{basename}: Genomad prediction already completed, skipping...")
+            print(f"Genomad prediction already completed for {file_path}, skipping...")
 
-        print(f"All predictions completed for {file_path}")
+        # 等待所有任务完成
+        for future in as_completed(tasks):
+            try:
+                future.result()
+            except Exception as e:
+                print(f"An error occurred while processing {file_path}: {e}")
 
-    except (subprocess.CalledProcessError, OSError) as e:
-        print(f"An error occurred while processing {file_path}: {e}")
-        raise
+    print(f"All predictions completed for {file_path}")
 
 # Check if VirSorter2 and Genomad tasks are completed
 def check_virsorter_completion():
@@ -228,9 +200,9 @@ def main():
                 print(f"Task generated an exception: {e}")
 
     # Check if VirSorter2 and Genomad tasks are completed
-    check_virsorter_completion()
+    #check_virsorter_completion()
 
-    print("All files have been processed.")
+    #print("All files have been processed.")
 
 if __name__ == "__main__":
     main()

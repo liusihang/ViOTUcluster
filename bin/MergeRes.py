@@ -47,7 +47,8 @@ def filter_sequences(reference_fasta, real_names, output_file):
     for record in SeqIO.parse(reference_fasta, "fasta"):
         if record.id not in real_names:
             filtered_records.append(record)
-    SeqIO.write(filtered_records, output_file, "fasta")
+    with open(output_file, "w") as output_handle:
+        SeqIO.write(filtered_records, output_handle, "fasta")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Filter sequences from fasta files and combine sequences")
@@ -56,6 +57,10 @@ if __name__ == "__main__":
     parser.add_argument('-o', '--output_file', required=True, help='Path to the output fasta file')
     
     args = parser.parse_args()
+    # 确保输出文件的父目录存在
+    output_dir = os.path.dirname(args.output_file)
+    if output_dir and not os.path.exists(output_dir):
+        os.makedirs(output_dir)
     
     # Step 1: Combine sequences in input folder
     combined_sequences = combine_sequences_in_folder(args.input_folder)

@@ -3,23 +3,23 @@
 # 在发生错误时，停止执行并记录日志
 set -e
 trap 'echo "An error occurred in the dRep module. Exiting..."; exit 1;' ERR
+mkdir -p "$OUTPUT_DIR/Summary/temp"
 
-# dRep for bins
+#### dRep for bins
 echo "Starting dRep for bins..."
 mkdir -p "$OUTPUT_DIR/Summary/Viralcontigs"
 mkdir -p "$OUTPUT_DIR/Summary/dRepRes"
-dRep dereplicate "$OUTPUT_DIR/Summary/dRepRes" -g ${OUTPUT_DIR}/Summary/bins/*.fasta --ignoreGenomeQuality -pa 0.8 -sa 0.95 -nc 0.85 -comW 0 -conW 0 -strW 0 -N50W 0 -sizeW 1 -centW 0
+dRep dereplicate "$OUTPUT_DIR/Summary/dRepRes" -g "${OUTPUT_DIR}/Summary/SeperateRes/bins"/*.fasta --ignoreGenomeQuality -pa 0.8 -sa 0.95 -nc 0.85 -comW 0 -conW 0 -strW 0 -N50W 0 -sizeW 1 -centW 0 -l 3000
 echo "dRep for bins completed."
 
 # Concat fasta sequences
 echo "Concatenating fasta sequences..."
-python "${ScriptDir}/concat_fasta_sequences.py" "$OUTPUT_DIR/Summary/dRepRes/dereplicated_genomes" "$OUTPUT_DIR/Summary/Viralcontigs/DrepBins.fasta"
+python "${ScriptDir}/concat_fasta_sequences.py" "$OUTPUT_DIR/Summary/dRepRes/dereplicated_genomes" "$OUTPUT_DIR/Summary/temp/DrepBins.fasta"
 echo "Fasta concatenation completed."
 
-# dRep for contigs
+#### dRep for contigs
 echo "Starting dRep for unbined contigs..."
-mkdir -p "$OUTPUT_DIR/Summary/temp"
-cat "$OUTPUT_DIR/Summary/unbined/"*.fasta > "$OUTPUT_DIR/Summary/temp/merged_sequences.fasta"
+cat "$OUTPUT_DIR/Summary/SeperateFa/unbined/"*_unbined.fasta > "$OUTPUT_DIR/Summary/temp/merged_sequences.fasta"
 echo "Contigs merging completed."
 
 # Cluster
@@ -45,6 +45,6 @@ rm -f "${newDir}/merged_sequences_blast.tsv"
 
 # Merge cluster results
 echo "Merging cluster results..."
-python "${ScriptDir}/SelectCluster.py" "${newDir}/merged_sequences.fasta" "${newDir}/merged_sequences_clusters.tsv" "$OUTPUT_DIR/Summary/Viralcontigs/DrepViralcontigs.fasta"
+python "${ScriptDir}/SelectCluster.py" "${newDir}/merged_sequences.fasta" "${newDir}/merged_sequences_clusters.tsv" "$OUTPUT_DIR/Summary/temp/DrepViralcontigs.fasta"
 
 echo "Combined fasta files and quality summaries completed."

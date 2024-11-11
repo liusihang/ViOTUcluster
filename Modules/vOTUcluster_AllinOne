@@ -1,154 +1,258 @@
 #!/usr/bin/env bash
 
-# Record start time
+# 记录开始时间
 start_time=$(date +%s)
 
-# Initialize variables
-RAW_SEQ_DIR=""
-OUTPUT_DIR=""
-DATABASE=""
-SAMPLETYPE=""
-ASSEMBLY_SOFTWARE=""
+# 初始化变量
+RAW_SEQ_DIR=""  # Directory containing raw sequence files
+OUTPUT_DIR=""  # Specify the output directory for the results
+DATABASE=""  # Path to the database required for analysis, to be specified by the user
+SAMPLETYPE=""  # Specify the sample type: DNA, RNA, or Mix. Default is empty.
+ASSEMBLY_SOFTWARE=""  # Specify the assembly software to be used, e.g., "megahit" or "metaspades"
 REASSEMBLE=false
-VERSION="0.2.0"  # Define version number
-CONCENTRATION_TYPE=""
+VERSION="0.2.0"
+CONCENTRATION_TYPE=""  # Specify the concentration type: non-concentration or concentration. Default is empty.
+THREADS=0  # Default number of threads
 LOG_FILE=""
 
+# Capture SIGINT (Ctrl+C) and SIGTERM signals and clean up all child processes
+trap 'cleanup' SIGINT SIGTERM
+
+# Cleanup function to terminate all child processes
+cleanup() {
+  log_with_timestamp "Caught termination signal. Cleaning up..."
+  # Terminate all child processes in the current process group
+  kill 0
+  exit 1
+}
 # Function to add timestamp to log entries
 log_with_timestamp() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "$LOG_FILE"
 }
 
-# Function to run modules with a spinner animation and error handling
-run_module() {
-    local module_name="$1"
-    local log_file="$2"
-    local command="$3"
-
-    log_with_timestamp "Starting $module_name..."
-    echo "Starting $module_name..."
-
-    # Start spinner animation
-    local spin='-\|/'
-    local i=0
-    tput civis > /dev/tty  # Hide cursor
-    (
-        while true; do
-            i=$(( (i+1) % 4 ))
-            printf "\rRunning %s... %s" "$module_name" "${spin:$i:1}" > /dev/tty
-            sleep 0.1
-        done
-    ) &
-    local spinner_pid=$!
-
-    local module_start_time=$(date +%s)
-
-    # Run the command with timestamped logs
-    eval "$command" | tee -a "$log_file" | while IFS= read -r line; do
-        log_with_timestamp "$line"
-    done
-
-    local result=${PIPESTATUS[0]}
-
-    # Stop spinner
-    kill "$spinner_pid" 2>/dev/null
-    wait "$spinner_pid" 2>/dev/null
-    tput cnorm > /dev/tty  # Show cursor
-
-    # Clear spinner line
-    printf "\r\033[K"
-
-    if [ "$result" -ne 0 ]; then
-        log_with_timestamp "Error: $module_name failed. Check log: $log_file"
-        echo "$module_name failed. Check log: $log_file"
-        exit 1
-    fi
-
-    local module_end_time=$(date +%s)
-    local module_runtime=$((module_end_time - module_start_time))
-    log_with_timestamp "$module_name completed in ${module_runtime} seconds."
-    echo "$module_name completed in ${module_runtime} seconds."
-}
-
-# Handle command-line arguments
+# 使用 getopts 处理短选项和手动处理长选项
 while [[ $# -gt 0 ]]; do
   case $1 in
-    -r) RAW_SEQ_DIR=$2; shift 2 ;;
-    -o) OUTPUT_DIR=$2; LOG_FILE="${OUTPUT_DIR}/pipeline.log"; shift 2 ;;
-    -d) DATABASE=$2; shift 2 ;;
-    -a) ASSEMBLY_SOFTWARE=$2; shift 2 ;;
-    --non-con) CONCENTRATION_TYPE="non-concentration"; shift ;;
-    --con) CONCENTRATION_TYPE="concentration"; shift ;;
-    --reassemble) REASSEMBLE=true; shift ;;
-    -h)
-      echo "Usage: $0 [options]"
-      echo "  -r <input_path_raw_seqs>"
-      echo "  -o <output_path>"
-      echo "  -d <database_path>"
-      echo "  -a <assembly_software>"
-      echo "  --non-con | --con"
+    -r)
+      RAW_SEQ_DIR=$2
+      shift 2
+      ;;
+    -o)
+      OUTPUT_DIR=$2
+      LOG_FILE="${OUTPUT_DIR}/pipeline.log"  # 设置日志文件路径
+      if [ ! -f "$LOG_FILE" ]; then
+        mkdir -p "$(dirname "$LOG_FILE")"
+        touch "$LOG_FILE"
+      fi
+      shift 2
+      ;;
+    -d)
+      DATABASE=$2
+      shift 2
+      ;;
+    -a) # 用 'a' 代表 'assembly software'
+      ASSEMBLY_SOFTWARE=$2
+      shift 2
+      ;;
+    -n)
+      THREADS=$2
+      shift 2
+      ;;
+    -v)
+      echo "Version: $VERSION"
       exit 0
       ;;
-    *) echo "Unknown option: $1"; exit 1 ;;
+    --non-con)
+      CONCENTRATION_TYPE="non-concentration"
+      shift
+      ;;
+    --con)
+      CONCENTRATION_TYPE="concentration"
+      shift
+      ;;
+    --reassemble)
+      REASSEMBLE=true
+      shift
+      ;;
+    *)
+      echo "Unknown option: $1" >&2
+      exit 1
+      ;;
+    -h) # 显示帮助信息
+      echo "Usage: $0 [options]"
+      echo ""
+      echo "Options:"
+      echo "  -r <input_path_raw_seqs>    Specify the input directory to search for raw seqs files."
+      echo "  -o <output_path>            Specify the output directory for the results."
+      echo "  -d <database_path>          Specify the path to the database required for analysis."
+      #echo "  -t <sample_type>            Specify the sample type: DNA, RNA, or Mix."
+      echo "  -a <assembly_software>      Specify the assembly software: megahit, metaspades."
+      echo "  -n <threads>                Specify the number of threads to use (default: Use max available cores)."
+      echo "  --non-con                   Specify non-concentration processing."
+      echo "  --con                       Specify concentration processing."
+      echo "  --reassemble                Enable reassembly of bins."
+      echo "  -v                          Display the version of this script."
+      echo "  -h                          Display this help and exit."
+      exit 0
+      ;;    
   esac
 done
 
-# Ensure necessary inputs are provided
+# 检查必要的输入是否已提供
 if [ -z "$RAW_SEQ_DIR" ] || [ -z "$OUTPUT_DIR" ] || [ -z "$DATABASE" ] || [ -z "$CONCENTRATION_TYPE" ] || [ -z "$ASSEMBLY_SOFTWARE" ]; then
-    echo "Error: Missing required parameters."
+    echo "Usage: $0 -r <input_path_raw_seqs> -o <output_path> -d <database_path> -a <assembly_software> -n <threads> --non-con/--con [--reassemble]"
     exit 1
 fi
 
-# Validate assembly software
+# 验证组装软件选项
 if [[ "$ASSEMBLY_SOFTWARE" != "megahit" && "$ASSEMBLY_SOFTWARE" != "metaspades" ]]; then
-    echo "Error: Invalid assembly software."
+    echo "Error: Invalid assembly software. Please choose either 'megahit' or 'metaspades'."
     exit 1
 fi
-
-# Create log file
-mkdir -p "$OUTPUT_DIR"
-touch "$LOG_FILE"
 
 # Log the command with a timestamp
-log_with_timestamp "Run script as command: $0 $@"
+log_with_timestamp "Run ViOTUcluster as command: $0 $@"
 
-# Redirect all output to the log file and terminal
-exec > >(tee -a "$LOG_FILE" | while IFS= read -r line; do log_with_timestamp "$line"; done) 2>&1
+# Log all environment variables with a timestamp
+log_with_timestamp "Environment variables at start:"
+#env >> "$LOG_FILE"
 
-# Check if paired files exist and validate their formats
+# Redirect all output to the log file and terminal, with timestamps
+#exec > >(tee -a "$LOG_FILE" | while IFS= read -r line; do echo "$(date '+%Y-%m-%d %H:%M:%S') - $line"; done) 2>&1
+
+# Define a function to run a module and check for errors, with log timestamps and a spinner animation
+run_module() {
+  local module_name="$1"
+  local log_file="$2"
+  local command="$3"
+
+  # Ensure the directory for the module log file exists
+  mkdir -p "$(dirname "$log_file")"
+
+  echo "Starting $module_name..."
+  log_with_timestamp "Starting $module_name..."
+
+  # Start spinner animation
+  local spin='-\|/'
+  local i=0
+  tput civis > /dev/tty  # Hide cursor, output directed to terminal
+
+  # Start a background process to display the spinner animation, output only to terminal
+  (
+    while true; do
+      i=$(( (i+1) % 4 ))
+      printf "\rRunning %s... %s" "$module_name" "${spin:$i:1}" > /dev/tty
+      sleep 0.1
+    done
+  ) &
+  local spinner_pid=$!
+
+  local module_start_time
+  module_start_time=$(date +%s)
+
+  # Run the actual command, append output to the module log file, and display timestamped logs in the terminal
+  eval "stdbuf -oL $command" | tee -a "$log_file" | while IFS= read -r line; do
+      log_with_timestamp "$line"
+  done
+  # Capture the exit status of the command
+  local result=${PIPESTATUS[0]}
+
+  # Stop the spinner animation
+  kill "$spinner_pid" 2>/dev/null
+  wait "$spinner_pid" 2>/dev/null
+  tput cnorm > /dev/tty  # Restore cursor, only affects terminal
+
+  # Clear the spinner line
+  printf "\r\033[K" > /dev/tty
+
+  # Check if the module execution was successful
+  if [ "$result" -ne 0 ]; then
+    echo "$module_name failed. Check log: $log_file"
+    log_with_timestamp "Error: $module_name failed. Check log: $log_file"
+    cleanup
+  fi
+
+  local module_end_time
+  module_end_time=$(date +%s)
+  local module_runtime=$((module_end_time - module_start_time))
+
+  echo "$module_name completed in ${module_runtime} seconds."
+  log_with_timestamp "$module_name completed in ${module_runtime} seconds."
+}
+
+# Check if paired files exist and have the correct format
 for FILE in "${RAW_SEQ_DIR}"/*_R1.*; do
   BASENAME=$(basename "$FILE" | sed 's/_R1\..*//')
   PREFIX="${RAW_SEQ_DIR}/${BASENAME}"
 
   if [ -f "${PREFIX}_R1.fq" ] && [ -f "${PREFIX}_R2.fq" ]; then
     log_with_timestamp "Found paired files: ${PREFIX}_R1.fq and ${PREFIX}_R2.fq"
+  elif [ -f "${PREFIX}_R1.fastq" ] && [ -f "${PREFIX}_R2.fastq" ]; then
+    log_with_timestamp "Found paired files: ${PREFIX}_R1.fastq and ${PREFIX}_R2.fastq"
+  elif [ -f "${PREFIX}_R1.fq.gz" ] && [ -f "${PREFIX}_R2.fq.gz" ]; then
+    log_with_timestamp "Found paired files: ${PREFIX}_R1.fq.gz and ${PREFIX}_R2.fq.gz"
+  elif [ -f "${PREFIX}_R1.fastq.gz" ] && [ -f "${PREFIX}_R2.fastq.gz" ]; then
+    log_with_timestamp "Found paired files: ${PREFIX}_R1.fastq.gz and ${PREFIX}_R2.fastq.gz"
   else
-    log_with_timestamp "Error: Paired-end files for ${BASENAME} not found."
+    log_with_timestamp "Error: Paired-end files for ${BASENAME} not found in the expected formats (.fq, .fastq, .fq.gz, .fastq.gz)"
     exit 1
   fi
 done
 
-# Run preprocessing module
-run_module "Preprocessing" "${OUTPUT_DIR}/Log/preprocess.log" "Preprocess_module.sh '${RAW_SEQ_DIR}' '${ASSEMBLY_SOFTWARE}' '${OUTPUT_DIR}'"
-
-# Export necessary variables
-export OUTPUT_DIR DATABASE SAMPLETYPE ASSEMBLY_SOFTWARE RAW_SEQ_DIR
-
-# Run filtering module
-mkdir -p "${OUTPUT_DIR}/FilteredSeqs"
-run_module "Filtering" "${OUTPUT_DIR}/Log/filtering.log" "python filter_contigs.py 300 ${RAW_SEQ_DIR} ${OUTPUT_DIR}/FilteredSeqs"
-
-# Define concentration-specific processing
-if [ "$CONCENTRATION_TYPE" == "concentration" ]; then
-    log_with_timestamp "Running concentration-specific steps..."
-    run_module "Concentration Analysis" "${OUTPUT_DIR}/Log/concentration.log" "concentration_analysis.sh"
+# Perform different processing based on CONCENTRATION_TYPE
+if [ "$CONCENTRATION_TYPE" == "non-concentration" ]; then
+    log_with_timestamp "Running non-concentration specific steps..."
+elif [ "$CONCENTRATION_TYPE" == "concentration" ]; then
+    log_with_timestamp "Running concentration specific steps..."
 else
-    log_with_timestamp "Running non-concentration-specific steps..."
-    run_module "Non-Concentration Analysis" "${OUTPUT_DIR}/Log/non_concentration.log" "non_concentration_analysis.sh"
+    log_with_timestamp "Error: Invalid concentration type."
+    exit 1
 fi
 
-# Record end time and calculate total runtime
-end_time=$(date +%s)
-total_runtime=$((end_time - start_time))
-log_with_timestamp "Total runtime: ${total_runtime} seconds."
-echo "Total runtime: ${total_runtime} seconds."
+# Set the Group variable based on SAMPLETYPE
+SAMPLETYPE="Mix"
+case "$SAMPLETYPE" in
+  DNA)
+  Group="dsDNAphage, NCLDV, ssDNA, lavidaviridae"
+  ;;
+  RNA)
+  Group="RNA, lavidaviridae"
+  ;;
+  Mix)
+  Group="dsDNAphage, NCLDV, RNA, ssDNA, lavidaviridae"
+  ;;
+  *)
+  log_with_timestamp "Unknown sample type: $SAMPLETYPE"
+  exit 1
+  ;;
+esac
+
+# Output selected processing type
+log_with_timestamp "Processing with $CONCENTRATION_TYPE mode and $THREADS threads."
+
+# Get bin folder location of current Conda environment
+if [ -z "$CONDA_PREFIX" ]; then
+  log_with_timestamp "Conda environment is not activated."
+  exit 1
+fi
+ScriptDir="${CONDA_PREFIX}/bin"
+
+# Export parameters as environment variables
+export RAW_SEQ_DIR OUTPUT_DIR DATABASE SAMPLETYPE REASSEMBLE ASSEMBLY_SOFTWARE
+
+mkdir -p "${OUTPUT_DIR}/Log"
+
+# Run each module and check for errors
+run_module "Raw sequences Process" "${OUTPUT_DIR}/Log/Preprocess.log" "Preprocess_module.sh '${RAW_SEQ_DIR}' '${ASSEMBLY_SOFTWARE}' '${OUTPUT_DIR}'"
+
+# Update exported parameters
+CONTIGS_DIR="${OUTPUT_DIR}/Contigs"
+RAW_SEQ_DIR="${OUTPUT_DIR}/Cleanreads"
+INPUT_DIR=${CONTIGS_DIR}
+
+# Perform different processing based on CONCENTRATION_TYPE
+if [ "$CONCENTRATION_TYPE" == "non-concentration" ]; then
+  vOTUcluster -i "${INPUT_DIR}" -r "${RAW_SEQ_DIR}" -o "${OUTPUT_DIR}" -d "${DATABASE}" -n "${THREADS}" --non-con
+else [ "$CONCENTRATION_TYPE" == "concentration" ]
+  vOTUcluster -i "${INPUT_DIR}" -r "${RAW_SEQ_DIR}" -o "${OUTPUT_DIR}" -d "${DATABASE}" -n "${THREADS}" --con
+fi
