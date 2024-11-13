@@ -26,18 +26,6 @@ CORES_TO_USE = THREADS_PER_FILE  # Example: if THREADS_PER_FILE is 10, use 10 co
 assigned_cores = all_cores[:CORES_TO_USE]  # Assign cores to be used
 print(f"Assigning tasks to cores: {assigned_cores}")
 
-# Activate conda environment
-def activate_conda_env():
-    try:
-        conda_sh = os.path.join(os.path.dirname(sys.executable), 'conda.sh')
-        subprocess.run(['source', conda_sh], shell=True, check=True)
-        subprocess.run(['conda', 'activate', 'DRAM'], shell=True, check=True)
-        print(f"Conda environment activated: {subprocess.check_output(['conda', 'info', '--envs']).decode().strip()}")
-        print(f"DRAM-v.py path: {subprocess.check_output(['which', 'DRAM-v.py']).decode().strip()}")
-    except subprocess.CalledProcessError as e:
-        print(f"Failed to activate conda environment: {e}")
-        sys.exit(1)
-
 # Function to run DRAM annotation on a single file
 def run_dram_annotation(fa_file):
     try:
@@ -72,7 +60,7 @@ def monitor_dram_tasks(files_list):
         all_tasks_completed = True
         for fa_file in files_list:
             output_dir = f"{fa_file}_DRAMAnnot"
-            result_file = os.path.join(output_dir, 'annotation.tsv')
+            result_file = os.path.join(output_dir, 'annotations.tsv')
 
             if not os.path.isfile(result_file):
                 all_tasks_completed = False
@@ -91,8 +79,6 @@ def main():
 
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
-
-    activate_conda_env()
 
     # Read list of split files from the "DRAM" file
     with open(os.path.join(OUTPUT_DIR, 'split_files', 'DRAM')) as f:
@@ -128,7 +114,7 @@ def main():
         first_file = True
         for fa_file in files_list:
             output_dir = f"{fa_file}_DRAMAnnot"
-            result_file = os.path.join(output_dir, 'annotation.tsv')
+            result_file = os.path.join(output_dir, 'annotations.tsv')
             if os.path.isfile(result_file):
                 with open(result_file, 'r') as infile:
                     if first_file:

@@ -15,19 +15,18 @@ CONCENTRATION_TYPE=""  # Specify the concentration type: non-concentration or co
 THREADS=0  # Default number of threads
 LOG_FILE=""
 
-# Capture SIGINT (Ctrl+C) and SIGTERM signals and clean up all child processes
+# Capture SIGINT (Ctrl+C) and SIGTERM signals only in the parent process
 trap 'cleanup' SIGINT SIGTERM
 
 # Cleanup function to terminate all child processes
 cleanup() {
-  log_with_timestamp "Caught termination signal. Cleaning up..."
-  # Terminate all child processes in the current process group
-  kill 0
+  # 只在父进程中执行清理和日志记录
+  if [ "$$" -eq "$(ps -o pgid= $$)" ]; then
+    log_with_timestamp "Caught termination signal. Cleaning up..."
+    # 终止当前进程组的所有子进程
+    kill -- -$$
+  fi
   exit 1
-}
-# Function to add timestamp to log entries
-log_with_timestamp() {
-    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "$LOG_FILE"
 }
 
 # 使用 getopts 处理短选项和手动处理长选项

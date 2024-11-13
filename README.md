@@ -103,7 +103,7 @@ Below is a tree list of how the file structure should be organized, assuming the
 │
 ├── output_path/
 │   ├── Summary/
-│   │   ├── SeparateRes
+│   │   ├── SeperateRes
 │   │   │   ├── example1
 │   │   │   │    ├── CheckVRes
 │   │   │   │    └── example1_ViralList.fasta
@@ -141,7 +141,7 @@ In this structure:
 The processed data is organized under the specified `output_path/`, with the following structure:
 
 - **`output_path/Summary`**: Contains the final results and summaries for all processed samples, organized into the following subdirectories:
-  - **`SeparateRes`**: Holds individual directories for each sample (e.g., `example1`, `example2`), with subdirectories for specific result types, including:
+  - **`SeprateFile`**: Holds individual directories for each sample (e.g., `example1`, `example2`), with subdirectories for specific result types, including:
     - **`CheckVRes`**: Stores quality assessment results from CheckV for each sample.
     - **`<sample>_ViralList.fasta`**: The list of predicted viral contigs for the respective sample.
   - **`vOTU/`**: Contains the final processed viral OTU (vOTU) results across all samples:

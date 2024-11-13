@@ -1,4 +1,6 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
+source activate DRAM
 
 # 检查命令行参数
 if [ "$#" -ne 2 ]; then
@@ -45,38 +47,33 @@ cd "$OUTPUT_DIR/split_files" || exit
 # 列出所有分割后的fna文件
 ls *.fna > DRAM
 
-# 设置conda环境和日志文件
-BASE_CONDA_PREFIX=$(conda info --base)
-conda_sh="$BASE_CONDA_PREFIX/etc/profile.d/conda.sh"
-CURRENT_ENV=$(basename "$CONDA_DEFAULT_ENV")
-
-# 激活DRAM环境并运行DRAM注释
-source ${conda_sh}
-if ! conda activate DRAM; then
-    echo "Failed to activate DRAM environment. Exiting."
-    exit 1
-fi
-
-echo "Conda environment activated: $(conda info --envs)"
-which DRAM-v.py
-
 # 使用 Python 脚本进行 DRAM 注释
-ScriptDir=$(dirname "$0")
-python "${ScriptDir}/run_DRAM.py" >> "$OUTPUT_DIR/DRAM.log" 2>&1
+python "${ScriptDir}/run_DRAM.py"
+
+all_tasks_completed=false
 
 # 监控任务是否完成
-all_tasks_completed=false
 while [ "$all_tasks_completed" == "false" ]; do
     sleep 30
     all_tasks_completed=true
-    if ls *_DRAMAnnot/annotation.tsv 1> /dev/null 2>&1; then
-        echo "DRAM annotation still in progress."
-        all_tasks_completed=false
-    fi
+
+    # 遍历所有以 _DRAMAnnot 结尾的文件夹
+    for dir in *_DRAMAnnot; do
+        if [ ! -f "$dir/annotations.tsv" ]; then
+            echo "DRAM annotation still in progress in $dir."
+            all_tasks_completed=false
+            break
+        fi
+    done
+
+    # 如果尚未完成，则再等待 30 秒
     if [ "$all_tasks_completed" == "false" ]; then
         sleep 30
     fi
 done
+
+echo "All DRAM annotations completed."
+
 
 # 合并所有注释结果到输出目录
 awk 'FNR==1 && NR!=1{next;} {print}' ./*_DRAMAnnot/annotation.tsv > "$OUTPUT_DIR/combined_annotations.tsv"
@@ -89,4 +86,4 @@ rm -rf "$OUTPUT_DIR/split_files"
 rm -rf "$OUTPUT_DIR/DRAM_results"/*_DRAMAnnot
 
 echo "Cleanup complete."
-conda activate "$CURRENT_ENV"
+conda deactivate

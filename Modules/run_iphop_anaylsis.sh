@@ -1,5 +1,9 @@
 #!/bin/bash
 
+source activate iphop
+
+echo "Conda environment activated: $(conda info --envs)"
+
 # 检查命令行参数
 if [ "$#" -ne 2 ]; then
     echo "Usage: $0 <input_fasta_file> <output_directory>"
@@ -45,37 +49,56 @@ cd "$OUTPUT_DIR/split_files" || exit
 # 列出所有分割后的fna文件
 ls *.fna > iPhop
 
-# 设置conda环境和日志文件
-BASE_CONDA_PREFIX=$(conda info --base)
-conda_sh="$BASE_CONDA_PREFIX/etc/profile.d/conda.sh"
-CURRENT_ENV=$(basename "$CONDA_DEFAULT_ENV")
-
-# 激活vRhyme环境并运行vRhyme
-source ${conda_sh}
-if ! conda activate iphop; then
-    echo "Failed to activate conda environment 'iphop'. Exiting."
-    exit 1
-fi
-
-echo "Conda environment activated: $(conda info --envs)"
-which iphop
-
 # 使用 Python 控制 iPhop 预测
-python "${ScriptDir}/run_iphop.py" >> "$OUTPUT_DIR/iphop.log" 2>&1
+python "${ScriptDir}/run_iphop.py"
+
+
+# 定义一个函数来检查内存使用情况
+check_memory_usage() {
+    # 获取总内存和已用内存（以 KB 为单位）
+    total_memory=$(free -k | awk '/^Mem:/ {print $2}')
+    used_memory=$(free -k | awk '/^Mem:/ {print $3}')
+    
+    # 计算内存使用百分比
+    memory_usage=$(awk -v used="$used_memory" -v total="$total_memory" 'BEGIN { print (used / total) * 100 }')
+
+    # 如果内存使用超过 99.5%，则返回 1，否则返回 0
+    if awk 'BEGIN {exit ARGV[1] <= 99.5}' "$memory_usage"; then
+        return 1  # 内存使用超过 99.5%
+    else
+        return 0  # 内存使用低于 99.5%
+    fi
+}
 
 # 监控任务是否完成
 all_tasks_completed=false
 while [ "$all_tasks_completed" == "false" ]; do
     sleep 30
     all_tasks_completed=true
-    if ls *_iPhopResult/Host_prediction_to_genus_m90.csv 1> /dev/null 2>&1; then
-        echo "iPhop prediction still in progress."
-        all_tasks_completed=false
+
+    # 检查内存使用情况
+    if ! check_memory_usage; then
+        echo "Memory usage exceeded 99.5%. Stopping all tasks."
+        kill 0  # 终止所有子进程
+        exit 1
     fi
+
+    # 检查任务完成情况
+    for dir in *_iPhopResult; do
+        if [ ! -f "$dir/Host_prediction_to_genus_m90.csv" ]; then
+            echo "DRAM annotation still in progress in $dir."
+            all_tasks_completed=false
+            break
+        fi
+    done
+
+    # 如果尚未完成，则再等待 30 秒
     if [ "$all_tasks_completed" == "false" ]; then
         sleep 30
     fi
 done
+
+echo "All tasks completed successfully."
 
 # 合并所有注释结果到输出目录
 awk 'FNR==1 && NR!=1{next;} {print}' ./*_iPhopResult/Host_prediction_to_genus_m90.csv > "$OUTPUT_DIR/Combined_Host_prediction_to_genus_m90.tsv"
@@ -88,4 +111,4 @@ rm -rf "$OUTPUT_DIR/split_files"
 rm -rf "$OUTPUT_DIR/iPhop_results"/*_iPhopResult
 
 echo "Cleanup complete."
-conda activate "$CURRENT_ENV"
+conda deactivate

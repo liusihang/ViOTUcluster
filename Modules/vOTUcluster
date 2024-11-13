@@ -15,16 +15,20 @@ CONCENTRATION_TYPE=""
 THREADS="0"  # Default number of threads is the maximum available cores
 LOG_FILE=""
 
-# Capture SIGINT (Ctrl+C) and SIGTERM signals and clean up all child processes
+# Capture SIGINT (Ctrl+C) and SIGTERM signals only in the parent process
 trap 'cleanup' SIGINT SIGTERM
 
 # Cleanup function to terminate all child processes
 cleanup() {
-  log_with_timestamp "Caught termination signal. Cleaning up..."
-  # Terminate all child processes in the current process group
-  kill 0
+  # 只在父进程中执行清理和日志记录
+  if [ "$$" -eq "$(ps -o pgid= $$)" ]; then
+    log_with_timestamp "Caught termination signal. Cleaning up..."
+    # 终止当前进程组的所有子进程
+    kill -- -$$
+  fi
   exit 1
 }
+
 
 # Function to add a timestamp to log entries
 log_with_timestamp() {
@@ -265,6 +269,12 @@ run_module "Binning and merge" "${OUTPUT_DIR}/Log/binning_merge.log" "binning_me
 run_module "dRep" "${OUTPUT_DIR}/Log/drep.log" "drep_module.sh"
 run_module "Summary" "${OUTPUT_DIR}/Log/summary.log" "summary_module.sh"
 run_module "TPM calculate" "${OUTPUT_DIR}/Log/TPM_caculate.log" "TPM_caculate_Module.sh"
+
+echo "All basic analysis completed successfully. vOTU file and summary files are available in ${OUTPUT_DIR}/Summary."
+echo "Starting advanced analysis..."
+echo "If you want to stop there, press Ctrl+C."
+sleep 30
+
 run_module "DRAM" "${OUTPUT_DIR}/Log/DRAM.log" "run_dram_analysis.sh "${OUTPUT_DIR}/Summary/vOTU/vOTU.fasta" ${OUTPUT_DIR}/Summary/DRAMRes"
 run_module "iPhop" "${OUTPUT_DIR}/Log/iPhop.log" "run_iphop_analysis.sh "${OUTPUT_DIR}/Summary/vOTU/vOTU.fasta" ${OUTPUT_DIR}/Summary/iPhopRes"
 

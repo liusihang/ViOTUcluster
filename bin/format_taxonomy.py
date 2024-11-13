@@ -3,8 +3,7 @@ import sys
 import os
 
 def format_taxonomy(input_csv, output_dir):
-    # 读取CSV文件
-    df = pd.read_csv(input_csv)
+    df = pd.read_csv(input_csv, sep='\t')
 
     # 选择 'seq_name' 和 'lineage' 列，复制它们
     df_phyloseq = df[['seq_name', 'lineage']].copy()
@@ -25,18 +24,12 @@ def format_taxonomy(input_csv, output_dir):
                 break  # 后续级别已经填充完毕，跳出循环
 
     # 将 'seq_name' 列重命名为 'OTUname'
-    df_phyloseq = df_phyloseq.rename(columns={'seq_name': 'OTUname'})
-
-    # 确保输出目录存在
-    os.makedirs(output_dir, exist_ok=True)
-
-    # 生成输出文件路径
-    output_file = os.path.join(output_dir, 'phyloseq_taxonomy_formatted.csv')
+    df_phyloseq = df_phyloseq.rename(columns={'seq_name': 'OTU'})
 
     # 保存为CSV文件
-    df_phyloseq.to_csv(output_file, index=False)
+    df_phyloseq.to_csv(output_dir, index=False)
 
-    print(f"文件已保存为: {output_file}")
+    print(f"文件已保存为: {output_dir}")
 
 
 if __name__ == "__main__":

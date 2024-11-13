@@ -40,7 +40,7 @@ mamba install -c conda-forge -c bioconda \
 
 # 安装 numpy、checkm-genome
 echo "Installing numpy and checkm-genome..."
-mamba install -c conda-forge -c bioconda numpy=1.23.5 checkm-genome=1.2.3 --yes
+mamba install -c conda-forge -c bioconda numpy=1.23.5 checkm-genome=1.2.2 --yes
 
 # 安装 megahit、spades、fastp
 echo "Installing megahit, spades, and fastp..."

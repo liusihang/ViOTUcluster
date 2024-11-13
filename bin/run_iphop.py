@@ -26,17 +26,6 @@ CORES_TO_USE = THREADS  # Example: if THREADS is 16, it will use 16 cores
 assigned_cores = all_cores[:CORES_TO_USE]  # Assign cores to be used
 print(f"Assigning tasks to cores: {assigned_cores}")
 
-# Activate conda environment
-def activate_conda_env():
-    try:
-        conda_sh = os.path.join(os.path.dirname(sys.executable), 'conda.sh')
-        subprocess.run(['source', conda_sh], shell=True, check=True)
-        subprocess.run(['conda', 'activate', 'iphop'], shell=True, check=True)
-        print(f"Conda environment activated: {subprocess.check_output(['conda', 'info', '--envs']).decode().strip()}")
-        print(f"iPhop path: {subprocess.check_output(['which', 'iphop']).decode().strip()}")
-    except subprocess.CalledProcessError as e:
-        print(f"Failed to activate conda environment: {e}")
-        sys.exit(1)
 
 # Function to process a single iPhop prediction
 def run_iphop_prediction(fa_file):
@@ -92,8 +81,6 @@ def main():
 
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
-
-    activate_conda_env()
 
     # Read list of split files from the "iPhop" file
     with open(os.path.join(OUTPUT_DIR, 'split_files', 'iPhop')) as f:

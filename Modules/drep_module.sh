@@ -1,50 +1,58 @@
 #!/usr/bin/env bash
 
-# 在发生错误时，停止执行并记录日志
+# Stop execution and log errors on failure
 set -e
 trap 'echo "An error occurred in the dRep module. Exiting..."; exit 1;' ERR
 mkdir -p "$OUTPUT_DIR/Summary/temp"
 
-#### dRep for bins
-echo "Starting dRep for bins..."
-mkdir -p "$OUTPUT_DIR/Summary/Viralcontigs"
-mkdir -p "$OUTPUT_DIR/Summary/dRepRes"
-dRep dereplicate "$OUTPUT_DIR/Summary/dRepRes" -g "${OUTPUT_DIR}/Summary/SeperateRes/bins"/*.fasta --ignoreGenomeQuality -pa 0.8 -sa 0.95 -nc 0.85 -comW 0 -conW 0 -strW 0 -N50W 0 -sizeW 1 -centW 0 -l 3000
-echo "dRep for bins completed."
+# Define the path for DrepBins.fasta
+DREP_BINS_FASTA="$OUTPUT_DIR/Summary/temp/DrepBins.fasta"
 
-# Concat fasta sequences
-echo "Concatenating fasta sequences..."
-python "${ScriptDir}/concat_fasta_sequences.py" "$OUTPUT_DIR/Summary/dRepRes/dereplicated_genomes" "$OUTPUT_DIR/Summary/temp/DrepBins.fasta"
-echo "Fasta concatenation completed."
+# Check if DrepBins.fasta already exists
+if [ -f "$DREP_BINS_FASTA" ]; then
+    echo "DrepBins.fasta already exists, skipping dRep and fasta concatenation steps."
+else
+    echo "Starting dRep for bins..."
+    mkdir -p "$OUTPUT_DIR/Summary/Viralcontigs"
+    mkdir -p "$OUTPUT_DIR/Summary/dRepRes"
+    dRep dereplicate "$OUTPUT_DIR/Summary/dRepRes" -g "${OUTPUT_DIR}/Summary/SeperateRes/bins"/*.fasta --ignoreGenomeQuality \
+        -pa 0.8 -sa 0.95 -nc 0.85 -comW 0 -conW 0 -strW 0 -N50W 0 -sizeW 1 -centW 0 -l 3000
+    echo "dRep for bins completed."
 
-#### dRep for contigs
-echo "Starting dRep for unbined contigs..."
-cat "$OUTPUT_DIR/Summary/SeperateFa/unbined/"*_unbined.fasta > "$OUTPUT_DIR/Summary/temp/merged_sequences.fasta"
-echo "Contigs merging completed."
+    echo "Concatenating fasta sequences..."
+    python "${ScriptDir}/concat_fasta_sequences.py" "$OUTPUT_DIR/Summary/dRepRes/dereplicated_genomes" "$DREP_BINS_FASTA"
+    echo "Fasta concatenation completed."
+fi
 
-# Cluster
-newDir="$OUTPUT_DIR/Summary/temp"
-echo "Clustering..."
+# Define the path for DrepViralcontigs.fasta
+DREP_VIRAL_FASTA="$OUTPUT_DIR/Summary/temp/DrepViralcontigs.fasta"
 
-# First, create a blast+ database
-makeblastdb -in "${newDir}/merged_sequences.fasta" -dbtype nucl -out "${newDir}/temp_db"
+# Check if DrepViralcontigs.fasta already exists
+if [ -f "$DREP_VIRAL_FASTA" ]; then
+    echo "DrepViralcontigs.fasta already exists, skipping dRep and clustering steps."
+else
+    echo "Starting dRep for unbined contigs..."
+    cat "$OUTPUT_DIR/Summary/SeperateRes/unbined/"*_unbined.fasta > "$OUTPUT_DIR/Summary/temp/merged_sequences.fasta"
+    echo "Contigs merging completed."
 
-# Perform all-vs-all blastn of sequences
-blastn -query "${newDir}/merged_sequences.fasta" -db "${newDir}/temp_db" -outfmt "6 std qlen slen" -max_target_seqs 10000 -out "${newDir}/merged_sequences_blast.tsv" -num_threads "${THREADS}"
+    newDir="$OUTPUT_DIR/Summary/temp"
+    
+    echo "Clustering..."
+    makeblastdb -in "${newDir}/merged_sequences.fasta" -dbtype nucl -out "${newDir}/temp_db"
 
-# Calculate pairwise ANI
-python "${ScriptDir}/anicalc.py" -i "${newDir}/merged_sequences_blast.tsv" -o "${newDir}/merged_sequences_ani.tsv"
+    blastn -query "${newDir}/merged_sequences.fasta" -db "${newDir}/temp_db" -outfmt "6 std qlen slen" \
+        -max_target_seqs 10000 -out "${newDir}/merged_sequences_blast.tsv" -num_threads "${THREADS}"
 
-# Perform UCLUST-like clustering using the MIUVIG recommended parameters (95% ANI + 85% AF)
-python "${ScriptDir}/aniclust.py" --fna "${newDir}/merged_sequences.fasta" --ani "${newDir}/merged_sequences_ani.tsv" --out "${newDir}/merged_sequences_clusters.tsv" --min_ani 95 --min_tcov 85 --min_qcov 0
+    python "${ScriptDir}/anicalc.py" -i "${newDir}/merged_sequences_blast.tsv" -o "${newDir}/merged_sequences_ani.tsv"
 
-# Delete temporary files
-echo "Cleaning up temporary files..."
-rm -f "${newDir}/temp_db.*"
-rm -f "${newDir}/merged_sequences_blast.tsv"
+    python "${ScriptDir}/aniclust.py" --fna "${newDir}/merged_sequences.fasta" --ani "${newDir}/merged_sequences_ani.tsv" \
+        --out "${newDir}/merged_sequences_clusters.tsv" --min_ani 95 --min_tcov 85 --min_qcov 0
 
-# Merge cluster results
-echo "Merging cluster results..."
-python "${ScriptDir}/SelectCluster.py" "${newDir}/merged_sequences.fasta" "${newDir}/merged_sequences_clusters.tsv" "$OUTPUT_DIR/Summary/temp/DrepViralcontigs.fasta"
+    echo "Cleaning up temporary files..."
+    rm -f "${newDir}/temp_db.*"
+    rm -f "${newDir}/merged_sequences_blast.tsv"
 
-echo "Combined fasta files and quality summaries completed."
+    echo "Merging cluster results..."
+    python "${ScriptDir}/SelectCluster.py" "${newDir}/merged_sequences.fasta" "${newDir}/merged_sequences_clusters.tsv" "$DREP_VIRAL_FASTA"
+    echo "dRep and clustering for unbined contigs completed."
+fi
