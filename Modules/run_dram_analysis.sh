@@ -76,7 +76,7 @@ echo "All DRAM annotations completed."
 
 
 # 合并所有注释结果到输出目录
-awk 'FNR==1 && NR!=1{next;} {print}' ./*_DRAMAnnot/annotation.tsv > "$OUTPUT_DIR/combined_annotations.tsv"
+awk 'FNR==1 && NR!=1{next;} {print}' ./*_DRAMAnnot/annotations.tsv > "$OUTPUT_DIR/combined_annotations.tsv"
 
 echo "Annotation complete. Results combined and saved to $OUTPUT_DIR/combined_annotations.tsv"
 

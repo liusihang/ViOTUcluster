@@ -104,39 +104,5 @@ def main():
                 future.result()
             except Exception as e:
                 print(f"Task generated an exception: {e}")
-
-    # Monitor the completion of DRAM annotations
-    monitor_dram_tasks(files_list)
-
-    # Combine the annotation results
-    combined_output = os.path.join(OUTPUT_DIR, 'combined_annotations.tsv')
-    with open(combined_output, 'w') as outfile:
-        first_file = True
-        for fa_file in files_list:
-            output_dir = f"{fa_file}_DRAMAnnot"
-            result_file = os.path.join(output_dir, 'annotations.tsv')
-            if os.path.isfile(result_file):
-                with open(result_file, 'r') as infile:
-                    if first_file:
-                        # Write the header from the first file
-                        outfile.write(infile.read())
-                        first_file = False
-                    else:
-                        # Skip header lines and append content
-                        next(infile)
-                        outfile.write(infile.read())
-
-    print(f"Annotation complete. Results combined and saved to {combined_output}")
-
-    # Cleanup temporary files
-    print("Cleaning up temporary files...")
-    for fa_file in files_list:
-        output_dir = f"{fa_file}_DRAMAnnot"
-        subprocess.run(['rm', '-rf', output_dir])
-    
-    subprocess.run(['rm', '-rf', os.path.join(OUTPUT_DIR, 'split_files')])
-
-    print("Cleanup complete.")
-
 if __name__ == "__main__":
     main()
