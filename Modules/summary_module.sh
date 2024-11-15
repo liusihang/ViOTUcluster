@@ -190,4 +190,7 @@ else
   echo "Taxonomy prediction completed successfully."
 fi
 
+rm -r "$OUTPUT_DIR/Summary/temp"
+rm -r "$OUTPUT_DIR/Summary/dRepRes"
+
 echo "All files processed and combined successfully."

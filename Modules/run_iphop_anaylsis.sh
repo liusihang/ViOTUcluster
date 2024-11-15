@@ -1,6 +1,6 @@
 #!/bin/bash
 
-source activate iphop
+source activate iphop_env
 
 echo "Conda environment activated: $(conda info --envs)"
 
@@ -76,12 +76,7 @@ while [ "$all_tasks_completed" == "false" ]; do
     sleep 30
     all_tasks_completed=true
 
-    # 检查内存使用情况
-    if ! check_memory_usage; then
-        echo "Memory usage exceeded 99.5%. Stopping all tasks."
-        kill 0  # 终止所有子进程
-        exit 1
-    fi
+
 
     # 检查任务完成情况
     for dir in *_iPhopResult; do

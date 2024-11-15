@@ -104,6 +104,6 @@ else
     fi
 
     # 清理中间文件
-    rm -r "$OUTPUT_DIR/Summary/Viralcontigs/TPMTemp"
+    rm -r "$OUTPUT_DIR/Summary/Viralcontigs"
     echo "TPM calculation completed successfully."
 fi

@@ -9,20 +9,20 @@ import time
 import signal
 
 # Ensure necessary environment variables are set
-required_env_vars = ['DATABASE', 'THREADS', 'OUTPUT_DIR']
+required_env_vars = ['DATABASE', 'THREADS_PER_FILE', 'OUTPUT_DIR']
 for var in required_env_vars:
     if var not in os.environ:
         print(f"Environment variable {var} is not set.")
         sys.exit(1)
 
 # Get environment variables
-DATABASE = os.environ['DATABASE']
-THREADS = int(os.environ['THREADS'])  # Get the maximum number of threads
+THREADS_PER_FILE = int(os.environ['THREADS_PER_FILE'])
 OUTPUT_DIR = os.environ['OUTPUT_DIR']
+DATABASE = os.environ['DATABASE']
 
 # Get the number of cores available
 all_cores = list(range(multiprocessing.cpu_count()))  # Get all core numbers of the system
-CORES_TO_USE = THREADS  # Example: if THREADS is 16, it will use 16 cores
+CORES_TO_USE = THREADS_PER_FILE  # Example: if THREADS_PER_FILE is 10, use 10 cores
 assigned_cores = all_cores[:CORES_TO_USE]  # Assign cores to be used
 print(f"Assigning tasks to cores: {assigned_cores}")
 
@@ -34,7 +34,7 @@ def run_iphop_prediction(fa_file):
         iphop_cmd = [
             'iphop', 'predict',
             '--fa_file', fa_file,
-            '--db_dir', os.path.join(DATABASE, 'Virus', 'Aug_2023_pub_rw'),
+            '--db_dir', os.path.join(DATABASE, 'Aug_2023_pub_rw'),
             '--out_dir', output_dir,
             '-t', '10'
         ]
@@ -93,7 +93,7 @@ def main():
     print(f"Using {CORES_TO_USE} cores for iPhop prediction.")
 
     # Use ThreadPoolExecutor to process files in parallel
-    with ThreadPoolExecutor(max_workers=min(THREADS, len(files_list))) as executor:
+    with ThreadPoolExecutor(max_workers=min(THREADS_PER_FILE, len(files_list))) as executor:
         futures = []
         for fa_file in files_list:
             # Submit task to thread pool
@@ -108,7 +108,7 @@ def main():
                 print(f"Task generated an exception: {e}")
 
     # Monitor the completion of iPhop predictions
-    monitor_iphop_tasks(files_list)
+    #monitor_iphop_tasks(files_list)
 
     print("All iPhop predictions have been processed.")
 
