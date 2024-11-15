@@ -1,4 +1,4 @@
-# vOTUcluster Setup and Usage Guide
+# ViOTUcluster Setup and Usage Guide
 
 This guide will help you set up and use the vOTUcluster environment, as well as the vRhyme environment if needed. Follow the steps below to configure and run your analysis.
 
