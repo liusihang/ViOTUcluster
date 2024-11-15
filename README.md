@@ -1,26 +1,26 @@
 # ViOTUcluster Setup and Usage Guide
 
-This guide will help you set up and use the vOTUcluster environment, as well as the vRhyme environment if needed. Follow the steps below to configure and run your analysis.
+This guide will help you set up and use the ViOTUcluster environment, as well as the vRhyme environment if needed. Follow the steps below to configure and run your analysis.
 
 ## Prerequisites
 
 - [Miniconda](https://docs.conda.io/en/latest/miniconda.html) or [Anaconda](https://www.anaconda.com/products/distribution)
 - [mamba](https://github.com/mamba-org/mamba) (for faster package management)
 
-## Setup vOTUcluster Environment
+## Setup ViOTUcluster Environment
 
-1. **Create and activate the vOTUcluster environment**
+1. **Create and activate the ViOTUcluster environment**
 
     ```bash
-    mamba create -n vOTUcluster -c conda-forge -c bioconda "python=3.8" 
-    mamba activate vOTUcluster
+    mamba create -n ViOTUcluster -c conda-forge -c bioconda "python=3.8" 
+    mamba activate ViOTUcluster
     ```
 
-2. **Download and setup vOTUcluster**
+2. **Download and setup ViOTUcluster**
 
     ```bash
-    git clone https://github.com/liusihang/vOTUcluster.git
-    cd vOTUcluster-master
+    git clone https://github.com/liusihang/ViOTUcluster.git
+    cd ViOTUcluster-master
     bash setup.sh "/path/to/db" "num"
     ```
     Replace `/path/to/db` with the desired database directory and `num` with the number of threads you wish to use.
@@ -62,12 +62,12 @@ To run the pipeline, use the following command structure:
 1. **Create and activate the vRhyme environment**
 
     ```bash
-    vOTUcluster -i <input_path_to_contigs> -r <input_path_raw_seqs> -o <output_path> -d <database_path> -n <threads> --non-con/--con [--reassemble]
+    ViOTUcluster -i <input_path_to_contigs> -r <input_path_raw_seqs> -o <output_path> -d <database_path> -n <threads> --non-con/--con [--reassemble]
     ```
 
 2. **Start with raw fastq files**
     ```bash
-    vOTUcluster_AllinOne -r <input_path_raw_seqs> -o <output_path> -d <database_path> -t <sample_type> -a <assembly_software> --non-con/--con [--reassemble]"
+    ViOTUcluster_AllinOne -r <input_path_raw_seqs> -o <output_path> -d <database_path> -t <sample_type> -a <assembly_software> --non-con/--con [--reassemble]"
     ```
 ## Parameters
 
@@ -83,7 +83,7 @@ To run the pipeline, use the following command structure:
 
 - **`--reassemble`**: (Optional) Enables reassembly of bins after the initial binning process to enhance the accuracy and quality of the final contigs. This feature is still in beta and can significantly increase runtime.
 
-- **`-a <assembly_software>`**: (For `vOTUcluster_AllinOne` only) Specifies the assembly software used during the raw sequence processing. Accepted values are `-a megahit` or `-a metaspades`.
+- **`-a <assembly_software>`**: (For `ViOTUcluster_AllinOne` only) Specifies the assembly software used during the raw sequence processing. Accepted values are `-a megahit` or `-a metaspades`.
 ### File Structure Example
 
 Below is a tree list of how the file structure should be organized, assuming the prefix for the example files is `example1`:
