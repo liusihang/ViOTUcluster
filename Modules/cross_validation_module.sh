@@ -32,7 +32,7 @@ process_file() {
   # 交叉验证病毒片段
   echo -e "\n\n\n # Performing cross-validation for virus contigs!!! \n\n\n"
   echo "Running CrossValid.py..."
-  if ! python "${ScriptDir}/CrossValid.py" "$genomad_dir" "$viralverify_dir" "$virsorter_dir" "$BASENAME" "$out_dir" "$CONCENTRATION_TYPE"; then
+  if ! python "${ScriptDir}/CrossValidAnA.py" "$genomad_dir" "$viralverify_dir" "$virsorter_dir" "$BASENAME" "$out_dir" "$CONCENTRATION_TYPE"; then
     echo "Error during cross-validation for $BASENAME. Exiting..."
     return 1
   fi
@@ -43,6 +43,8 @@ process_file() {
     echo "Error during sequence extraction for $BASENAME. Exiting..."
     return 1
   fi
+
+  return 0
 
   # 创建用于 CheckV 结果的目录
   echo "Creating CheckV results directory..."

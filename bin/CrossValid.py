@@ -19,36 +19,43 @@ def find_file(directory, filename):
     return None
 
 # Read and filter Virsorter2 data
-def read_and_filter_virsorter2(file_path, pass_type='pass1'):
+def read_and_filter_virsorter2(file_path):
     data = pd.read_csv(file_path, sep='\t')
-    if pass_type == 'pass1':
-        filtered_data = data[(data['max_score'] > 0.90) | (data['hallmark'] >= 2)]
+    if CONCENTRATION_TYPE == "non-concentration":
+        filtered_data = data[
+            ((data['max_score'] >= 0.95) & (data['hallmark'] >= 1)) |
+            ((data['hallmark'] == 0) & (data['max_score'] > 0.99) & (data['max_score_group'] != 'ssDNA')) |
+            ((data['max_score_group'] == 'ssDNA') & (data['max_score'] > 0.995) & (data['hallmark'] == 0) )
+        ]
     else:
-        filtered_data = data[(data['max_score'] <= 0.95) & (data['max_score'] > 0.6)]
+        filtered_data = data[
+            (data['max_score'] >= 0.90) & (data['hallmark'] >= 1)
+        ]
+    # 处理序列名
     filtered_data.iloc[:, 0] = filtered_data.iloc[:, 0].apply(lambda x: x.split('||')[0] if pd.notnull(x) else x)
     return filtered_data.iloc[:, 0]
 
 # Read and filter Genomad data
-def read_and_filter_genomad(Path, pass_type='pass1'):
+def read_and_filter_genomad(Path):
     filename = Inputfile + "_virus_summary.tsv"
     found_path = find_file(Path, filename)
     data = pd.read_csv(found_path, sep='\t')
-    if pass_type == 'pass1':
-        filtered_data = data[(data['virus_score'] > 0.8) & (data['n_hallmarks'] >= 2) & (data['fdr'] <= 0.05)]
+    if CONCENTRATION_TYPE == "non-concentration":
+        filtered_data = data[
+            ((data['virus_score'] > 0.8) & (data['n_hallmarks'] >= 1) & (data['fdr'] <= 0.05))|
+            ((data['n_hallmarks'] == 0) & (data['virus_score'] > 0.995) & (data['fdr'] <= 0.05)) 
+            ]
     else:
         filtered_data = data[(data['virus_score'] > 0.7) & (data['fdr'] <= 0.05)]
     filtered_data.iloc[:, 0] = filtered_data.iloc[:, 0].apply(lambda x: x.split('||')[0] if pd.notnull(x) else x)
     return filtered_data.iloc[:, 0]
 
 # Read and filter ViralVerify data
-def read_and_filter_viralverify(Path, pass_type='pass1'):
+def read_and_filter_viralverify(Path):
     filename = Inputfile + "_result_table.csv"
     found_path = find_file(Path, filename)
     data = pd.read_csv(found_path)
-    if pass_type == 'pass1':
-        filtered_data = data[data['Prediction'] == "Virus"]
-    else:
-        filtered_data = data[data['Prediction'] == "Uncertain - viral or bacterial"]
+    filtered_data = data[data['Prediction'] == "Virus"]
     filtered_data.iloc[:, 0] = filtered_data.iloc[:, 0].apply(lambda x: x.split('||')[0] if pd.notnull(x) else x)
     return filtered_data.iloc[:, 0]
 
@@ -83,15 +90,15 @@ def find_common_elements(*args):
 
 # Filter based on CONCENTRATION_TYPE for Pass1
 if CONCENTRATION_TYPE == "concentration":
-    virsorter2_list1 = read_and_filter_virsorter2(os.path.join(Virsorterpath, "final-viral-score.tsv"), 'pass1')
-    genomad_list1 = read_and_filter_genomad(os.path.join(Genomadpath), 'pass1')
-    viralverify_list1 = read_and_filter_viralverify(os.path.join(Viralverifypath), 'pass1')
+    virsorter2_list1 = read_and_filter_virsorter2(os.path.join(Virsorterpath, "final-viral-score.tsv"))
+    genomad_list1 = read_and_filter_genomad(os.path.join(Genomadpath))
+    viralverify_list1 = read_and_filter_viralverify(os.path.join(Viralverifypath))
 
     # Merge Pass1 results for concentration type
     AllPass_series = merge_lists(virsorter2_list1, genomad_list1, viralverify_list1)
 else:  # Non-concentration type
-    genomad_list1 = read_and_filter_genomad(os.path.join(Genomadpath), 'pass2')
-    viralverify_list1 = read_and_filter_viralverify(os.path.join(Viralverifypath), 'pass1')
+    genomad_list1 = read_and_filter_genomad(os.path.join(Genomadpath))
+    viralverify_list1 = read_and_filter_viralverify(os.path.join(Viralverifypath))
 
     # Merge Pass1 results for non-concentration type
     AllPass_series = merge_lists(genomad_list1, viralverify_list1)
