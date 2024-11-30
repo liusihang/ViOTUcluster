@@ -10,7 +10,7 @@ DATABASE=""  # Path to the database required for analysis, to be specified by th
 SAMPLETYPE=""  # Specify the sample type: DNA, RNA, or Mix. Default is empty.
 ASSEMBLY_SOFTWARE=""  # Specify the assembly software to be used, e.g., "megahit" or "metaspades"
 REASSEMBLE=false
-VERSION="0.3.0"
+VERSION="0.3.2"
 CONCENTRATION_TYPE=""  # Specify the concentration type: non-concentration or concentration. Default is empty.
 THREADS=0  # Default number of threads
 LOG_FILE=""
@@ -248,6 +248,9 @@ run_module "Raw sequences Process" "${OUTPUT_DIR}/Log/Preprocess.log" "Preproces
 CONTIGS_DIR="${OUTPUT_DIR}/Contigs"
 RAW_SEQ_DIR="${OUTPUT_DIR}/Cleanreads"
 INPUT_DIR=${CONTIGS_DIR}
+
+# Export parameters as environment variables
+export INPUT_DIR OUTPUT_DIR DATABASE SAMPLETYPE REASSEMBLE ScriptDir RAW_SEQ_DIR THREADS
 
 # Perform different processing based on CONCENTRATION_TYPE
 if [ "$CONCENTRATION_TYPE" == "non-concentration" ]; then

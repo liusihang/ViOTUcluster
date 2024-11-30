@@ -88,20 +88,6 @@ def find_common_elements(*args):
     common_elements = set.intersection(*sets)
     return pd.Series(list(common_elements))
 
-# Filter based on CONCENTRATION_TYPE for Pass1
-if CONCENTRATION_TYPE == "concentration":
-    virsorter2_list1 = read_and_filter_virsorter2(os.path.join(Virsorterpath, "final-viral-score.tsv"))
-    genomad_list1 = read_and_filter_genomad(os.path.join(Genomadpath))
-    viralverify_list1 = read_and_filter_viralverify(os.path.join(Viralverifypath))
-
-    # Merge Pass1 results for concentration type
-    AllPass_series = merge_lists(virsorter2_list1, genomad_list1, viralverify_list1)
-else:  # Non-concentration type
-    genomad_list1 = read_and_filter_genomad(os.path.join(Genomadpath))
-    viralverify_list1 = read_and_filter_viralverify(os.path.join(Viralverifypath))
-
-    # Merge Pass1 results for non-concentration type
-    AllPass_series = merge_lists(genomad_list1, viralverify_list1)
 
 # Read and filter plasmid data from Genomad data
 plasmid_sequences = read_plasmid_data(Genomadpath)
@@ -109,8 +95,29 @@ plasmid_sequences = read_plasmid_data(Genomadpath)
 # Read and filter non-viral sequences (Plasmid, Chromosome, Uncertain - plasmid or chromosomal) from ViralVerify data
 nonviral_sequences = read_and_filter_viralverify_nonviral(Viralverifypath)
 
-# Remove all sequences in plasmid_sequences and nonviral_sequences from AllPass_series
-AllPass_series = AllPass_series[~AllPass_series.isin(plasmid_sequences | nonviral_sequences)]
+# Filter based on CONCENTRATION_TYPE for Pass1
+if CONCENTRATION_TYPE == "concentration":
+    virsorter2_list1 = read_and_filter_virsorter2(os.path.join(Virsorterpath, "final-viral-score.tsv"))
+    genomad_list1 = read_and_filter_genomad(os.path.join(Genomadpath))
+    viralverify_list1 = read_and_filter_viralverify(os.path.join(Viralverifypath))
+
+    # 合并 Pass1 结果
+    Pass1_list = merge_lists(virsorter2_list1, genomad_list1, viralverify_list1)
+    # Merge Pass1 results for concentration type
+    AllPass_series = merge_lists(virsorter2_list1, genomad_list1, viralverify_list1)
+    # Remove all sequences in plasmid_sequences and nonviral_sequences from AllPass_series
+    AllPass_series = AllPass_series[~AllPass_series.isin(plasmid_sequences)]
+
+else:  # Non-concentration type
+    genomad_list1 = read_and_filter_genomad(os.path.join(Genomadpath))
+    viralverify_list1 = read_and_filter_viralverify(os.path.join(Viralverifypath))
+    virsorter2_list1 = read_and_filter_virsorter2(os.path.join(Virsorterpath, "final-viral-score.tsv"))
+    # 合并 Pass1 结果
+    Pass1_list = merge_lists(virsorter2_list1, genomad_list1, viralverify_list1)
+    # Merge Pass1 results for non-concentration type
+    AllPass_series = merge_lists(genomad_list1, viralverify_list1)
+    # Remove all sequences in plasmid_sequences and nonviral_sequences from AllPass_series
+    AllPass_series = AllPass_series[~AllPass_series.isin(plasmid_sequences | nonviral_sequences)]
 
 # Create DataFrame
 AllPass_df = pd.DataFrame(AllPass_series, columns=['Sequence Id'])

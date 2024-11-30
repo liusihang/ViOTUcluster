@@ -3,7 +3,7 @@
 # 导出必要的变量
 export OUTPUT_DIR DATABASE CONCENTRATION_TYPE ScriptDir FILES THREADS
 
-set -x  # 启用调试模式
+#set -x  # 启用调试模式
 
 process_file() {
   local FILE=$1
