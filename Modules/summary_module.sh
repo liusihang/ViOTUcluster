@@ -75,6 +75,7 @@ for folder in "$OUTPUT_DIR/SeprateFile/"*/ ; do
   binning_dir="${folder}Binning/"
   rmdir "$binning_dir" 2>/dev/null || true
   fi
+  rm "$combined_dest"
 done
 
 # Define the path for vOTU.Abundance.csv

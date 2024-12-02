@@ -21,7 +21,7 @@ fi
 # 创建输出目录（如果不存在）
 mkdir -p "$OUTPUT_DIR"
 mkdir -p "$OUTPUT_DIR/split_files"
-mkdir -p "$OUTPUT_DIR/DRAM_results"
+#mkdir -p "$OUTPUT_DIR/DRAM_results"
 
 echo -e "\n\n\n# 进行DRAM分析!!!\n\n\n"
 pwd
@@ -76,9 +76,9 @@ echo "All DRAM annotations completed."
 
 
 # 合并所有注释结果到输出目录
-awk 'FNR==1 && NR!=1{next;} {print}' ./*_DRAMAnnot/annotations.tsv > "$OUTPUT_DIR/combined_annotations.tsv"
+awk 'FNR==1 && NR!=1{next;} {print}' "$OUTPUT_DIR"/split_files/*_DRAMAnnot/annotations.tsv > "$OUTPUT_DIR/DRAM_annotations.tsv"
 
-echo "Annotation complete. Results combined and saved to $OUTPUT_DIR/combined_annotations.tsv"
+echo "Annotation complete. Results combined and saved to $OUTPUT_DIR/DRAM_annotations.tsv"
 
 # 删除中间产生的临时文件
 echo "Cleaning up temporary files..."

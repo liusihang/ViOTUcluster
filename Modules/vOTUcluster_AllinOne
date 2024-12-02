@@ -10,7 +10,7 @@ DATABASE=""  # Path to the database required for analysis, to be specified by th
 SAMPLETYPE=""  # Specify the sample type: DNA, RNA, or Mix. Default is empty.
 ASSEMBLY_SOFTWARE=""  # Specify the assembly software to be used, e.g., "megahit" or "metaspades"
 REASSEMBLE=false
-VERSION="0.3.2"
+VERSION="0.3.3"
 CONCENTRATION_TYPE=""  # Specify the concentration type: non-concentration or concentration. Default is empty.
 THREADS=0  # Default number of threads
 LOG_FILE=""
@@ -27,6 +27,11 @@ cleanup() {
     kill -- -$$
   fi
   exit 1
+}
+
+# Function to add a timestamp to log entries
+log_with_timestamp() {
+  echo "$(date '+%Y-%m-%d %H:%M:%S') - $1"
 }
 
 # 使用 getopts 处理短选项和手动处理长选项
@@ -200,9 +205,9 @@ done
 
 # Perform different processing based on CONCENTRATION_TYPE
 if [ "$CONCENTRATION_TYPE" == "non-concentration" ]; then
-    log_with_timestamp "Running non-concentration specific steps..."
+    log_with_timestamp "Running in non-concentration mode..."
 elif [ "$CONCENTRATION_TYPE" == "concentration" ]; then
-    log_with_timestamp "Running concentration specific steps..."
+    log_with_timestamp "Running in concentration mode..."
 else
     log_with_timestamp "Error: Invalid concentration type."
     exit 1
