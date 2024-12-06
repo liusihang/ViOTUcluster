@@ -39,7 +39,7 @@ ______
 
     ```bash
     git clone https://github.com/liusihang/ViOTUcluster.git
-    cd ViOTUcluster-master
+    cd ViOTUcluster
     bash setup.sh "/path/to/db" "num"
     ```
     The setup script will automatically install all necessary dependencies and databases.
