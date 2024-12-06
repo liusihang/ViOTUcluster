@@ -44,7 +44,8 @@ ______
     cd ViOTUcluster-master
     bash setup.sh "/path/to/db" "num"
     ```
-    Replace `/path/to/db` with the desired database directory and `num` with the number of threads you wish to use.
+    The setup script will automatically install all necessary dependencies and databases.
+    Make sure to replace /path/to/db with the path to your desired database directory, and replace num with the number of threads you would like to use during installation.
 
 3. **Verify Installation of All Dependencies**
 
