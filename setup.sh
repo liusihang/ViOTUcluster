@@ -15,7 +15,7 @@ NUM_THREADS=$2
 #mamba activate vOTUcluster
 
 #clean cache
-conda clean --all
+#conda clean --all
 
 #instasll packages
 #mamba install virsorter=2 --clobber
@@ -24,9 +24,19 @@ conda clean --all
 export CONDA_PKGS_DIRS=$(mktemp -d)
 
 # 安装 dRep、ViralVerify、Genomad、CheckV
+#pip3 install checkm-genome==1.2.2
 echo "Installing dRep, ViralVerify, Genomad, and CheckV..."
 mamba install -c conda-forge -c bioconda \
-    dRep=3.5.0 viralverify=1.1 genomad=1.8.0 checkv=1.0.3 --yes
+    genomad=1.8.0 --yes
+mamba install -c conda-forge -c bioconda \
+    checkm-genome=1.2.2 --yes
+mamba install -c conda-forge -c bioconda \
+    dRep=3.5.0 --yes
+mamba install -c conda-forge -c bioconda \
+    checkv=1.0.3 --yes
+
+echo "Installing dRep, ViralVerify, Genomad, and CheckV..."
+mamba install -c conda-forge -c bioconda viralverify=1.1 --yes
 
 # 安装 scikit-learn、imbalanced-learn、pandas、seaborn、pyhmmer
 echo "Installing scikit-learn, imbalanced-learn, pandas, seaborn, and pyhmmer..."
@@ -40,11 +50,13 @@ mamba install -c conda-forge -c bioconda \
 
 # 安装 numpy、checkm-genome
 echo "Installing numpy and checkm-genome..."
-mamba install -c conda-forge -c bioconda numpy=1.23.5 checkm-genome=1.2.2 --yes
+mamba install -c conda-forge -c bioconda numpy=1.23.5 --yes
 
 # 安装 megahit、spades、fastp
 echo "Installing megahit, spades, and fastp..."
 mamba install -c conda-forge -c bioconda megahit spades fastp --yes
+
+pip3 install bio
 
 # 清理临时缓存目录
 echo "Cleaning up temporary cache..."
@@ -65,19 +77,19 @@ python ./setupscript/Move2bin.py
 CONDA_ENV_PATH=$(conda info --base)/envs/$(basename "$CONDA_DEFAULT_ENV")
 
 # Add execute permissions to all files in the current conda environment's bin folder
-chmod +x "$CONDA_ENV_PATH/bin/*"
+chmod +x "$CONDA_ENV_PATH/bin"
 
 # Setup the database for VirSorter
-virsorter setup -d "$DB_DIR" -j "$NUM_THREADS"
+virsorter setup -d "$DB_DIR/db" -j "$NUM_THREADS"
 checkv download_database "$DB_DIR"
 genomad download-database "$DB_DIR"
 
 # Download and unzip ViralVerify database
 echo "Downloading ViralVerify database..."
-curl -L -o "$DB_DIR/viralverify.zip" "https://figshare.com/ndownloader/files/17904323?private_link=f897d463b31a35ad7bf0"
+curl -L -o "$DB_DIR/nbc_hmms.hmm.gz" "https://figshare.com/ndownloader/files/17904323?private_link=f897d463b31a35ad7bf0"
 
 echo "Unzipping ViralVerify database..."
-unzip "$DB_DIR/viralverify.zip" -d "$DB_DIR/viralverify"
+unzip "$DB_DIR/nbc_hmms.hmm.gz" -d "$DB_DIR/viralverify"
 
 #Convert to binnary format
 hmmconvert -b "$DB_DIR/viralverify/nbc_hmms.hmm" > "$DB_DIR/viralverify/nbc_hmms.h3m"

@@ -125,7 +125,7 @@ for FILE in $FILES; do
       done
 
       # 获取合并的 bins 和 unbined 序列
-      python "${ScriptDir}/MergeRes.py" -i "$VRHYME_DIR/vRhyme_best_bins_fasta" -r "$OUT_DIR/${BASENAME}_filtered.fasta" -o "$OUT_DIR/Binning/Summary/Finialfasta/${BASENAME}_viralseqs.fasta"
+      python "${ScriptDir}/MergeBins.py" -i "$VRHYME_DIR/vRhyme_best_bins_fasta" -o "${OUTPUT_DIR}/Summary/SeperateRes/bins/${BASENAME}_bins.fasta"
 
       # 生成 unbined 序列
       if [ ! -d "$OUTPUT_DIR/Summary/SeperateRes/unbined" ]; then
@@ -133,6 +133,9 @@ for FILE in $FILES; do
       fi
       python "${ScriptDir}/unbined.py" -i "$VRHYME_DIR/vRhyme_best_bins_fasta" -r "$OUT_DIR/${BASENAME}_filtered.fasta" -o "$UNBINNED_FASTA"
 
+      # 合并 bins 和 unbined 序列
+      cat "${OUTPUT_DIR}/Summary/SeperateRes/bins/${BASENAME}_bins.fasta" "${OUTPUT_DIR}/Summary/SeperateRes/unbined/${BASENAME}_unbined.fasta" > "${OUTPUT_DIR}/Summary/SeperateRes/${BASENAME}_viralseqs.fasta"
+      
       echo "Rebinning and reassembly complete for $FILE"
   fi
 done

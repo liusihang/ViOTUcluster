@@ -1,40 +1,47 @@
 #!/usr/bin/env python
+
 import os
-import argparse
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
+import argparse
 
-def concatenate_fasta_sequences(input_folder, output_file):
-    bin_counter = 1
-    concatenated_sequences = []
-
-    for file_name in os.listdir(input_folder):
-        if file_name.endswith(".fa") or file_name.endswith(".fasta"):
+def combine_sequences_in_folder(input_folder):
+    """Combine sequences in each fasta file into one sequence, and assign id bin_1, bin_2, etc."""
+    combined_sequences = []
+    bin_number = 1
+    for file_name in sorted(os.listdir(input_folder)):
+        if file_name.endswith(".fasta"):
             file_path = os.path.join(input_folder, file_name)
-            concatenated_seq = ""
-
+            sequences = []
             for record in SeqIO.parse(file_path, "fasta"):
-                concatenated_seq += str(record.seq)
-
-            concatenated_record = SeqRecord(
-                Seq(concatenated_seq),
-                id=f"bin_{bin_counter}",
-                description=""
-            )
-            concatenated_sequences.append(concatenated_record)
-            bin_counter += 1
-
-    with open(output_file, "w") as output_handle:
-        SeqIO.write(concatenated_sequences, output_handle, "fasta")
+                sequences.append(str(record.seq))
+            if sequences:
+                combined_seq = ''.join(sequences)
+                new_record = SeqRecord(Seq(combined_seq), id=f'bin_{bin_number}', description='')
+                combined_sequences.append(new_record)
+                bin_number += 1
+    return combined_sequences
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Concatenate fasta sequences in each file and rename them.")
+    parser = argparse.ArgumentParser(description="Combine sequences in fasta files into one sequence per file.")
     parser.add_argument('-i', '--input_folder', required=True, help='Path to the input folder containing fasta files')
     parser.add_argument('-o', '--output_file', required=True, help='Path to the output fasta file')
-
+    
     args = parser.parse_args()
     
-    concatenate_fasta_sequences(args.input_folder, args.output_file)
+    # 确保输出文件的父目录存在
+    output_dir = os.path.dirname(args.output_file)
+    if output_dir and not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    
+    # Step 1: Combine sequences in input folder
+    combined_sequences = combine_sequences_in_folder(args.input_folder)
+    
+    # Step 2: Write combined sequences to output fasta
+    with open(args.output_file, "w") as output_handle:
+        SeqIO.write(combined_sequences, output_handle, "fasta")
+    
+    print(f"Combined sequences have been saved to {args.output_file}")
 
-#python concatenate_fasta.py -i path/to/your/fasta/folder -o Allbins.fasta
+#python script.py -i /path/to/input_folder -o /path/to/output_file.fasta
