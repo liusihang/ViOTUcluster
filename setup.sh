@@ -55,7 +55,6 @@ mamba install -c conda-forge -c bioconda numpy=1.23.5 --yes
 # 安装 megahit、spades、fastp
 echo "Installing megahit, spades, and fastp..."
 mamba install -c conda-forge -c bioconda megahit spades fastp --yes
-
 pip3 install bio
 
 # 清理临时缓存目录
@@ -89,13 +88,14 @@ echo "Downloading ViralVerify database..."
 curl -L -o "$DB_DIR/nbc_hmms.hmm.gz" "https://figshare.com/ndownloader/files/17904323?private_link=f897d463b31a35ad7bf0"
 
 echo "Unzipping ViralVerify database..."
-unzip "$DB_DIR/nbc_hmms.hmm.gz" -d "$DB_DIR/viralverify"
+mkdir -p "$DB_DIR/viralverify"
+gunzip -c "$DB_DIR/nbc_hmms.hmm.gz" > "$DB_DIR/viralverify/nbc_hmms.hmm"
 
 #Convert to binnary format
 hmmconvert -b "$DB_DIR/viralverify/nbc_hmms.hmm" > "$DB_DIR/viralverify/nbc_hmms.h3m"
 hmmconvert -b "$DB_DIR/db/hmm/viral/combined.hmm" > "$DB_DIR/db/hmm/viral/combined.h3m"
 
-for hmm_file in "$DB_DIR"/db/hmm/pfam/*.hmm; do
+for hmm_file in "$DB_DIR/db/hmm/pfam/"*.hmm; do
     base_name=$(basename "$hmm_file" .hmm)
     output_file="$input_dir/$base_name.h3m"
     hmmconvert -b "$hmm_file" > "$output_file"
