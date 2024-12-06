@@ -45,7 +45,7 @@ ______
     bash setup.sh "/path/to/db" "num"
     ```
     The setup script will automatically install all necessary dependencies and databases.
-    Make sure to replace /path/to/db with the path to your desired database directory, and replace num with the number of threads you would like to use during installation.
+    Make sure to replace ```/path/to/db``` with the path to your desired database directory, and replace ```num``` with the number of threads you would like to use during installation.
 
 3. **Verify Installation of All Dependencies**
 
@@ -92,13 +92,40 @@ If you already have vRhyme environment, you can skip this section.
 
 You can find more information about vRhyme on their website (https://github.com/AnantharamanLab/vRhyme).
 
-### Troubleshooting
-If you encounter any issues during the setup or usage of these environments, please refer to the following steps:
 
-Ensure that you have the latest version of mamba and conda.
-Check that all dependencies are correctly installed.
-Verify that the paths and environment variables are set correctly.
-For additional help, feel free to open an issue on the respective GitHub repositories.
+
+
+
+### Setup DRAM and iPhop Environment
+
+To run the full workflow, including [DRAM-v](https://github.com/WrightonLabCSU/DRAM) and [iPhop](https://bitbucket.org/srouxjgi/iphop/src/main/) analysis, ensure that both DRAM and iPhop are installed in the respective Conda environments `DRAM` and `iphop_env`.
+
+If you have not installed them yet, you can do so with the following commands:
+
+#### Install DRAM:
+
+```bash
+wget https://raw.githubusercontent.com/WrightonLabCSU/DRAM/master/environment.yaml
+conda env create -f environment.yaml -n DRAM
+```
+
+#### Install iPhop:
+
+```bash
+conda create -c conda-forge -n iphop_env python=3.8 mamba
+conda activate iphop_env
+mamba install -c conda-forge -c bioconda iphop
+```
+
+You may need to set up the databases for DRAM and iPhop in the first time. For specific database download and usage instructions, please refer to the official websites of **DRAM** and **iPhop**:
+
+- [DRAM](https://github.com/WrightonLabCSU/DRAM)
+- [iPhop](https://bitbucket.org/srouxjgi/iphop/src/main/)
+
+## Note
+The setup time for ViOTUcluster largely depends on the network speed, as it will download nearly 30 GB of databases during the installation process. **Poor network conditions may lead to installation failures.**  Therefore, please ensure that you perform the installation under optimal network conditions.
+
+If you encounter any issues during the setup of these environments, feel free to open an issue on the respective GitHub repositories.
 
 
 ## How to Use
