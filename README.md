@@ -46,7 +46,29 @@ ______
     ```
     Replace `/path/to/db` with the desired database directory and `num` with the number of threads you wish to use.
 
-   
+3. **Verify Installation of All Dependencies**
+
+    To check if all required dependencies are successfully installed, you can run the following command:
+    ```bash
+    ViOTUcluster_Check
+    ```
+    The output should look like this:
+    ```bash
+    Checking dependencies...
+    [✅] fastp is installed.
+    [✅] megahit is installed.
+    [✅] spades.py is installed.
+    [✅] virsorter is installed.
+    [✅] viralverify is installed.
+    [✅] genomad is installed.
+    [✅] checkv is installed.
+    [✅] dRep is installed.
+    [✅] checkm is installed.
+    [✅] bwa is installed.
+    All dependencies are installed.
+    ```
+
+
 ### Setup vRhyme Environment
 
 If you already have vRhyme environment, you can skip this section.
@@ -92,6 +114,10 @@ To run the pipeline, use the following command structure:
     ```bash
     ViOTUcluster_AllinOne -r <input_path_raw_seqs> -o <output_path> -d <database_path> -a <assembly_software> --non-con/--con [--reassemble]
     ```
+
+
+A mini test file is available for download at  [MiniTest.zip](https://zenodo.org/records/14287325/files/MiniTest.zip?download=1). You can use this file in All-in-One mode to verify that the pipeline is successfully installed and functioning.
+
 ## Parameters
 
 - **`-i <input_path_to_contigs>`**: Specifies the directory containing the assembled contig files in FASTA format (e.g., `example1.fasta`). Each contig file should have corresponding raw sequencing FASTQ files in the raw sequence directory, sharing the same prefix.

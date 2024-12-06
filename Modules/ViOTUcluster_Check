@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+
+# Function to check if a command is installed
+check_command() {
+    command -v "$1" >/dev/null 2>&1
+    if [ $? -eq 0 ]; then
+        echo -e "[✅] $1 is installed."
+        return 0
+    else
+        echo -e "[❌] $1 is NOT installed."
+        return 1
+    fi
+}
+
+# Check the installation of all required dependencies
+echo "Checking dependencies..."
+
+# List of dependencies to check
+dependencies=(
+    "fastp"
+    "megahit"
+    "spades.py"
+    "virsorter"
+    "viralverify"
+    "genomad"
+    #"pyhmmer"
+    "checkv"
+    #"vrhyme"
+    "dRep"
+    #"DRAM"
+    #"iPhop"
+    "checkm"
+    "bwa"
+)
+
+# Initialize a variable to track missing dependencies
+missing_dependencies=()
+
+# Loop through each dependency and check if it's installed
+for dep in "${dependencies[@]}"; do
+    if ! check_command "$dep"; then
+        missing_dependencies+=("$dep")
+    fi
+done
+
+# Final message based on whether all dependencies are installed
+if [ ${#missing_dependencies[@]} -eq 0 ]; then
+    echo -e "All dependencies are installed."
+else
+    echo -e "The following dependencies are missing: "
+    for missing_dep in "${missing_dependencies[@]}"; do
+        echo -e "  - ❌ $missing_dep"
+    done
+fi

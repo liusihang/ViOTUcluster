@@ -259,7 +259,7 @@ export INPUT_DIR OUTPUT_DIR DATABASE SAMPLETYPE REASSEMBLE ScriptDir RAW_SEQ_DIR
 
 # Perform different processing based on CONCENTRATION_TYPE
 if [ "$CONCENTRATION_TYPE" == "non-concentration" ]; then
-  vOTUcluster -i "${INPUT_DIR}" -r "${RAW_SEQ_DIR}" -o "${OUTPUT_DIR}" -d "${DATABASE}" -n "${THREADS}" --non-con
+  ViOTUcluster -i "${INPUT_DIR}" -r "${RAW_SEQ_DIR}" -o "${OUTPUT_DIR}" -d "${DATABASE}" -n "${THREADS}" --non-con
 else [ "$CONCENTRATION_TYPE" == "concentration" ]
-  vOTUcluster -i "${INPUT_DIR}" -r "${RAW_SEQ_DIR}" -o "${OUTPUT_DIR}" -d "${DATABASE}" -n "${THREADS}" --con
+  ViOTUcluster -i "${INPUT_DIR}" -r "${RAW_SEQ_DIR}" -o "${OUTPUT_DIR}" -d "${DATABASE}" -n "${THREADS}" --con
 fi
