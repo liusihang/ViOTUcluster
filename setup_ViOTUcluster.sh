@@ -2,14 +2,6 @@
 
 #Usage: ./setup_vOTUcluster.sh /path/to/db 4
 # Check if the correct number of arguments is provided
-if [ "$#" -ne 2 ]; then
-    echo "Usage: $0 <db_directory> <num_threads>"
-    exit 1
-fi
-
-DB_DIR=$1
-NUM_THREADS=$2
-
 # Create and activate the Conda environment
 #mamba env create -f vOTUcluster
 #mamba activate vOTUcluster
