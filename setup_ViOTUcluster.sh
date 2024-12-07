@@ -55,7 +55,7 @@ rm -rf $CONDA_PKGS_DIRS
 
 
 # Clone the repository and install the package
-git clone https://gitclone.com/github.com/liusihang/VirSorter2-pyhmmerAcc
+git clone https://github.com/liusihang/VirSorter2-pyhmmerAcc
 cd VirSorter2-pyhmmerAcc
 pip install -e .
 
