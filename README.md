@@ -27,6 +27,7 @@ ______
 
 - [Miniconda](https://docs.conda.io/en/latest/miniconda.html) or [Anaconda](https://www.anaconda.com/products/distribution)
 - [mamba](https://github.com/mamba-org/mamba) (for faster package management)
+- [Git](https://git-scm.com/downloads)
 ### Setup ViOTUcluster Environment
 1. **Create and activate the ViOTUcluster environment**
 
