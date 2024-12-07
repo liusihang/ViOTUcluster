@@ -22,7 +22,7 @@ Tongji University
 ______
 
 
-## Installation
+## Installation(tested on Ubuntu; should work in all linux;)
 ### Prerequisites
 
 - [Miniconda](https://docs.conda.io/en/latest/miniconda.html) or [Anaconda](https://www.anaconda.com/products/distribution)
