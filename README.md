@@ -33,7 +33,7 @@ ______
 
     ```bash
     mamba create -n ViOTUcluster -c conda-forge -c bioconda "python=3.8" 
-    mamba activate ViOTUcluster
+    conda activate ViOTUcluster
     ```
 
 2. **Download and setup ViOTUcluster**
