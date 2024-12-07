@@ -40,10 +40,8 @@ ______
     ```bash
     git clone https://github.com/liusihang/ViOTUcluster.git
     cd ViOTUcluster
-    bash setup.sh "/path/to/db" "num"
+    bash setup_ViOTUcluster.sh
     ```
-    The setup script will automatically install all necessary dependencies and databases.
-    Make sure to replace ```/path/to/db``` with the path to your desired database directory, and replace ```num``` with the number of threads you would like to use during installation.
 
 3. **Verify Installation of All Dependencies**
 
@@ -66,6 +64,15 @@ ______
     [✅] bwa is installed.
     All dependencies are installed.
     ```
+
+4. **Setup database**
+    ```
+    ViOTUcluster_download-database "/path/to/db" "num"
+    ```
+    The setup script will automatically install all databases.
+    Make sure to replace ```/path/to/db``` with the path to your desired database directory, and replace ```num``` with the number of threads you would like to use during installation.
+
+    The setup time for ViOTUcluster largely depends on the ___network speed___, as it will download nearly **30 GB** of databases during the installation process. ___Poor network conditions may lead to installation failures.___  Therefore, please ensure that you perform the installation under optimal network conditions.
 
 
 ### Setup vRhyme Environment
@@ -121,7 +128,6 @@ You may need to set up the databases for DRAM and iPhop in the first time. For s
 - [iPhop](https://bitbucket.org/srouxjgi/iphop/src/main/)
 
 ## Note
-The setup time for ViOTUcluster largely depends on the network speed, as it will download nearly 30 GB of databases during the installation process. **Poor network conditions may lead to installation failures.**  Therefore, please ensure that you perform the installation under optimal network conditions.
 
 If you encounter any issues during the setup of these environments, feel free to open an issue on the respective GitHub repositories.
 
