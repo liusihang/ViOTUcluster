@@ -13,10 +13,10 @@ NUM_THREADS=$2
 # Function to check if VirSorter database is installed
 check_virsorter_db() {
     if [ -d "$DB_DIR/db/group" ] && [ -d "$DB_DIR/db/hmm" ] && [ -d "$DB_DIR/db/rbs" ]; then
-        echo "[✅] VirSorter database already installed."
+        echo "[✅] VirSorter2 database already installed."
         return 0
     else
-        echo "[❌] VirSorter database not found. Proceeding with installation..."
+        echo "[❌] VirSorter2 database not found. Proceeding with installation..."
         return 1
     fi
 }
