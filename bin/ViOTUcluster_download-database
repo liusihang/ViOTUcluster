@@ -23,7 +23,7 @@ check_virsorter_db() {
 
 # Function to check if CheckV database is installed
 check_checkv_db() {
-    if [ -d "$DB_DIR/checkv/genome_db" ] && [ -d "$DB_DIR/checkv/hmm_db" ] && [ -f "$DB_DIR/checkv/README.txt" ]; then
+    if [ -d "$DB_DIR/checkv-db-v1.5/genome_db" ] && [ -d "$DB_DIR/checkv-db-v1.5/hmm_db" ] && [ -f "$DB_DIR/checkv-db-v1.5/README.txt" ]; then
         echo "[✅] CheckV database already installed."
         return 0
     else
@@ -34,7 +34,7 @@ check_checkv_db() {
 
 # Function to check if Genomad database is installed
 check_genomad_db() {
-    if [ -f "$DB_DIR/genomad/version.txt" ]; then
+    if [ -f "$DB_DIR/genomad_db/version.txt" ]; then
         echo "[✅] Genomad database already installed."
         return 0
     else
