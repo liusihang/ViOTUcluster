@@ -83,7 +83,7 @@ If you already have vRhyme environment, you can skip this section.
 1. **Create and activate the vRhyme environment**
 
     ```bash
-    mamba env create -f vRhyme.yaml
+    mamba env create -f ./setupscript/vRhyme.yaml
     mamba activate vRhyme
     ```
 
