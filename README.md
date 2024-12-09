@@ -24,20 +24,19 @@ Tongji University
 
 ______
 
-## Installation
-
+## Installation(tested on Ubuntu; should work in all linux;)
 ### Prerequisites
 
 - [Miniconda](https://docs.conda.io/en/latest/miniconda.html) or [Anaconda](https://www.anaconda.com/products/distribution)
 - [mamba](https://github.com/mamba-org/mamba) (for faster package management)
-
+- [Git](https://git-scm.com/downloads)
 ### Setup ViOTUcluster Environment
 
 1. **Create and activate the ViOTUcluster environment**
 
     ```bash
     mamba create -n ViOTUcluster -c conda-forge -c bioconda "python=3.8" 
-    mamba activate ViOTUcluster
+    conda activate ViOTUcluster
     ```
 
 2. **Download and setup ViOTUcluster**
@@ -91,7 +90,7 @@ If you already have vRhyme environment, you can skip this section.
 1. **Create and activate the vRhyme environment**
 
     ```bash
-    mamba env create -f vRhyme.yaml
+    mamba env create -f ./setupscript/vRhyme.yaml
     mamba activate vRhyme
     ```
 

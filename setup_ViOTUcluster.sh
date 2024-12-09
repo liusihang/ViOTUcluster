@@ -2,14 +2,6 @@
 
 #Usage: ./setup_vOTUcluster.sh /path/to/db 4
 # Check if the correct number of arguments is provided
-if [ "$#" -ne 2 ]; then
-    echo "Usage: $0 <db_directory> <num_threads>"
-    exit 1
-fi
-
-DB_DIR=$1
-NUM_THREADS=$2
-
 # Create and activate the Conda environment
 #mamba env create -f vOTUcluster
 #mamba activate vOTUcluster
@@ -61,10 +53,9 @@ pip3 install bio
 echo "Cleaning up temporary cache..."
 rm -rf $CONDA_PKGS_DIRS
 
-echo "All packages installed successfully!"
 
 # Clone the repository and install the package
-git clone https://gitclone.com/github.com/liusihang/VirSorter2-pyhmmerAcc
+git clone https://github.com/liusihang/VirSorter2-pyhmmerAcc
 cd VirSorter2-pyhmmerAcc
 pip install -e .
 
@@ -78,25 +69,4 @@ CONDA_ENV_PATH=$(conda info --base)/envs/$(basename "$CONDA_DEFAULT_ENV")
 # Add execute permissions to all files in the current conda environment's bin folder
 chmod +x "$CONDA_ENV_PATH/bin"
 
-# Setup the database for VirSorter
-virsorter setup -d "$DB_DIR/db" -j "$NUM_THREADS"
-checkv download_database "$DB_DIR"
-genomad download-database "$DB_DIR"
-
-# Download and unzip ViralVerify database
-echo "Downloading ViralVerify database..."
-curl -L -o "$DB_DIR/nbc_hmms.hmm.gz" "https://figshare.com/ndownloader/files/17904323?private_link=f897d463b31a35ad7bf0"
-
-echo "Unzipping ViralVerify database..."
-mkdir -p "$DB_DIR/viralverify"
-gunzip -c "$DB_DIR/nbc_hmms.hmm.gz" > "$DB_DIR/viralverify/nbc_hmms.hmm"
-
-#Convert to binnary format
-hmmconvert -b "$DB_DIR/viralverify/nbc_hmms.hmm" > "$DB_DIR/viralverify/nbc_hmms.h3m"
-hmmconvert -b "$DB_DIR/db/hmm/viral/combined.hmm" > "$DB_DIR/db/hmm/viral/combined.h3m"
-
-for hmm_file in "$DB_DIR/db/hmm/pfam/"*.hmm; do
-    base_name=$(basename "$hmm_file" .hmm)
-    output_file="$input_dir/$base_name.h3m"
-    hmmconvert -b "$hmm_file" > "$output_file"
-done
+echo "All packages installed successfully!"
