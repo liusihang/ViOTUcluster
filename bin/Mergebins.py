@@ -30,7 +30,6 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     
-    # 确保输出文件的父目录存在
     output_dir = os.path.dirname(args.output_file)
     if output_dir and not os.path.exists(output_dir):
         os.makedirs(output_dir)

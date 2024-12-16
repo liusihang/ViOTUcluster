@@ -18,17 +18,16 @@ LOG_FILE=""
 # Capture SIGINT (Ctrl+C) and SIGTERM signals only in the parent process
 trap 'cleanup' SIGINT SIGTERM
 
-# Cleanup function to terminate all child processes
+# Cleanup function to terminate all child processes and restore cursor
 cleanup() {
-  # 只在父进程中执行清理和日志记录
+  # 恢复光标
+  tput cnorm > /dev/tty
   if [ "$$" -eq "$(ps -o pgid= $$)" ]; then
     log_with_timestamp "Caught termination signal. Cleaning up..."
-    # 终止当前进程组的所有子进程
     kill -- -$$
   fi
   exit 1
 }
-
 
 # Function to add a timestamp to log entries
 log_with_timestamp() {
@@ -283,3 +282,5 @@ run_module "iPhop" "${OUTPUT_DIR}/Log/iPhop.log" "run_iphop_analysis.sh "${OUTPU
 end_time=$(date +%s)
 total_runtime=$((end_time - start_time))
 log_with_timestamp "Total runtime: ${total_runtime} seconds"
+
+trap 'tput cnorm > /dev/tty' EXIT

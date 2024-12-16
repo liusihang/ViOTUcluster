@@ -22,7 +22,7 @@ OUTPUT_DIR = os.environ['OUTPUT_DIR']
 
 # Get the number of cores available
 all_cores = list(range(multiprocessing.cpu_count()))  # Get all core numbers of the system
-CORES_TO_USE = THREADS_PER_FILE  # Example: if THREADS_PER_FILE is 10, use 10 cores
+CORES_TO_USE = THREADS_PER_FILE
 assigned_cores = all_cores[:CORES_TO_USE]  # Assign cores to be used
 print(f"Assigning tasks to cores: {assigned_cores}")
 

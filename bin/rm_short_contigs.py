@@ -3,7 +3,7 @@ import sys
 from Bio import SeqIO
 
 def filter_contigs(input_fasta, min_length):
-    output_fasta = input_fasta  # 输出文件将替换输入文件
+    output_fasta = input_fasta 
     min_length = int(min_length)
     
     with open(input_fasta, "r") as input_handle, open(output_fasta, "w") as output_handle:

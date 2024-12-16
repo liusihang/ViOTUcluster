@@ -18,12 +18,12 @@ LOG_FILE=""
 # Capture SIGINT (Ctrl+C) and SIGTERM signals only in the parent process
 trap 'cleanup' SIGINT SIGTERM
 
-# Cleanup function to terminate all child processes
+# Cleanup function to terminate all child processes and restore cursor
 cleanup() {
-  # 只在父进程中执行清理和日志记录
+  # 恢复光标
+  tput cnorm > /dev/tty
   if [ "$$" -eq "$(ps -o pgid= $$)" ]; then
     log_with_timestamp "Caught termination signal. Cleaning up..."
-    # 终止当前进程组的所有子进程
     kill -- -$$
   fi
   exit 1

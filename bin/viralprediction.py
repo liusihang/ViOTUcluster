@@ -36,19 +36,17 @@ if not files_list:
     print("No files to process.")
     sys.exit(1)
 
-# Calculate the number of cores needed. 
+# Calculate the number of cores to use
 CORES_TO_USE = THREADS 
 
 # Get all available cores
 all_cores = list(range(multiprocessing.cpu_count()))
-# Get the first CORES_TO_USE cores
+# Assign the first CORES_TO_USE cores
 assigned_cores = all_cores[:CORES_TO_USE]
 print(f"Assigning tasks to cores: {assigned_cores}")
 
-# Function to process a single file
-
 def run_command(cmd, cores=None):
-    """ 运行外部命令并绑定到指定核心（如果支持）"""
+    """Run an external command and bind it to specified cores (if supported)."""
     process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if hasattr(os, 'sched_setaffinity') and cores:
         os.sched_setaffinity(process.pid, cores)
@@ -74,10 +72,10 @@ def process_file(file_path):
     genomad_dir = os.path.join(prediction_dir, 'genomadres')
     os.makedirs(genomad_dir, exist_ok=True)
 
-    # 准备并行任务
+    # Prepare parallel tasks
     tasks = []
     with ThreadPoolExecutor(max_workers=3) as executor:
-        # ViralVerify 任务
+        # ViralVerify task
         viralverify_result = os.path.join(viralverify_dir, f'{basename}_result_table.csv')
         if not os.path.isfile(viralverify_result):
             viralverify_cmd = [
@@ -89,7 +87,7 @@ def process_file(file_path):
         else:
             print(f"Viralverify prediction already completed for {file_path}, skipping...")
 
-        # VirSorter2 任务
+        # VirSorter2 task
         virsorter_result = os.path.join(virsorter_dir, 'final-viral-score.tsv')
         if CONCENTRATION_TYPE != 'non-concentration' and not os.path.isfile(virsorter_result):
             virsorter_cmd = [
@@ -102,7 +100,7 @@ def process_file(file_path):
         else:
             print(f"Virsorter2 prediction already completed for {file_path}, skipping...")
 
-        # Genomad 任务
+        # Genomad task
         genomad_result_dir = os.path.join(genomad_dir, f"{basename}_summary")
         os.makedirs(genomad_result_dir, exist_ok=True)
 
@@ -138,7 +136,7 @@ def process_file(file_path):
         else:
             print(f"Genomad prediction already completed for {file_path}, skipping...")
 
-        # 等待所有任务完成
+        # Wait for all tasks to complete
         for future in as_completed(tasks):
             try:
                 future.result()
@@ -147,7 +145,6 @@ def process_file(file_path):
 
     print(f"All predictions completed for {file_path}")
 
-# Check if VirSorter2 and Genomad tasks are completed
 def check_virsorter_completion():
     all_tasks_completed = False
     while not all_tasks_completed:
@@ -155,9 +152,9 @@ def check_virsorter_completion():
         for file_path in files_list:
             basename = os.path.basename(file_path)
             if basename.endswith('.fasta'):
-                basename = basename[:-6]  #".fasta"
+                basename = basename[:-6]  # Remove ".fasta"
             elif basename.endswith('.fa'):
-                basename = basename[:-3]  #".fa"
+                basename = basename[:-3]  # Remove ".fa"
             virsorter_dir = os.path.join(
                 OUTPUT_DIR, 'SeprateFile', basename, 'RoughViralPrediction', 'virsorter2'
             )
@@ -171,7 +168,6 @@ def check_virsorter_completion():
         if not all_tasks_completed:
             time.sleep(30)
 
-# Main function
 def main():
     # Handle termination signals
     def signal_handler(sig, frame):

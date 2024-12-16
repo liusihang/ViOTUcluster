@@ -4,22 +4,18 @@ import os
 from multiprocessing import cpu_count
 
 def split_fasta(input_file, output_dir):
-    # 获取处理器线程数
     num_cpus = cpu_count()
     print(f"Detected {num_cpus} CPUs.")
 
-    # 读取 fasta 文件
+
     with open(input_file, "r") as f:
         fasta_data = f.readlines()
 
-    # 计算每个文件应包含的序列数
     sequences_per_file = len(fasta_data) // (4 * num_cpus)
     print(f"Each file will contain {sequences_per_file} sequences.")
 
-    # 创建输出目录
     os.makedirs(output_dir, exist_ok=True)
 
-    # 分割文件
     current_file = 1
     current_sequences = 0
     current_output = None

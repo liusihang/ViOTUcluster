@@ -41,4 +41,4 @@ if matches:
     # Ensure the output FASTA file is formatted correctly
     format_fasta(output_fasta_filename)
 
-print("所有文件处理完成。")
+print("All file were be processed.")
