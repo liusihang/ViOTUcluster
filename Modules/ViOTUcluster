@@ -198,8 +198,8 @@ case "$SAMPLETYPE" in
   ;;
 esac
 
-# Find all .fa and .fasta files in the specified directory and allocate threads based on available cores
-FILES=$(find "${OUTPUT_DIR}/FilteredSeqs" -type f \( -name "*.fa" -o -name "*.fasta" \))
+# Find all .fa and .fasta files in the specified directory
+#FILES=$(find "${OUTPUT_DIR}/FilteredSeqs" -type f \( -name "*.fa" -o -name "*.fasta" \))
 RawFILES=$(find "${INPUT_DIR}" -maxdepth 1 -type f \( -name "*.fa" -o -name "*.fasta" \))
 
 # Determine the number of threads per file based on the THREADS input

@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 
-# 记录开始时间
+# Record start time
 start_time=$(date +%s)
 
-# 初始化变量
+# Initialize variables
 RAW_SEQ_DIR=""  # Directory containing raw sequence files
 OUTPUT_DIR=""  # Specify the output directory for the results
 DATABASE=""  # Path to the database required for analysis, to be specified by the user
@@ -20,7 +20,6 @@ trap 'cleanup' SIGINT SIGTERM
 
 # Cleanup function to terminate all child processes and restore cursor
 cleanup() {
-  # 恢复光标
   tput cnorm > /dev/tty
   if [ "$$" -eq "$(ps -o pgid= $$)" ]; then
     log_with_timestamp "Caught termination signal. Cleaning up..."
@@ -34,7 +33,7 @@ log_with_timestamp() {
   echo "$(date '+%Y-%m-%d %H:%M:%S') - $1"
 }
 
-# 使用 getopts 处理短选项和手动处理长选项
+# Use getopts to handle short options and manually handle long options
 while [[ $# -gt 0 ]]; do
   case $1 in
     -r)
@@ -43,7 +42,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     -o)
       OUTPUT_DIR=$2
-      LOG_FILE="${OUTPUT_DIR}/pipeline.log"  # 设置日志文件路径
+      LOG_FILE="${OUTPUT_DIR}/pipeline.log"
       if [ ! -f "$LOG_FILE" ]; then
         mkdir -p "$(dirname "$LOG_FILE")"
         touch "$LOG_FILE"
@@ -54,7 +53,7 @@ while [[ $# -gt 0 ]]; do
       DATABASE=$2
       shift 2
       ;;
-    -a) # 用 'a' 代表 'assembly software'
+    -a)
       ASSEMBLY_SOFTWARE=$2
       shift 2
       ;;
@@ -82,14 +81,13 @@ while [[ $# -gt 0 ]]; do
       echo "Unknown option: $1" >&2
       exit 1
       ;;
-    -h) # 显示帮助信息
+    -h)
       echo "Usage: $0 [options]"
       echo ""
       echo "Options:"
       echo "  -r <input_path_raw_seqs>    Specify the input directory to search for raw seqs files."
       echo "  -o <output_path>            Specify the output directory for the results."
       echo "  -d <database_path>          Specify the path to the database required for analysis."
-      #echo "  -t <sample_type>            Specify the sample type: DNA, RNA, or Mix."
       echo "  -a <assembly_software>      Specify the assembly software: megahit, metaspades."
       echo "  -n <threads>                Specify the number of threads to use (default: Use max available cores)."
       echo "  --non-con                   Specify non-concentration processing."
@@ -102,13 +100,13 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# 检查必要的输入是否已提供
+# Check if necessary inputs are provided
 if [ -z "$RAW_SEQ_DIR" ] || [ -z "$OUTPUT_DIR" ] || [ -z "$DATABASE" ] || [ -z "$CONCENTRATION_TYPE" ] || [ -z "$ASSEMBLY_SOFTWARE" ]; then
     echo "Usage: $0 -r <input_path_raw_seqs> -o <output_path> -d <database_path> -a <assembly_software> -n <threads> --non-con/--con [--reassemble]"
     exit 1
 fi
 
-# 验证组装软件选项
+# Validate assembly software option
 if [[ "$ASSEMBLY_SOFTWARE" != "megahit" && "$ASSEMBLY_SOFTWARE" != "metaspades" ]]; then
     echo "Error: Invalid assembly software. Please choose either 'megahit' or 'metaspades'."
     exit 1
@@ -119,10 +117,6 @@ log_with_timestamp "Run ViOTUcluster as command: $0 $@"
 
 # Log all environment variables with a timestamp
 log_with_timestamp "Environment variables at start:"
-#env >> "$LOG_FILE"
-
-# Redirect all output to the log file and terminal, with timestamps
-#exec > >(tee -a "$LOG_FILE" | while IFS= read -r line; do echo "$(date '+%Y-%m-%d %H:%M:%S') - $line"; done) 2>&1
 
 # Define a function to run a module and check for errors, with log timestamps and a spinner animation
 run_module() {
@@ -130,18 +124,15 @@ run_module() {
   local log_file="$2"
   local command="$3"
 
-  # Ensure the directory for the module log file exists
   mkdir -p "$(dirname "$log_file")"
 
   echo "Starting $module_name..."
   log_with_timestamp "Starting $module_name..."
 
-  # Start spinner animation
   local spin='-\|/'
   local i=0
-  tput civis > /dev/tty  # Hide cursor, output directed to terminal
+  tput civis > /dev/tty
 
-  # Start a background process to display the spinner animation, output only to terminal
   (
     while true; do
       i=$(( (i+1) % 4 ))
@@ -154,22 +145,17 @@ run_module() {
   local module_start_time
   module_start_time=$(date +%s)
 
-  # Run the actual command, append output to the module log file, and display timestamped logs in the terminal
   eval "stdbuf -oL $command" | tee -a "$log_file" | while IFS= read -r line; do
       log_with_timestamp "$line"
   done
-  # Capture the exit status of the command
   local result=${PIPESTATUS[0]}
 
-  # Stop the spinner animation
   kill "$spinner_pid" 2>/dev/null
   wait "$spinner_pid" 2>/dev/null
-  tput cnorm > /dev/tty  # Restore cursor, only affects terminal
+  tput cnorm > /dev/tty
 
-  # Clear the spinner line
   printf "\r\033[K" > /dev/tty
 
-  # Check if the module execution was successful
   if [ "$result" -ne 0 ]; then
     echo "$module_name failed. Check log: $log_file"
     log_with_timestamp "Error: $module_name failed. Check log: $log_file"
