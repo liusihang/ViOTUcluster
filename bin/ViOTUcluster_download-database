@@ -82,13 +82,14 @@ if ! check_viralverify_db; then
     curl -L -o "$DB_DIR/nbc_hmms.hmm.gz" "https://figshare.com/ndownloader/files/17904323?private_link=f897d463b31a35ad7bf0"
 
     echo "Unzipping ViralVerify database..."
-    mkdir -p "$DB_DIR/viralverify"
-    gunzip -c "$DB_DIR/nbc_hmms.hmm.gz" > "$DB_DIR/viralverify/nbc_hmms.hmm"
+    mkdir -p "$DB_DIR/ViralVerify"
+    gunzip -c "$DB_DIR/nbc_hmms.hmm.gz" > "$DB_DIR/ViralVerify/nbc_hmms.hmm"
+    rm "$DB_DIR/nbc_hmms.hmm.gz"
 fi
 
 # Convert ViralVerify and other HMM files to binary format
 echo "Converting to binary format..."
-hmmconvert -b "$DB_DIR/viralverify/nbc_hmms.hmm" > "$DB_DIR/viralverify/nbc_hmms.h3m"
+hmmconvert -b "$DB_DIR/ViralVerify/nbc_hmms.hmm" > "$DB_DIR/ViralVerify/nbc_hmms.h3m"
 hmmconvert -b "$DB_DIR/db/hmm/viral/combined.hmm" > "$DB_DIR/db/hmm/viral/combined.h3m"
 
 # Convert all Pfam HMM files to binary format
