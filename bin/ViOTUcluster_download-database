@@ -82,6 +82,7 @@ if ! check_viralverify_db; then
     curl -L -o "$DB_DIR/nbc_hmms.hmm.gz" "https://figshare.com/ndownloader/files/17904323?private_link=f897d463b31a35ad7bf0"
 
     echo "Unzipping ViralVerify database..."
+    mkdir -p "$DB_DIR/viralverify"
     gunzip -c "$DB_DIR/nbc_hmms.hmm.gz" > "$DB_DIR/viralverify/nbc_hmms.hmm"
 fi
 
