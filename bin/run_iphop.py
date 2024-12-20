@@ -35,7 +35,7 @@ def run_iphop_prediction(fa_file):
             '--fa_file', fa_file,
             '--db_dir', os.path.join(DATABASE, 'Aug_2023_pub_rw'),
             '--out_dir', output_dir,
-            '-t', str(THREADS_PER_FILE)
+            '-t', "20"
         ]
         print(f"Running iPhop prediction for {fa_file}")
         process = subprocess.Popen(iphop_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
