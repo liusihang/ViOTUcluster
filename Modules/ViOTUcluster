@@ -263,15 +263,15 @@ export OUTPUT_DIR DATABASE Group FILES RawFILES CONCENTRATION_TYPE ScriptDir RAW
 mkdir -p "${OUTPUT_DIR}/Log"
 
 # Execute modules
-run_module "Viral prediction" "${OUTPUT_DIR}/Log/viral_prediction.log" "viral_prediction_module.sh"
-run_module "Cross Validation" "${OUTPUT_DIR}/Log/cross_validation.log" "cross_validation_module.sh --${CONCENTRATION_TYPE}"
-run_module "Binning and merge" "${OUTPUT_DIR}/Log/binning_merge.log" "binning_merge_module.sh"
-run_module "dRep" "${OUTPUT_DIR}/Log/drep.log" "drep_module.sh"
-run_module "Summary" "${OUTPUT_DIR}/Log/summary.log" "summary_module.sh"
+run_module "Viral prediction" "${OUTPUT_DIR}/Log/Viral_prediction.log" "viral_prediction_module.sh"
+run_module "Cross Validation" "${OUTPUT_DIR}/Log/Cross_validation.log" "cross_validation_module.sh --${CONCENTRATION_TYPE}"
+run_module "Binning and merge" "${OUTPUT_DIR}/Log/Binning_merge.log" "binning_merge_module.sh"
+run_module "dRep" "${OUTPUT_DIR}/Log/Drep.log" "drep_module.sh"
+run_module "Summary" "${OUTPUT_DIR}/Log/Summary.log" "summary_module.sh"
 
-echo "All basic analysis completed successfully. vOTU file and summary files are available in ${OUTPUT_DIR}/Summary."
+echo "[✅][✅][✅]All basic analysis completed successfully. vOTU file and summary files are available in ${OUTPUT_DIR}/Summary."
 echo "Starting advanced analysis..."
-echo "If you want to stop there, press Ctrl+C."
+echo "[❗][❗][❗]If you want to stop there, press Ctrl+C."
 sleep 30
 
 run_module "DRAM" "${OUTPUT_DIR}/Log/DRAM.log" "run_dram_analysis.sh "${OUTPUT_DIR}/Summary/vOTU/vOTU.fasta" ${OUTPUT_DIR}/Summary/DRAMRes"
