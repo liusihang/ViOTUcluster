@@ -83,6 +83,20 @@ ______
 
     The setup time for ViOTUcluster largely depends on the _**network speed**_, as it will download nearly **30 GB** of databases during the installation process. _**Poor network conditions may lead to installation failures.**_  Therefore, please ensure that you perform the installation under optimal network conditions.
 
+
+### Update ViOTUcluster from an Older Version
+
+To upgrade ViOTUcluster from an older version, follow these steps:
+
+Navigate to the ViOTUcluster directory you cloned from GitHub:
+
+```bash
+conda activate ViOTUcluster
+git pull
+bash setup_ViOTUcluster.sh
+```
+This will skip the environment dependency installation and update the ViOTUcluster scripts.
+
 ### Setup vRhyme Environment
 
 If you already have vRhyme environment, you can skip this section.
