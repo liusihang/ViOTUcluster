@@ -12,6 +12,12 @@ fi
 INPUT_FASTA=$1
 OUTPUT_DIR=$2
 
+# Check if output file already exists
+if [ -f "$OUTPUT_DIR/DRAM_annotations.tsv" ]; then
+    echo "Output file '$OUTPUT_DIR/DRAM_annotations.tsv' already exists. Skipping analysis."
+    exit 0
+fi
+
 # Check if input file exists
 if [ ! -f "$INPUT_FASTA" ]; then
     echo "Error: Input FASTA file '$INPUT_FASTA' not found."

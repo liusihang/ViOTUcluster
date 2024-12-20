@@ -116,6 +116,8 @@ If you have not installed them yet, you can do so with the following commands:
 ```bash
 wget https://raw.githubusercontent.com/WrightonLabCSU/DRAM/master/environment.yaml
 conda env create -f environment.yaml -n DRAM
+conda activate DRAM
+DRAM-setup.py prepare_databases --output_dir "/path/to/db/DRAM"
 ```
 
 #### Install iPhop
@@ -124,9 +126,10 @@ conda env create -f environment.yaml -n DRAM
 conda create -c conda-forge -n iphop_env python=3.8 mamba
 conda activate iphop_env
 mamba install -c conda-forge -c bioconda iphop
+iphop download --db_dir "/path/to/db"
 ```
-
-You may need to set up the databases for DRAM and iPhop in the first time. For specific database download and usage instructions, please refer to the official websites of **DRAM** and **iPhop**:
+#### Note
+You may need to set up the databases for DRAM and iPhop initially. Ensure that the DRAM and iPhop databases are located in the same directory specified in `ViOTUcluster_download-database`. For details on the database structure, refer to the [File Structure Example](#file-structure-example). For specific instructions on downloading and using the databases, please visit the official websites of [DRAM](https://github.com/WrightonLabCSU/DRAM) and [iPhop](https://bitbucket.org/srouxjgi/iphop/src/main/).
 
 - [DRAM](https://github.com/WrightonLabCSU/DRAM)
 - [iPhop](https://bitbucket.org/srouxjgi/iphop/src/main/)
@@ -207,7 +210,8 @@ Below is a tree list of how the file structure should be organized, assuming the
     ├── db/                # VirSorter2 database
     ├── viralVerify/       # ViralVerify database
     ├── checkv-db-v1.5/    # CheckV database (version 1.5)
-    └── genomad_db/        # Genomad database
+    ├── genomad_db/        # Genomad database
+    └── Aug_2023_pub_rw/   # iPhop database
 ```
 
 - `input_contigs/` contains the assembled contigs (e.g., `example1.fasta`).

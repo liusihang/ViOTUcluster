@@ -26,7 +26,6 @@ CORES_TO_USE = THREADS_PER_FILE
 assigned_cores = all_cores[:CORES_TO_USE]  # Assign cores to be used
 print(f"Assigning tasks to cores: {assigned_cores}")
 
-
 # Function to process a single iPhop prediction
 def run_iphop_prediction(fa_file):
     try:
@@ -36,7 +35,7 @@ def run_iphop_prediction(fa_file):
             '--fa_file', fa_file,
             '--db_dir', os.path.join(DATABASE, 'Aug_2023_pub_rw'),
             '--out_dir', output_dir,
-            '-t', THREADS_PER_FILE #High assigned cores may lead out of memory(6g for one thread?)
+            '-t', str(THREADS_PER_FILE)
         ]
         print(f"Running iPhop prediction for {fa_file}")
         process = subprocess.Popen(iphop_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
