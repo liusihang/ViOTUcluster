@@ -268,7 +268,6 @@ run_module "Cross Validation" "${OUTPUT_DIR}/Log/cross_validation.log" "cross_va
 run_module "Binning and merge" "${OUTPUT_DIR}/Log/binning_merge.log" "binning_merge_module.sh"
 run_module "dRep" "${OUTPUT_DIR}/Log/drep.log" "drep_module.sh"
 run_module "Summary" "${OUTPUT_DIR}/Log/summary.log" "summary_module.sh"
-run_module "TPM calculate" "${OUTPUT_DIR}/Log/TPM_caculate.log" "TPM_caculate_Module.sh"
 
 echo "All basic analysis completed successfully. vOTU file and summary files are available in ${OUTPUT_DIR}/Summary."
 echo "Starting advanced analysis..."

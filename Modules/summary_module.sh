@@ -193,5 +193,6 @@ fi
 
 rm -r "$OUTPUT_DIR/Summary/temp"
 rm -r "$OUTPUT_DIR/Summary/dRepRes"
+rm -r "$OUTPUT_DIR/Summary/Viralcontigs"
 
 echo "All files processed and combined successfully."

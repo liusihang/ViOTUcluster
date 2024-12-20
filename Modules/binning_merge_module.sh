@@ -113,7 +113,7 @@ for FILE in $FILES; do
     done
 
     # Merge bins and unbined sequences
-    python "${ScriptDir}/MergeBins.py" -i "$VRHYME_DIR/vRhyme_best_bins_fasta" -o "${OUTPUT_DIR}/Summary/SeperateRes/bins/${BASENAME}_bins.fasta"
+    python "${ScriptDir}/Mergebins.py" -i "$VRHYME_DIR/vRhyme_best_bins_fasta" -o "${OUTPUT_DIR}/Summary/SeperateRes/bins/${BASENAME}_bins.fasta"
 
     # Generate unbined sequences
     mkdir -p "$OUTPUT_DIR/Summary/SeperateRes/unbined"
