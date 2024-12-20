@@ -78,10 +78,10 @@ else
     git clone https://github.com/liusihang/VirSorter2-pyhmmerAcc || { echo "Git clone failed"; exit 1; }
     cd VirSorter2-pyhmmerAcc
     pip install -e . || { echo "Pip install failed"; exit 1; }
+    cd ..
 fi
 
 # Run the Move2bin Python script
-cd ..
 echo "Updating scripts..."
 python ./setupscript/Move2bin.py
 
