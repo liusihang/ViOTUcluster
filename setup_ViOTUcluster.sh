@@ -92,3 +92,4 @@ CONDA_ENV_PATH=$(conda info --base)/envs/$(basename "$CONDA_DEFAULT_ENV")
 chmod +x "$CONDA_ENV_PATH/bin/"*
 
 echo "All packages installed successfully!"
+echo "Current version: 0.3.5"
