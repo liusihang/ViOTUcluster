@@ -42,8 +42,6 @@ process_file() {
     return 1
   fi
 
-  return 0
-
   # Create directory for CheckV results
   echo "Creating CheckV results directory..."
   mkdir -p "$out_dir/${BASENAME}_CheckRes"
