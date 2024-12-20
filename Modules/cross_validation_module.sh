@@ -30,7 +30,7 @@ process_file() {
   # Perform cross-validation for virus contigs
   echo -e "\n\n\n# Performing cross-validation for virus contigs!!!\n\n\n"
   echo "Running CrossValidAnA.py..."
-  if ! python "${ScriptDir}/CrossValidAnA.py" "$genomad_dir" "$viralverify_dir" "$virsorter_dir" "$BASENAME" "$out_dir" "$CONCENTRATION_TYPE"; then
+  if ! python "${ScriptDir}/CrossValid.py" "$genomad_dir" "$viralverify_dir" "$virsorter_dir" "$BASENAME" "$out_dir" "$CONCENTRATION_TYPE"; then
     echo "Error during cross-validation for $BASENAME. Exiting..."
     return 1
   fi
