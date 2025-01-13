@@ -28,7 +28,7 @@ ______
 ### Prerequisites
 
 - [Miniconda](https://docs.conda.io/en/latest/miniconda.html) or [Anaconda](https://www.anaconda.com/products/distribution)
-- [mamba](https://github.com/mamba-org/mamba) (for faster package management)
+- [mamba](https://github.com/mamba-org/mamba) (for faster package management,version=1.5.12. **Mamba v2.x will lead package install conflict issue**)
 - [Git](https://git-scm.com/downloads)
 ### Setup ViOTUcluster Environment
 
