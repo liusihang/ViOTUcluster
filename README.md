@@ -44,7 +44,7 @@ ______
     ```bash
     git clone https://github.com/liusihang/ViOTUcluster.git
     cd ViOTUcluster
-    #mamba install mamba=1.5.12((Use this command if you are using Mamba version > 2.0 to create the environment))
+    #mamba install mamba=1.5.12(Use this command if you are using Mamba version > 2.0 to create the environment)
     bash setup_ViOTUcluster.sh
     ```
 
