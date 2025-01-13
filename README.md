@@ -28,14 +28,14 @@ ______
 ### Prerequisites
 
 - [Miniconda](https://docs.conda.io/en/latest/miniconda.html) or [Anaconda](https://www.anaconda.com/products/distribution)
-- [mamba](https://github.com/mamba-org/mamba) (for faster package management,version=1.5.12. **Mamba v2.x will lead package install conflict issue**)
+- [mamba](https://github.com/mamba-org/mamba) (for faster package management,version=1.5.1. **Other Mamba version may lead package install conflict issue**)
 - [Git](https://git-scm.com/downloads)
 ### Setup ViOTUcluster Environment
 
 1. **Create and activate the ViOTUcluster environment**
 
     ```bash
-    mamba create -n ViOTUcluster -c conda-forge -c bioconda "python=3.8" 
+    mamba create -n ViOTUcluster -c conda-forge -c bioconda "python=3.8" "mamba=1.5.1"
     conda activate ViOTUcluster
     ```
 
@@ -44,7 +44,6 @@ ______
     ```bash
     git clone https://github.com/liusihang/ViOTUcluster.git
     cd ViOTUcluster
-    #mamba install mamba=1.5.12(Use this command if you are using Mamba version > 2.0 to create the environment)
     bash setup_ViOTUcluster.sh
     ```
 
