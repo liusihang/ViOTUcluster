@@ -87,7 +87,7 @@ echo "Updating scripts..."
 python ./setupscript/Move2bin.py
 
 # Get the current Conda environment path
-CONDA_ENV_PATH=$(conda info --base)/envs/$(basename "$CONDA_DEFAULT_ENV")
+CONDA_ENV_PATH=$CONDA_PREFIX
 
 # Add execute permissions to all files in the Conda environment's bin folder
 chmod +x "$CONDA_ENV_PATH/bin/"*
