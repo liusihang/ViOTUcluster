@@ -79,6 +79,7 @@ else
     cd VirSorter2-pyhmmerAcc
     pip install -e . || { echo "Pip install failed"; exit 1; }
     cd ..
+    rm -rf VirSorter2-pyhmmerAcc
 fi
 
 # Run the Move2bin Python script
@@ -92,4 +93,4 @@ CONDA_ENV_PATH=$(conda info --base)/envs/$(basename "$CONDA_DEFAULT_ENV")
 chmod +x "$CONDA_ENV_PATH/bin/"*
 
 echo "All packages installed successfully!"
-echo "Current version: 0.3.5"
+echo "Current version: 0.3.6"

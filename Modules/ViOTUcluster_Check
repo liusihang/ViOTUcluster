@@ -1,10 +1,33 @@
 #!/usr/bin/env bash
 
-# Function to check if a command is installed
+# Function to check if a command is installed and retrieve its version
 check_command() {
     command -v "$1" >/dev/null 2>&1
     if [ $? -eq 0 ]; then
-        echo -e "[✅] $1 is installed."
+        version=""
+        case "$1" in
+            "checkv")
+                version="$(checkv 2>&1 | grep -oP 'CheckV v\d+\.\d+\.\d+' | sed 's/CheckV v//')"
+                ;;
+            "dRep")
+                version="$(dRep -h 2>&1 | grep -oP '\d+\.\d+\.\d+')"
+                ;;
+            "bwa")
+                version="$(bwa 2>&1 | grep -oP '\d+\.\d+\.\d+')"
+                ;;
+            "virsorter")
+                version="$(virsorter -h 2>&1 | grep -oP '\d+\.\d+\.\d+\.\d+')"
+                ;;
+            *)
+                version=$("$1" --version 2>&1 | head -n 1 | grep -oP '\d+\.\d+\.\d+')
+                ;;
+        esac
+
+        if [[ -n "$version" ]]; then
+            echo -e "[✅] $1 is installed. Version: $version"
+        else
+            echo -e "[✅] $1 is installed, but version information could not be retrieved."
+        fi
         return 0
     else
         echo -e "[❌] $1 is NOT installed."
@@ -21,7 +44,6 @@ dependencies=(
     "megahit"
     "spades.py"
     "virsorter"
-    "viralverify"
     "genomad"
     #"pyhmmer"
     "checkv"
@@ -33,12 +55,50 @@ dependencies=(
     "bwa"
 )
 
+# Define expected versions
+declare -A expected_versions
+expected_versions=(
+    [genomad]="1.8.0"
+    [checkm-genome]="1.2.2"
+    [dRep]="3.5.0"
+    [checkv]="1.0.3"
+    [virsorter]="2.2.4.2"
+    [scikit-learn]="0.22.1"
+    [numpy]="1.23.5"
+)
+
 # Initialize a variable to track missing dependencies
 missing_dependencies=()
 
 # Loop through each dependency and check if it's installed
 for dep in "${dependencies[@]}"; do
-    if ! check_command "$dep"; then
+    if check_command "$dep"; then
+        if [[ -n "${expected_versions[$dep]}" ]]; then
+            installed_version=$(
+                case "$dep" in
+                    "checkv")
+                        echo "$(checkv 2>&1 | grep -oP 'CheckV v\d+\.\d+\.\d+' | sed 's/CheckV v//')"
+                        ;;
+                    "dRep")
+                        echo "$(dRep -h 2>&1 | grep -oP '\d+\.\d+\.\d+')"
+                        ;;
+                    "bwa")
+                        echo "$(bwa 2>&1 | grep -oP '\d+\.\d+\.\d+')"
+                        ;;
+                    "virsorter")
+                        echo "$(virsorter -h 2>&1 | grep -oP '\d+\.\d+\.\d+\.\d+')"
+                        ;;
+                    *)
+                        echo "$($dep --version 2>&1 | grep -oP '\d+\.\d+\.\d+')"
+                        ;;
+                esac
+            )
+
+            if [[ "$installed_version" != "${expected_versions[$dep]}" ]]; then
+                echo -e "[⚠️] $dep version mismatch: Expected ${expected_versions[$dep]}, but found $installed_version."
+            fi
+        fi
+    else
         missing_dependencies+=("$dep")
     fi
 done
