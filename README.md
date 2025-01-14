@@ -26,7 +26,10 @@ ______
 
 ## Installation(tested on Ubuntu; should work in all linux;)
 ### Konwn issues
-- Network issues may cause some packages to fail during installation. For more information, refer to the [GitHub issue of Mamba](https://github.com/conda-incubator/setup-miniconda/issues/254#issue-1435440042).
+- Network issues may cause some packages to fail during installation. For more information, refer to the [GitHub issue of Mamba](https://github.com/conda-incubator/setup-miniconda/issues/254#issue-1435440042).in
+- Using a higher version of Mamba (v2.x) may cause package conflicts during installation. Ensure that Mamba v1.5.1 is in ViOTUcluster environment.
+
+
 
 ### Prerequisites
 
@@ -38,7 +41,7 @@ ______
 1. **Create and activate the ViOTUcluster environment**
 
     ```bash
-    mamba create -n ViOTUcluster -c conda-forge -c bioconda "python=3.8"
+    mamba create -n ViOTUcluster -c conda-forge -c bioconda "python=3.8" "mamba=1.5.1"
     conda activate ViOTUcluster
     ```
 
