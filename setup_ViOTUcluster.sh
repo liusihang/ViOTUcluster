@@ -64,7 +64,8 @@ else
 
     # Install MEGAHIT, SPAdes, and fastp
     echo "Installing MEGAHIT, SPAdes, and fastp..."
-    mamba install -c conda-forge -c bioconda megahit spades fastp --yes
+    mamba install -c conda-forge -c bioconda megahit spades fastp --no-deps --yes
+    mamba install isa-l=2.31.1 --yes
 
     # Install BioPython
     echo "Installing BioPython..."
