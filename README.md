@@ -110,7 +110,7 @@ If you already have vRhyme environment, you can skip this section.
 1. **Create and activate the vRhyme environment**
 
     ```bash
-    mamba env create -f ./setupscript/vRhyme.yaml
+    mamba env create -c bioconda -n vRhyme python=3 networkx pandas numpy numba scikit-learn pysam samtools mash mummer mmseqs2 prodigal bowtie2 bwa
     mamba activate vRhyme
     ```
 
