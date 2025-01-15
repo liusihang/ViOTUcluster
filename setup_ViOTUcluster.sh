@@ -78,7 +78,7 @@ else
     # Clone the VirSorter2-pyhmmerAcc repository and install the package
     git clone https://github.com/liusihang/VirSorter2-pyhmmerAcc || { echo "Git clone failed"; exit 1; }
     cd VirSorter2-pyhmmerAcc
-    pip install . || { echo "Pip install failed"; exit 1; }
+    pip install -e . || { echo "Pip install failed"; exit 1; }
     cd ..
     rm -rf VirSorter2-pyhmmerAcc
 fi
