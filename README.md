@@ -111,7 +111,7 @@ If you already have vRhyme environment, you can skip this section.
 
     ```bash
     conda activate base #(Make sure you are in the base env before install vRhyme)
-    manba create -c bioconda -n vRhyme python=3 networkx pandas numpy numba scikit-learn pysam samtools mash mummer mmseqs2 prodigal bowtie2 bwa
+    mamba create -c bioconda -n vRhyme python=3 networkx pandas numpy numba scikit-learn pysam samtools mash mummer mmseqs2 prodigal bowtie2 bwa
     conda activate vRhyme
     ```
 
