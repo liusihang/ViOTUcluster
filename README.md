@@ -172,7 +172,7 @@ To run the pipeline, use the following command structure:
 2. **Start with raw fastq files**
 
     ```bash
-    ViOTUcluster_AllinOne -r <input_path_raw_seqs> -o <output_path> -d <database_path> -a <assembly_software> --non-con/--con [--reassemble]
+    ViOTUcluster_AllinOne -r <input_path_raw_seqs> -o <output_path> -d <database_path> -a <assembly_software> -n <threads> --non-con/--con [--reassemble]
     ```
 
 A mini test file is available for download at  [MiniTest.zip](https://zenodo.org/records/14287325/files/MiniTest.zip?download=1). You can use this file in All-in-One mode to verify that the pipeline is successfully installed and functioning.
