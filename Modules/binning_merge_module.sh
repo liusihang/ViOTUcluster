@@ -29,11 +29,11 @@ for FILE in $FILES; do
 
   # Check and generate BAM file
   if [ ! -f "$OUT_DIR/Binning/alignment.bam" ]; then
-    bwa index -p "$OUT_DIR/Binning/assembly_index" "$OUT_DIR/${BASENAME}_filtered.fasta" >> "${OUTPUT_DIR}/Log/binning_merge.log" 2>&1
-    bwa mem -t "${THREADS}" "$OUT_DIR/Binning/assembly_index" "$Read1" "$Read2" > "$OUT_DIR/Binning/alignment.sam" 2>> "${OUTPUT_DIR}/Log/binning_merge.log"
-    samtools view -S -b "$OUT_DIR/Binning/alignment.sam" > "$OUT_DIR/Binning/alignment.bam" 2>> "${OUTPUT_DIR}/Log/binning_merge.log"
+    bwa index -p "$OUT_DIR/Binning/assembly_index" "$OUT_DIR/${BASENAME}_filtered.fasta" >> "${OUTPUT_DIR}/Log/Binning_merge.log" 2>&1
+    bwa mem -t "${THREADS}" "$OUT_DIR/Binning/assembly_index" "$Read1" "$Read2" > "$OUT_DIR/Binning/alignment.sam" 2>> "${OUTPUT_DIR}/Log/Binning_merge.log"
+    samtools view -S -b "$OUT_DIR/Binning/alignment.sam" > "$OUT_DIR/Binning/alignment.bam" 2>> "${OUTPUT_DIR}/Log/Binning_merge.log"
   else
-    echo "$OUT_DIR/Binning/alignment.bam already exists. Skipping alignment." >> "${OUTPUT_DIR}/Log/binning_merge.log"
+    echo "$OUT_DIR/Binning/alignment.bam already exists. Skipping alignment." >> "${OUTPUT_DIR}/Log/Binning_merge.log"
   fi
 
   VRHYME_DIR="$OUT_DIR/Binning/vRhyme_results_${BASENAME}_filtered"
@@ -44,8 +44,8 @@ for FILE in $FILES; do
     echo "vRhyme results for $BASENAME already exist. Skipping vRhyme run."
   else
     echo "Running vRhyme for $BASENAME..."
-    source "$(conda info --base)/etc/profile.d/conda.sh"
-    conda activate vRhyme
+    #source "$(conda info --base)/etc/profile.d/conda.sh"
+    #conda activate vRhyme
 
     # Remove existing vRhyme results directory
     if [ -d "$VRHYME_DIR" ]; then
@@ -53,10 +53,11 @@ for FILE in $FILES; do
       rm -rf "$VRHYME_DIR"
     fi
 
-    vRhyme -i "$OUT_DIR/${BASENAME}_filtered.fasta" \
-           -b "$OUT_DIR/Binning/alignment.bam" \
-           -t "${THREADS_PER_FILE}" \
-           -o "$VRHYME_DIR"
+    conda run -p "$CONDA_PREFIX/envs/vRhyme" vRhyme -i "$OUT_DIR/${BASENAME}_filtered.fasta" \
+                                -b "$OUT_DIR/Binning/alignment.bam" \
+                                -t "${THREADS_PER_FILE}" \
+                                -o "$VRHYME_DIR"
+
 
     conda deactivate
   fi
