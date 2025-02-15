@@ -1,97 +1,57 @@
 #!/usr/bin/env bash
 
-# Set a temporary cache directory to avoid using the local cache
-export CONDA_PKGS_DIRS=$(mktemp -d)
+# 获取 Conda 基本安装路径
+CONDA_BASE=$(conda info --base)
 
-# List of dependencies to check
-dependencies=(
-    "fastp"
-    "megahit"
-    "spades.py"
-    "virsorter"
-    "viralverify"
-    "genomad"
-    #"pyhmmer"
-    "checkv"
-    #"vrhyme"
-    "dRep"
-    #"DRAM"
-    #"iPhop"
-    "checkm"
-    "bwa"
-)
+# 创建 ViOTUcluster 环境目录
+echo "Creating ViOTUcluster environment directory..."
+mkdir -p "$CONDA_BASE/envs/ViOTUcluster"
 
-# Function to check if a command exists
-command_exists() {
-    command -v "$1" >/dev/null 2>&1
-}
+# 下载必要的包（示例：ViOTUcluster, vRhyme, iphop, DRAM）
+# 在这里将下载链接替换为实际 URL
+echo "Downloading ViOTUcluster, vRhyme, iphop, DRAM packages..."
+#wget -q XXXX -O "$CONDA_BASE/envs/ViOTUcluster/ViOTUcluster.tar.gz"
+#wget -q XXXX -O "$CONDA_BASE/envs/ViOTUcluster/vRhyme.tar.gz"
 
-# Check if all dependencies are installed
-all_installed=true
-for dep in "${dependencies[@]}"; do
-    if ! command_exists "$dep"; then
-        all_installed=false
-        break
-    fi
-done
+# 解压下载的文件到指定目录
+echo "Extracting files..."
+tar -xzf "ViOTUcluster.tar.gz" -C "$CONDA_BASE/envs/ViOTUcluster"
+#tar -xzf "vRhyme.tar.gz" -C "$CONDA_BASE/envs/ViOTUcluster"
 
-if [ "$all_installed" = true ]; then
-    echo "[✅] All dependencies are already installed. Skipping install dependencies."
-else
-    # Install dRep, ViralVerify, Genomad, and CheckV
-    echo "Installing dRep, ViralVerify, Genomad, and CheckV..."
-    mamba install -c conda-forge -c bioconda genomad=1.8.0 --yes
-    mamba install -c conda-forge -c bioconda checkm-genome=1.2.2 --yes
-    mamba install -c conda-forge -c bioconda dRep=3.5.0 --yes
-    mamba install -c conda-forge -c bioconda checkv=1.0.3 --yes
+# 激活 ViOTUcluster 环境
+echo "Activating ViOTUcluster environment..."
+#source $(conda info --base)/etc/profile.d/conda.sh
+source "$CONDA_BASE/envs/ViOTUcluster/bin/activate"
 
-    echo "Installing ViralVerify..."
-    mamba install -c conda-forge -c bioconda viralverify=1.1 --yes
+# 解压并准备 Conda 环境
+echo "Unpacking Conda environment..."
+conda unpack
 
-    # Install scikit-learn, imbalanced-learn, pandas, seaborn, and pyhmmer
-    echo "Installing scikit-learn, imbalanced-learn, pandas, seaborn, and pyhmmer..."
-    mamba install -c conda-forge -c bioconda \
-        scikit-learn=0.22.1 imbalanced-learn pandas seaborn pyhmmer==0.10.14 --yes
+# 设置 SSL 证书验证路径
+echo "Configuring SSL certificate verification..."
+conda config --env --set ssl_verify "$CONDA_PREFIX/ssl/cacert.pem"
 
-    # Install Prodigal, Screed, ruamel.yaml, Snakemake, Click, and conda-package-handling
-    echo "Installing Prodigal, Screed, ruamel.yaml, Snakemake, and related packages..."
-    mamba install -c conda-forge -c bioconda \
-        prodigal screed ruamel.yaml "snakemake>=5.18,<=5.26" click "conda-package-handling<=1.9" --yes
+# 如果需要重新配置证书，也可以选择下面的命令
+# conda env config vars set ssl_verify "$CONDA_PREFIX/ssl/cacert.pem"
 
-    # Install NumPy
-    echo "Installing NumPy..."
-    mamba install -c conda-forge -c bioconda numpy=1.23.5 --yes
+# 创建 vRhyme 环境目录
+echo "Creating vRhyme environment directory..."
+mkdir -p "$CONDA_BASE/envs/ViOTUcluster/envs/vRhyme"
 
-    # Install MEGAHIT, SPAdes, and fastp
-    echo "Installing MEGAHIT, SPAdes, and fastp..."
-    mamba install -c conda-forge -c bioconda megahit spades fastp --no-deps --yes
-    mamba install isa-l=2.31.1 --yes
+# 解压 vRhyme 包到指定目录
+echo "Extracting vRhyme package..."
+tar -xzf "vRhyme.tar.gz" -C "$CONDA_BASE/envs/ViOTUcluster/envs/vRhyme"
 
-    # Install BioPython
-    echo "Installing BioPython..."
-    pip3 install bio
+# 激活 vRhyme 环境
+echo "Activating vRhyme environment..."
+source "$CONDA_BASE/envs/ViOTUcluster/envs/vRhyme/bin/activate"
 
-    # Clean up the temporary cache directory
-    echo "Cleaning up temporary cache..."
-    rm -rf "$CONDA_PKGS_DIRS"
+# 解压并准备 vRhyme 环境
+echo "Unpacking vRhyme Conda environment..."
+conda unpack
 
-    # Clone the VirSorter2-pyhmmerAcc repository and install the package
-    git clone https://github.com/liusihang/VirSorter2-pyhmmerAcc || { echo "Git clone failed"; exit 1; }
-    cd VirSorter2-pyhmmerAcc
-    pip install -e . || { echo "Pip install failed"; exit 1; }
-    cd ..
-    rm -rf VirSorter2-pyhmmerAcc
-fi
+# 最后重新激活 ViOTUcluster 环境
+source $(conda info --base)/etc/profile.d/conda.sh
 
-# Run the Move2bin Python script
-echo "Updating scripts..."
-python ./setupscript/Move2bin.py
-
-# Get the current Conda environment path
-CONDA_ENV_PATH=$CONDA_PREFIX
-
-# Add execute permissions to all files in the Conda environment's bin folder
-chmod +x "$CONDA_ENV_PATH/bin/"*
-
-echo "All packages installed successfully!"
+echo "[✅] ViOTUcluster Setup complete."
 echo "Current version: 0.3.6"

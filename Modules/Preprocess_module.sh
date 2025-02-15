@@ -11,6 +11,7 @@ fi
 INPUT_DIR=$1
 ASSEMBLY_SOFTWARE=$2
 OUTPUT_DIR=$3
+THREADS=$4
 
 # Validate assembly software option
 if [[ "$ASSEMBLY_SOFTWARE" != "megahit" && "$ASSEMBLY_SOFTWARE" != "metaspades" ]]; then
@@ -59,7 +60,7 @@ for R1_FILE in "${INPUT_DIR}"/*_R1.{fq.gz,fastq.gz,fq,fastq}; do
                 echo "Megahit assembly already completed for $PREFIX, skipping..."
             else
                 echo "Running megahit for $PREFIX..."
-                megahit -1 "${Cleanreads}/${PREFIX}_R1.fq.gz" -2 "${Cleanreads}/${PREFIX}_R2.fq.gz" -o "${ASSEMBLY_DIR}/${PREFIX}_megahit_out"
+                megahit -1 "${Cleanreads}/${PREFIX}_R1.fq.gz" -2 "${Cleanreads}/${PREFIX}_R2.fq.gz" -o "${ASSEMBLY_DIR}/${PREFIX}_megahit_out" -t "${THREADS}"
                 if [ $? -ne 0 ]; then
                     echo "Error: Megahit assembly failed for $PREFIX."
                     exit 1
@@ -78,7 +79,7 @@ for R1_FILE in "${INPUT_DIR}"/*_R1.{fq.gz,fastq.gz,fq,fastq}; do
                 echo "Metaspades assembly already completed for $PREFIX, skipping..."
             else
                 echo "Running metaspades for $PREFIX..."
-                metaspades.py -1 "${Cleanreads}/${PREFIX}_R1.fq.gz" -2 "${Cleanreads}/${PREFIX}_R2.fq.gz" -o "${ASSEMBLY_DIR}/${PREFIX}_spades_out"
+                metaspades.py -1 "${Cleanreads}/${PREFIX}_R1.fq.gz" -2 "${Cleanreads}/${PREFIX}_R2.fq.gz" -o "${ASSEMBLY_DIR}/${PREFIX}_spades_out" -t "${THREADS}"
                 if [ $? -ne 0 ]; then
                     echo "Error: Metaspades assembly failed for $PREFIX."
                     exit 1

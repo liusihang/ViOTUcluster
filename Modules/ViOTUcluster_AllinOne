@@ -233,7 +233,7 @@ export RAW_SEQ_DIR OUTPUT_DIR DATABASE SAMPLETYPE REASSEMBLE ASSEMBLY_SOFTWARE
 mkdir -p "${OUTPUT_DIR}/Log"
 
 # Run each module and check for errors
-run_module "Raw sequences Process" "${OUTPUT_DIR}/Log/Preprocess.log" "Preprocess_module.sh '${RAW_SEQ_DIR}' '${ASSEMBLY_SOFTWARE}' '${OUTPUT_DIR}'"
+run_module "Raw sequences Process" "${OUTPUT_DIR}/Log/Preprocess.log" "Preprocess_module.sh '${RAW_SEQ_DIR}' '${ASSEMBLY_SOFTWARE}' '${OUTPUT_DIR}' '${THREADS}'"
 
 # Update exported parameters
 CONTIGS_DIR="${OUTPUT_DIR}/Contigs"

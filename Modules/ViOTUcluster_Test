@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+
+############ViOTUcluster_Check script to verify the installation of required dependencies############
+# Default database location
+#DEFAULT_DATABASE="/path/to/default/database"  # You can adjust the default database path as needed
+
+# Parse command line arguments
+while getopts "d:" opt; do
+    case $opt in
+        d) DATABASE="$OPTARG" ;;  # If -d parameter is passed, set DATABASE to the passed value
+        *) echo "Usage: $0 [-d database_path]" ; exit 1 ;;
+    esac
+done
+
+# Check if the database path exists
+if [ ! -d "$DATABASE" ]; then
+    echo "Error: Database directory does not exist: $DATABASE"
+    exit 1
+fi
+
+# Execute ViOTUcluster_AllinOne command and capture output
+echo "Running ViOTUcluster_Test..."
+
+# Use `grep` to monitor specific statements in the command output
+{ 
+    ViOTUcluster_AllinOne -r "$CONDA_PREFIX/ViTest" -o ./ -d "$DATABASE" -a megahit --con
+} | tee output.log | grep -m 1 "All basic analysis completed successfully." && {
+    echo "All basic analysis completed successfully. Pausing script execution."
+    
+    # Simulate Ctrl+Z to stop execution
+    kill -SIGSTOP $$  # Use SIGSTOP to stop the current script (simulate Ctrl+Z)
+}
+
+# Check if the command executed successfully
+if [ $? -eq 0 ]; then
+    echo "ViOTUcluster completed successfully."
+else
+    echo "Error: ViOTUcluster failed."
+    exit 1
+fi
