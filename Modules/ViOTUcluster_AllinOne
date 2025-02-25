@@ -18,8 +18,13 @@ LOG_FILE=""
 # Capture SIGINT (Ctrl+C) and SIGTERM signals only in the parent process
 trap 'cleanup' SIGINT SIGTERM
 
-# Cleanup function to terminate all child processes and restore cursor
+cleanup_flag=false
+
 cleanup() {
+  if [ "$cleanup_flag" = true ]; then
+    return
+  fi
+  cleanup_flag=true
   tput cnorm > /dev/tty
   if [ "$$" -eq "$(ps -o pgid= $$)" ]; then
     log_with_timestamp "Caught termination signal. Cleaning up..."
@@ -28,9 +33,20 @@ cleanup() {
   exit 1
 }
 
+
 # Function to add a timestamp to log entries
 log_with_timestamp() {
   echo "$(date '+%Y-%m-%d %H:%M:%S') - $1"
+}
+
+# Parameter validation function
+validate_param() {
+  local param="$1"
+  local valid_values="$2"
+  if [[ ! " ${valid_values[@]} " =~ " ${param} " ]]; then
+    echo "Error: Invalid ${param}. Please choose from: ${valid_values[@]}."
+    exit 1
+  fi
 }
 
 # Use getopts to handle short options and manually handle long options
@@ -107,10 +123,10 @@ if [ -z "$RAW_SEQ_DIR" ] || [ -z "$OUTPUT_DIR" ] || [ -z "$DATABASE" ] || [ -z "
 fi
 
 # Validate assembly software option
-if [[ "$ASSEMBLY_SOFTWARE" != "megahit" && "$ASSEMBLY_SOFTWARE" != "metaspades" ]]; then
-    echo "Error: Invalid assembly software. Please choose either 'megahit' or 'metaspades'."
-    exit 1
-fi
+validate_param "$ASSEMBLY_SOFTWARE" "megahit metaspades"
+
+# Validate concentration type
+validate_param "$CONCENTRATION_TYPE" "non-concentration concentration"
 
 # Log the command with a timestamp
 log_with_timestamp "Run ViOTUcluster as command: $0 $@"
@@ -140,6 +156,7 @@ run_module() {
       sleep 0.1
     done
   ) &
+
   local spinner_pid=$!
 
   local module_start_time
@@ -183,41 +200,21 @@ for FILE in "${RAW_SEQ_DIR}"/*_R1.*; do
     log_with_timestamp "Found paired files: ${PREFIX}_R1.fq.gz and ${PREFIX}_R2.fq.gz"
   elif [ -f "${PREFIX}_R1.fastq.gz" ] && [ -f "${PREFIX}_R2.fastq.gz" ]; then
     log_with_timestamp "Found paired files: ${PREFIX}_R1.fastq.gz and ${PREFIX}_R2.fastq.gz"
+  elif [ -f "${PREFIX}_1.fq" ] && [ -f "${PREFIX}_2.fq" ]; then
+    log_with_timestamp "Found paired files: ${PREFIX}_1.fq and ${PREFIX}_2.fq"
+  elif [ -f "${PREFIX}_1.fastq" ] && [ -f "${PREFIX}_2.fastq" ]; then
+    log_with_timestamp "Found paired files: ${PREFIX}_1.fastq and ${PREFIX}_2.fastq"
+  elif [ -f "${PREFIX}_1.fq.gz" ] && [ -f "${PREFIX}_2.fq.gz" ]; then
+    log_with_timestamp "Found paired files: ${PREFIX}_1.fq.gz and ${PREFIX}_2.fq.gz"
+  elif [ -f "${PREFIX}_1.fastq.gz" ] && [ -f "${PREFIX}_2.fastq.gz" ]; then
+    log_with_timestamp "Found paired files: ${PREFIX}_1.fastq.gz and ${PREFIX}_2.fastq.gz"
   else
     log_with_timestamp "Error: Paired-end files for ${BASENAME} not found in the expected formats (.fq, .fastq, .fq.gz, .fastq.gz)"
     exit 1
   fi
 done
 
-# Perform different processing based on CONCENTRATION_TYPE
-if [ "$CONCENTRATION_TYPE" == "non-concentration" ]; then
-    log_with_timestamp "Running in non-concentration mode..."
-elif [ "$CONCENTRATION_TYPE" == "concentration" ]; then
-    log_with_timestamp "Running in concentration mode..."
-else
-    log_with_timestamp "Error: Invalid concentration type."
-    exit 1
-fi
-
-# Set the Group variable based on SAMPLETYPE
-SAMPLETYPE="Mix"
-case "$SAMPLETYPE" in
-  DNA)
-  Group="dsDNAphage, NCLDV, ssDNA, lavidaviridae"
-  ;;
-  RNA)
-  Group="RNA, lavidaviridae"
-  ;;
-  Mix)
-  Group="dsDNAphage, NCLDV, RNA, ssDNA, lavidaviridae"
-  ;;
-  *)
-  log_with_timestamp "Unknown sample type: $SAMPLETYPE"
-  exit 1
-  ;;
-esac
-
-# Output selected processing type
+# Process with concentration type
 log_with_timestamp "Processing with $CONCENTRATION_TYPE mode and $THREADS threads."
 
 # Get bin folder location of current Conda environment
@@ -246,6 +243,6 @@ export INPUT_DIR OUTPUT_DIR DATABASE SAMPLETYPE REASSEMBLE ScriptDir RAW_SEQ_DIR
 # Perform different processing based on CONCENTRATION_TYPE
 if [ "$CONCENTRATION_TYPE" == "non-concentration" ]; then
   ViOTUcluster -i "${INPUT_DIR}" -r "${RAW_SEQ_DIR}" -o "${OUTPUT_DIR}" -d "${DATABASE}" -n "${THREADS}" --non-con
-else [ "$CONCENTRATION_TYPE" == "concentration" ]
+else
   ViOTUcluster -i "${INPUT_DIR}" -r "${RAW_SEQ_DIR}" -o "${OUTPUT_DIR}" -d "${DATABASE}" -n "${THREADS}" --con
 fi

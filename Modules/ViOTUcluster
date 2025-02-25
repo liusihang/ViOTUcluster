@@ -18,9 +18,13 @@ LOG_FILE=""
 # Capture SIGINT (Ctrl+C) and SIGTERM signals only in the parent process
 trap 'cleanup' SIGINT SIGTERM
 
-# Cleanup function to terminate all child processes and restore cursor
+cleanup_flag=false
+
 cleanup() {
-  # 恢复光标
+  if [ "$cleanup_flag" = true ]; then
+    return
+  fi
+  cleanup_flag=true
   tput cnorm > /dev/tty
   if [ "$$" -eq "$(ps -o pgid= $$)" ]; then
     log_with_timestamp "Caught termination signal. Cleaning up..."
@@ -126,18 +130,15 @@ run_module() {
   local log_file="$2"
   local command="$3"
 
-  # Ensure the directory for the module log file exists
   mkdir -p "$(dirname "$log_file")"
 
   echo "Starting $module_name..."
   log_with_timestamp "Starting $module_name..."
 
-  # Start spinner animation
   local spin='-\|/'
   local i=0
-  tput civis > /dev/tty  # Hide cursor, output directed to terminal
+  tput civis > /dev/tty
 
-  # Start a background process to display the spinner animation, output only to terminal
   (
     while true; do
       i=$(( (i+1) % 4 ))
@@ -145,27 +146,23 @@ run_module() {
       sleep 0.1
     done
   ) &
+
   local spinner_pid=$!
 
   local module_start_time
   module_start_time=$(date +%s)
 
-  # Run the actual command, append output to the module log file, and display timestamped logs in the terminal
   eval "stdbuf -oL $command" | tee -a "$log_file" | while IFS= read -r line; do
       log_with_timestamp "$line"
   done
-  # Capture the exit status of the command
   local result=${PIPESTATUS[0]}
 
-  # Stop the spinner animation
   kill "$spinner_pid" 2>/dev/null
   wait "$spinner_pid" 2>/dev/null
-  tput cnorm > /dev/tty  # Restore cursor, only affects terminal
+  tput cnorm > /dev/tty
 
-  # Clear the spinner line
   printf "\r\033[K" > /dev/tty
 
-  # Check if the module execution was successful
   if [ "$result" -ne 0 ]; then
     echo "$module_name failed. Check log: $log_file"
     log_with_timestamp "Error: $module_name failed. Check log: $log_file"
@@ -209,22 +206,30 @@ else
   THREADS_PER_FILE="$THREADS"
 fi
 
-# Validate paired files exist and are in the correct format
+# Check if paired files exist and have the correct format
 for FILE in "${RAW_SEQ_DIR}"/*_R1.*; do
   BASENAME=$(basename "$FILE" | sed 's/_R1\..*//')
   PREFIX="${RAW_SEQ_DIR}/${BASENAME}"
 
   if [ -f "${PREFIX}_R1.fq" ] && [ -f "${PREFIX}_R2.fq" ]; then
-  log_with_timestamp "Found paired files: ${PREFIX}_R1.fq and ${PREFIX}_R2.fq"
+    log_with_timestamp "Found paired files: ${PREFIX}_R1.fq and ${PREFIX}_R2.fq"
   elif [ -f "${PREFIX}_R1.fastq" ] && [ -f "${PREFIX}_R2.fastq" ]; then
-  log_with_timestamp "Found paired files: ${PREFIX}_R1.fastq and ${PREFIX}_R2.fastq"
+    log_with_timestamp "Found paired files: ${PREFIX}_R1.fastq and ${PREFIX}_R2.fastq"
   elif [ -f "${PREFIX}_R1.fq.gz" ] && [ -f "${PREFIX}_R2.fq.gz" ]; then
-  log_with_timestamp "Found paired files: ${PREFIX}_R1.fq.gz and ${PREFIX}_R2.fq.gz"
+    log_with_timestamp "Found paired files: ${PREFIX}_R1.fq.gz and ${PREFIX}_R2.fq.gz"
   elif [ -f "${PREFIX}_R1.fastq.gz" ] && [ -f "${PREFIX}_R2.fastq.gz" ]; then
-  log_with_timestamp "Found paired files: ${PREFIX}_R1.fastq.gz and ${PREFIX}_R2.fastq.gz"
+    log_with_timestamp "Found paired files: ${PREFIX}_R1.fastq.gz and ${PREFIX}_R2.fastq.gz"
+  elif [ -f "${PREFIX}_1.fq" ] && [ -f "${PREFIX}_2.fq" ]; then
+    log_with_timestamp "Found paired files: ${PREFIX}_1.fq and ${PREFIX}_2.fq"
+  elif [ -f "${PREFIX}_1.fastq" ] && [ -f "${PREFIX}_2.fastq" ]; then
+    log_with_timestamp "Found paired files: ${PREFIX}_1.fastq and ${PREFIX}_2.fastq"
+  elif [ -f "${PREFIX}_1.fq.gz" ] && [ -f "${PREFIX}_2.fq.gz" ]; then
+    log_with_timestamp "Found paired files: ${PREFIX}_1.fq.gz and ${PREFIX}_2.fq.gz"
+  elif [ -f "${PREFIX}_1.fastq.gz" ] && [ -f "${PREFIX}_2.fastq.gz" ]; then
+    log_with_timestamp "Found paired files: ${PREFIX}_1.fastq.gz and ${PREFIX}_2.fastq.gz"
   else
-  log_with_timestamp "Error: Paired-end files for ${BASENAME} not found in the expected formats (.fq, .fastq, .fq.gz, .fastq.gz)"
-  cleanup
+    log_with_timestamp "Error: Paired-end files for ${BASENAME} not found in the expected formats (.fq, .fastq, .fq.gz, .fastq.gz)"
+    exit 1
   fi
 done
 
@@ -270,14 +275,27 @@ run_module "dRep" "${OUTPUT_DIR}/Log/Drep.log" "drep_module.sh"
 run_module "Summary" "${OUTPUT_DIR}/Log/Summary.log" "summary_module.sh"
 
 echo "[✅][✅][✅]All basic analysis completed successfully. vOTU file and summary files are available in ${OUTPUT_DIR}/Summary."
-echo "Starting advanced analysis..."
-echo "[❗][❗][❗]If you want to stop there, press Ctrl+C."
-sleep 30
 
-run_module "DRAM" "${OUTPUT_DIR}/Log/DRAM.log" "run_dram_analysis.sh "${OUTPUT_DIR}/Summary/vOTU/vOTU.fasta" ${OUTPUT_DIR}/Summary/DRAMRes"
-run_module "iPhop" "${OUTPUT_DIR}/Log/iPhop.log" "run_iphop_analysis.sh "${OUTPUT_DIR}/Summary/vOTU/vOTU.fasta" ${OUTPUT_DIR}/Summary/iPhopRes"
+while true; do
+    read -p "[❗] Proceed with advanced analysis? (y/n) : " choice
+    case "$choice" in
+        [Yy]* ) 
+            echo "Starting advanced analysis..."
+            run_module "DRAM" "${OUTPUT_DIR}/Log/DRAM.log" "run_dram_analysis.sh ${OUTPUT_DIR}/Summary/vOTU/vOTU.fasta ${OUTPUT_DIR}/Summary/DRAMRes"
+            run_module "iPhop" "${OUTPUT_DIR}/Log/iPhop.log" "run_iphop_analysis.sh ${OUTPUT_DIR}/Summary/vOTU/vOTU.fasta ${OUTPUT_DIR}/Summary/iPhopRes"
+            break
+            ;;
+        [Nn]* )
+            echo "Skipping advanced analysis."
+            break
+            ;;
+        * )
+            echo "Please answer y/n."
+            ;;
+    esac
+done
 
-# Record end time and calculate total runtime
+# Record time
 end_time=$(date +%s)
 total_runtime=$((end_time - start_time))
 log_with_timestamp "Total runtime: ${total_runtime} seconds"
