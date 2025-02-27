@@ -25,7 +25,7 @@ cleanup() {
     return
   fi
   cleanup_flag=true
-  tput cnorm > /dev/tty
+  [ -t 1 ] && tput cnorm
   if [ "$$" -eq "$(ps -o pgid= $$)" ]; then
     log_with_timestamp "Caught termination signal. Cleaning up..."
     kill -- -$$
@@ -137,12 +137,12 @@ run_module() {
 
   local spin='-\|/'
   local i=0
-  tput civis > /dev/tty
+  [ -t 1 ] && tput civis
 
   (
     while true; do
       i=$(( (i+1) % 4 ))
-      printf "\rRunning %s... %s" "$module_name" "${spin:$i:1}" > /dev/tty
+      [ -t 1 ] && printf "\rRunning %s... %s" "$module_name" "${spin:$i:1}"
       sleep 0.1
     done
   ) &
@@ -159,9 +159,9 @@ run_module() {
 
   kill "$spinner_pid" 2>/dev/null
   wait "$spinner_pid" 2>/dev/null
-  tput cnorm > /dev/tty
+  [ -t 1 ] && tput cnorm
 
-  printf "\r\033[K" > /dev/tty
+  [ -t 1 ] && printf "\r\033[K"
 
   if [ "$result" -ne 0 ]; then
     echo "$module_name failed. Check log: $log_file"
@@ -300,4 +300,4 @@ end_time=$(date +%s)
 total_runtime=$((end_time - start_time))
 log_with_timestamp "Total runtime: ${total_runtime} seconds"
 
-trap 'tput cnorm > /dev/tty' EXIT
+trap '[ -t 1 ] && tput cnorm' EXIT
