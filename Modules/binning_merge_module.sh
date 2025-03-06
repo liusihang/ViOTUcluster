@@ -59,7 +59,7 @@ for FILE in $FILES; do
                                 -o "$VRHYME_DIR"
 
 
-    conda deactivate
+    #conda deactivate
   fi
 
   # Determine if reassembly is needed

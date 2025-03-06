@@ -46,7 +46,7 @@ check_genomad_db() {
 
 # Function to check if ViralVerify database is downloaded
 check_viralverify_db() {
-    if [ -f "$DB_DIR/viralverify/nbc_hmms.hmm" ]; then
+    if [ -f "$DB_DIR/ViralVerify/nbc_hmms.hmm" ]; then
         echo "[✅] ViralVerify database already downloaded."
         return 0
     else
@@ -56,10 +56,10 @@ check_viralverify_db() {
 }
 
 # Get the current Conda environment path
-CONDA_ENV_PATH=$(conda info --base)/envs/$(basename "$CONDA_DEFAULT_ENV")
+#CONDA_ENV_PATH=$(conda info --base)/envs/$(basename "$CONDA_DEFAULT_ENV")
 
 # Add execute permissions to all files in the Conda environment's bin folder
-chmod +x "$CONDA_ENV_PATH/bin/"*
+#chmod +x "$CONDA_ENV_PATH/bin/"*
 
 # Setup VirSorter database if not already installed
 if ! check_virsorter_db; then
@@ -80,7 +80,6 @@ fi
 if ! check_viralverify_db; then
     echo "Downloading ViralVerify database..."
     curl -L -o "$DB_DIR/nbc_hmms.hmm.gz" "https://figshare.com/ndownloader/files/17904323?private_link=f897d463b31a35ad7bf0"
-
     echo "Unzipping ViralVerify database..."
     mkdir -p "$DB_DIR/ViralVerify"
     gunzip -c "$DB_DIR/nbc_hmms.hmm.gz" > "$DB_DIR/ViralVerify/nbc_hmms.hmm"

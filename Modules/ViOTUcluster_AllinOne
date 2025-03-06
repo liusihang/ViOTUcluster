@@ -116,6 +116,13 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+# Determine the number of threads per file based on the THREADS input
+if [ "$THREADS" -eq 0 ]; then
+  THREADS=$(nproc)
+else
+  THREADS="$THREADS"
+fi
+
 # Check if necessary inputs are provided
 if [ -z "$RAW_SEQ_DIR" ] || [ -z "$OUTPUT_DIR" ] || [ -z "$DATABASE" ] || [ -z "$CONCENTRATION_TYPE" ] || [ -z "$ASSEMBLY_SOFTWARE" ]; then
     echo "Usage: $0 -r <input_path_raw_seqs> -o <output_path> -d <database_path> -a <assembly_software> -n <threads> --non-con/--con [--reassemble]"
@@ -224,7 +231,7 @@ fi
 ScriptDir="${CONDA_PREFIX}/bin"
 
 # Export parameters as environment variables
-export RAW_SEQ_DIR OUTPUT_DIR DATABASE SAMPLETYPE REASSEMBLE ASSEMBLY_SOFTWARE
+export RAW_SEQ_DIR OUTPUT_DIR DATABASE SAMPLETYPE REASSEMBLE ASSEMBLY_SOFTWARE ScriptDir
 
 mkdir -p "${OUTPUT_DIR}/Log"
 

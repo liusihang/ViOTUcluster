@@ -30,6 +30,6 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-python ContigsPreprocess.py -i ${INPUT_DIR} -o ${OUTPUT_DIR} -c ${THREADS} -a ${ASSEMBLY_SOFTWARE}
+python "${ScriptDir}/ContigsPreprocess.py" -i ${INPUT_DIR} -o ${OUTPUT_DIR} -c ${THREADS} -a ${ASSEMBLY_SOFTWARE}
 
 echo "Processing completed. Contigs are saved in $CONTIGS_DIR."

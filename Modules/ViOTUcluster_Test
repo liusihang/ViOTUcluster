@@ -23,7 +23,7 @@ echo "Running ViOTUcluster_Test..."
 
 # Use `grep` to monitor specific statements in the command output
 { 
-    ViOTUcluster_AllinOne -r "$CONDA_PREFIX/ViTest" -o ./ -d "$DATABASE" -a megahit --con
+    ViOTUcluster_AllinOne -r "$CONDA_PREFIX/ViTest" -o "$CONDA_PREFIX/ViTest" -d "$DATABASE" -a megahit --con
 } | tee output.log | grep -m 1 "All basic analysis completed successfully." && {
     echo "All basic analysis completed successfully. Pausing script execution."
     

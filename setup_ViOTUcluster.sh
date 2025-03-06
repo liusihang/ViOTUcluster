@@ -30,6 +30,7 @@ conda unpack
 # 设置 SSL 证书验证路径
 echo "Configuring SSL certificate verification..."
 conda config --env --set ssl_verify "$CONDA_PREFIX/ssl/cacert.pem"
+conda env config vars set SSL_CERT_FILE=$(python -c "import certifi; print(certifi.where())")
 
 # 如果需要重新配置证书，也可以选择下面的命令
 # conda env config vars set ssl_verify "$CONDA_PREFIX/ssl/cacert.pem"

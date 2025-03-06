@@ -119,12 +119,12 @@ def main():
         # Determine output file names while preserving the original extension
         name = os.path.basename(r1)
         ext = name[name.rfind("_R1") + 3:]  # e.g., ".fq.gz" or ".fastq"
-        out_r1 = os.path.join(cleaned_dir, f"{sample}_R1.cleaned{ext}")
-        out_r2 = os.path.join(cleaned_dir, f"{sample}_R2.cleaned{ext}")
+        out_r1 = os.path.join(cleaned_dir, f"{sample}_R1{ext}")
+        out_r2 = os.path.join(cleaned_dir, f"{sample}_R2{ext}")
         if os.path.exists(out_r1) and os.path.exists(out_r2):
             cleaned_skip.append(sample)
         else:
-            fastp_tasks.append((r1, r2, out_r1, out_r2))
+            fastp_tasks.append((sample, r1, r2, out_r1, out_r2))  # Include sample in the tuple
 
     # Run fastp tasks in parallel
     cleaned_success = []  # Samples cleaned successfully
@@ -132,11 +132,11 @@ def main():
     if fastp_tasks:
         print(f"Running fastp on {len(fastp_tasks)} sample(s) in parallel...")
         pool = Pool(processes=min(len(fastp_tasks), cores_to_use))
-        result_objs = [pool.apply_async(run_fastp, task) for task in fastp_tasks]
+        result_objs = [pool.apply_async(run_fastp, task[1:]) for task in fastp_tasks]  # Pass r1, r2, out_r1, out_r2 to run_fastp
         pool.close()
         pool.join()
         # Collect fastp results
-        for (sample, _, _, _, _), res in zip(fastp_tasks, result_objs):
+        for (sample, r1, r2, out_r1, out_r2), res in zip(fastp_tasks, result_objs):
             try:
                 status = res.get()
             except Exception as exc:
@@ -163,15 +163,15 @@ def main():
         # Define cleaned read file paths
         name = os.path.basename(r1)
         ext = name[name.rfind("_R1") + 3:]
-        clean_r1 = os.path.join(cleaned_dir, f"{sample}_R1.cleaned{ext}")
-        clean_r2 = os.path.join(cleaned_dir, f"{sample}_R2.cleaned{ext}")
+        clean_r1 = os.path.join(cleaned_dir, f"{sample}_R1{ext}")
+        clean_r2 = os.path.join(cleaned_dir, f"{sample}_R2{ext}")
         if not (os.path.exists(clean_r1) and os.path.exists(clean_r2)):
             print(f"[Warning] Cleaned reads for {sample} not found, skipping assembly.")
             assembly_skip.append(sample)
             continue
         # Create a directory for the sample's assembly output
-        asm_sample_dir = os.path.join(assembly_dir_base, sample)
-        os.makedirs(asm_sample_dir, exist_ok=True)
+        asm_sample_dir = os.path.join(assembly_dir_base, sample) 
+        #os.makedirs(asm_sample_dir, exist_ok=True)#No,prevent megahit from creating a new directory
         # Check if assembly results already exist
         contig_file = os.path.join(asm_sample_dir,
                                    "final.contigs.fa" if assembler.lower() == "megahit" else "contigs.fasta")
@@ -187,7 +187,7 @@ def main():
                 continue
         # Copy the final contigs file to the final_contigs directory
         if os.path.exists(contig_file):
-            final_name = f"{sample}_contigs.fasta"
+            final_name = f"{sample}.fasta"
             final_path = os.path.join(final_contigs_dir, final_name)
             try:
                 shutil.copy(contig_file, final_path)
