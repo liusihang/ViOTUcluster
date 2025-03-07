@@ -277,20 +277,20 @@ run_module "Summary" "${OUTPUT_DIR}/Log/Summary.log" "summary_module.sh"
 echo "[✅][✅][✅]All basic analysis completed successfully. vOTU file and summary files are available in ${OUTPUT_DIR}/Summary."
 
 while true; do
-    read -p "[❗] Proceed with advanced analysis? (y/n) : " choice
+    read -p "[❗] Proceed with advanced analysis? (y/n) : " choice > /dev/tty
     case "$choice" in
         [Yy]* ) 
-            echo "Starting advanced analysis..."
+            echo "Starting advanced analysis..." > /dev/tty
             run_module "DRAM" "${OUTPUT_DIR}/Log/DRAM.log" "run_dram_analysis.sh ${OUTPUT_DIR}/Summary/vOTU/vOTU.fasta ${OUTPUT_DIR}/Summary/DRAMRes"
             run_module "iPhop" "${OUTPUT_DIR}/Log/iPhop.log" "run_iphop_analysis.sh ${OUTPUT_DIR}/Summary/vOTU/vOTU.fasta ${OUTPUT_DIR}/Summary/iPhopRes"
             break
             ;;
         [Nn]* )
-            echo "Skipping advanced analysis."
+            echo "Skipping advanced analysis." > /dev/tty
             break
             ;;
         * )
-            echo "Please answer y/n."
+            echo "Please answer y/n." > /dev/tty
             ;;
     esac
 done
