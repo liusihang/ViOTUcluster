@@ -258,7 +258,7 @@ export INPUT_DIR OUTPUT_DIR DATABASE SAMPLETYPE REASSEMBLE ScriptDir RAW_SEQ_DIR
 
 # Filter sequences shorter than 2000bp
 mkdir -p "${OUTPUT_DIR}/FilteredSeqs"
-python "${ScriptDir}/filter_contigs.py" "300" "${INPUT_DIR}" "${OUTPUT_DIR}/FilteredSeqs"
+python "${ScriptDir}/filter_contigs.py" "500" "${INPUT_DIR}" "${OUTPUT_DIR}/FilteredSeqs"
 FILES=$(find "${OUTPUT_DIR}/FilteredSeqs" -type f \( -name "*.fa" -o -name "*.fasta" \))
 
 # Export necessary variables and functions

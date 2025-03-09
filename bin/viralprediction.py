@@ -89,7 +89,7 @@ def process_file(file_path):
 
         # VirSorter2 task
         virsorter_result = os.path.join(virsorter_dir, 'final-viral-score.tsv')
-        if CONCENTRATION_TYPE != 'non-concentration' and not os.path.isfile(virsorter_result):
+        if not os.path.isfile(virsorter_result):
             virsorter_cmd = [
                 'virsorter', 'run', '-w', virsorter_dir, '-i', file_path,
                 '--include-groups', Group, '-j', str(THREADS),
