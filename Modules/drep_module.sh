@@ -12,11 +12,16 @@ DREP_BINS_FASTA="$OUTPUT_DIR/Summary/temp/DrepBins.fasta"
 if [ -f "$DREP_BINS_FASTA" ]; then
     echo "DrepBins.fasta already exists, skipping dRep and fasta concatenation steps."
 else
+    # 生成包含所有基因组路径的文本文件
+    GENOME_LIST_FILE="${OUTPUT_DIR}/Summary/temp/genome_list.txt"
+    find "${OUTPUT_DIR}/Summary/SeperateRes/bins" -name "*.fasta" > "$GENOME_LIST_FILE"
+    echo "Genome list file generated at $GENOME_LIST_FILE"
+
+    # 使用文本文件作为 dRep 的 -g 参数调用 dRep
     echo "Starting dRep for bins..."
     mkdir -p "$OUTPUT_DIR/Summary/Viralcontigs"
     mkdir -p "$OUTPUT_DIR/Summary/dRepRes"
-    dRep dereplicate "$OUTPUT_DIR/Summary/dRepRes" -g "${OUTPUT_DIR}/Summary/SeperateRes/bins"/*.fasta --ignoreGenomeQuality \
-        -pa 0.8 -sa 0.95 -nc 0.85 -comW 0 -conW 0 -strW 0 -N50W 0 -sizeW 1 -centW 0 -l 3000
+    dRep dereplicate "$OUTPUT_DIR/Summary/dRepRes" -g "$GENOME_LIST_FILE" --ignoreGenomeQuality -pa 0.8 -sa 0.95 -nc 0.85 -comW 0 -conW 0 -strW 0 -N50W 0 -sizeW 1 -centW 0 -l 3000
     echo "dRep for bins completed."
 
     echo "Concatenating fasta sequences..."
