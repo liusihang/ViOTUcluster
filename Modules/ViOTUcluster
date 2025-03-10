@@ -124,7 +124,6 @@ if [ -z "$INPUT_DIR" ] || [ -z "$RAW_SEQ_DIR" ] || [ -z "$OUTPUT_DIR" ] || [ -z 
   exit 1
 fi
 
-# Define a function to run a module and check for errors, with log timestamps and a spinner animation
 run_module() {
   local module_name="$1"
   local log_file="$2"
@@ -152,15 +151,13 @@ run_module() {
   local module_start_time
   module_start_time=$(date +%s)
 
-  eval "stdbuf -oL $command" | tee -a "$log_file" | while IFS= read -r line; do
-      log_with_timestamp "$line"
-  done
+  # 执行命令，并通过 tee 同时将输出写入日志和终端（不再额外添加时间戳）
+  eval "stdbuf -oL $command" 2>&1 | tee -a "$log_file"
   local result=${PIPESTATUS[0]}
 
   kill "$spinner_pid" 2>/dev/null
   wait "$spinner_pid" 2>/dev/null
   [ -t 1 ] && tput cnorm
-
   [ -t 1 ] && printf "\r\033[K"
 
   if [ "$result" -ne 0 ]; then
@@ -176,6 +173,7 @@ run_module() {
   echo "$module_name completed in ${module_runtime} seconds."
   log_with_timestamp "$module_name completed in ${module_runtime} seconds."
 }
+
 
 # Set the Group variable based on SAMPLETYPE
 SAMPLETYPE="Mix"
@@ -276,24 +274,32 @@ run_module "Summary" "${OUTPUT_DIR}/Log/Summary.log" "summary_module.sh"
 
 echo "[✅][✅][✅]All basic analysis completed successfully. vOTU file and summary files are available in ${OUTPUT_DIR}/Summary."
 
-while true; do
-    read -p "[❗] Proceed with advanced analysis? (y/n) : " choice > /dev/tty
-    case "$choice" in
-        [Yy]* ) 
-            echo "Starting advanced analysis..." > /dev/tty
-            run_module "DRAM" "${OUTPUT_DIR}/Log/DRAM.log" "run_dram_analysis.sh ${OUTPUT_DIR}/Summary/vOTU/vOTU.fasta ${OUTPUT_DIR}/Summary/DRAMRes"
-            run_module "iPhop" "${OUTPUT_DIR}/Log/iPhop.log" "run_iphop_analysis.sh ${OUTPUT_DIR}/Summary/vOTU/vOTU.fasta ${OUTPUT_DIR}/Summary/iPhopRes"
-            break
-            ;;
-        [Nn]* )
-            echo "Skipping advanced analysis." > /dev/tty
-            break
-            ;;
-        * )
-            echo "Please answer y/n." > /dev/tty
-            ;;
-    esac
-done
+# Automatically detect if the environment is interactive: if standard input is a terminal and no HPC job environment variables are found, it is considered interactive
+if [ -t 0 ] && [ -z "$SLURM_JOB_ID" ] && [ -z "$PBS_JOBID" ]; then
+    # 交互式环境：等待用户输入
+    while true; do
+        read -p "[❗] Proceed with advanced analysis? (y/n) : " choice > /dev/tty
+        case "$choice" in
+            [Yy]* ) 
+                echo "Starting advanced analysis..." > /dev/tty
+                run_module "DRAM" "${OUTPUT_DIR}/Log/DRAM.log" "run_dram_analysis.sh ${OUTPUT_DIR}/Summary/vOTU/vOTU.fasta ${OUTPUT_DIR}/Summary/DRAMRes"
+                run_module "iPhop" "${OUTPUT_DIR}/Log/iPhop.log" "run_iphop_analysis.sh ${OUTPUT_DIR}/Summary/vOTU/vOTU.fasta ${OUTPUT_DIR}/Summary/iPhopRes"
+                break
+                ;;
+            [Nn]* )
+                echo "Skipping advanced analysis." > /dev/tty
+                break
+                ;;
+            * )
+                echo "Please answer y/n." > /dev/tty
+                ;;
+        esac
+    done
+else
+    echo "Non-interactive environment detected. Executing advanced analysis automatically."
+    run_module "DRAM" "${OUTPUT_DIR}/Log/DRAM.log" "run_dram_analysis.sh ${OUTPUT_DIR}/Summary/vOTU/vOTU.fasta ${OUTPUT_DIR}/Summary/DRAMRes"
+    run_module "iPhop" "${OUTPUT_DIR}/Log/iPhop.log" "run_iphop_analysis.sh ${OUTPUT_DIR}/Summary/vOTU/vOTU.fasta ${OUTPUT_DIR}/Summary/iPhopRes"
+fi
 
 # Record time
 end_time=$(date +%s)

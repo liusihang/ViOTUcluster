@@ -28,12 +28,18 @@ for FILE in $FILES; do
   mkdir -p "$OUT_DIR/Binning"
 
   # Check and generate BAM file
-  if [ ! -f "$OUT_DIR/Binning/alignment.bam" ]; then
+  if [ ! -f "$OUT_DIR/Binning/alignment.sorted.bam" ]; then
+    echo "Indexing reference for ${BASENAME}..."
     bwa index -p "$OUT_DIR/Binning/assembly_index" "$OUT_DIR/${BASENAME}_filtered.fasta" >> "${OUTPUT_DIR}/Log/Binning_merge.log" 2>&1
-    bwa mem -t "${THREADS}" "$OUT_DIR/Binning/assembly_index" "$Read1" "$Read2" > "$OUT_DIR/Binning/alignment.sam" 2>> "${OUTPUT_DIR}/Log/Binning_merge.log"
-    samtools view -S -b "$OUT_DIR/Binning/alignment.sam" > "$OUT_DIR/Binning/alignment.bam" 2>> "${OUTPUT_DIR}/Log/Binning_merge.log"
+
+    echo "Running alignment and sorting for ${BASENAME}..."
+    bwa mem -t "${THREADS}" "$OUT_DIR/Binning/assembly_index" "$Read1" "$Read2" 2>> "${OUTPUT_DIR}/Log/Binning_merge.log" | \
+      sambamba view -S -f bam -t "${THREADS}" /dev/stdin 2>> "${OUTPUT_DIR}/Log/Binning_merge.log" | \
+      sambamba sort -t "${THREADS}" -o "$OUT_DIR/Binning/alignment.sorted.bam" /dev/stdin 2>> "${OUTPUT_DIR}/Log/Binning_merge.log"
+    
+    sambamba index -t "${THREADS}" "$OUT_DIR/Binning/alignment.sorted.bam" 2>> "${OUTPUT_DIR}/Log/Binning_merge.log"
   else
-    echo "$OUT_DIR/Binning/alignment.bam already exists. Skipping alignment." >> "${OUTPUT_DIR}/Log/Binning_merge.log"
+    echo "Alignment already completed for ${BASENAME}. Skipping..." >> "${OUTPUT_DIR}/Log/Binning_merge.log"
   fi
 
   VRHYME_DIR="$OUT_DIR/Binning/vRhyme_results_${BASENAME}_filtered"
@@ -54,7 +60,7 @@ for FILE in $FILES; do
     fi
 
     conda run -p "$CONDA_PREFIX/envs/vRhyme" vRhyme -i "$OUT_DIR/${BASENAME}_filtered.fasta" \
-                                -b "$OUT_DIR/Binning/alignment.bam" \
+                                -b "$OUT_DIR/Binning/alignment.sorted.bam" \
                                 -t "${THREADS_PER_FILE}" \
                                 -o "$VRHYME_DIR"
 
