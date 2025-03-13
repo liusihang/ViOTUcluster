@@ -45,7 +45,7 @@ for folder in "$OUTPUT_DIR/SeprateFile/"*/ ; do
   if [ -f "$unbined_source" ]; then
     cat "$unbined_source" >> "$combined_dest"
     echo -e "\n" >> "$combined_dest"
-    rm "$unbined_source"
+    #rm "$unbined_source"
   else
     echo "Warning: $unbined_source does not exist."
   fi
@@ -56,24 +56,24 @@ for folder in "$OUTPUT_DIR/SeprateFile/"*/ ; do
     if [ -f "$fasta_file" ]; then
       cat "$fasta_file" >> "$combined_dest"
       echo -e "\n" >> "$combined_dest"
-      rm "$fasta_file"
+      #rm "$fasta_file"
     else
       echo "Warning: No .fasta files found in $bestbins_source"
     fi
     done
-    rmdir "$bestbins_source" 2>/dev/null || true
+    #rmdir "$bestbins_source" 2>/dev/null || true
   else
     echo "Warning: $bestbins_source does not exist."
   fi
 
   finialfasta_dir="${folder}Binning/Summary/Finialfasta/"
-  rmdir "$finialfasta_dir" 2>/dev/null || true
+  #rmdir "$finialfasta_dir" 2>/dev/null || true
 
   summary_dir="${folder}Binning/Summary/"
-  rmdir "$summary_dir" 2>/dev/null || true
+  #rmdir "$summary_dir" 2>/dev/null || true
 
   binning_dir="${folder}Binning/"
-  rmdir "$binning_dir" 2>/dev/null || true
+  #rmdir "$binning_dir" 2>/dev/null || true
   fi
   rm "$combined_dest"
 done
@@ -95,7 +95,7 @@ else
   fi
 
   # Build BWA index
-  bwa index -p "$OUTPUT_DIR/Summary/Viralcontigs/TPMTemp/TempIndex" "$OUTPUT_DIR/Summary/vOTU/vOTU.fasta"
+  bwa index -p -b 100000000 "$OUTPUT_DIR/Summary/Viralcontigs/TPMTemp/TempIndex" "$OUTPUT_DIR/Summary/vOTU/vOTU.fasta"
   if [ $? -ne 0 ]; then
     echo "Error: Failed to build BWA index."
     exit 1
@@ -123,9 +123,6 @@ else
 
     # Check and generate sorted BAM file with index
     if [ ! -f "$OUTPUT_DIR/Summary/Viralcontigs/TPMTemp/${BASENAME}_sorted_gene.bam" ]; then
-        echo "Indexing reference for ${BASENAME}..."
-        bwa index -p "$OUTPUT_DIR/Summary/Viralcontigs/TPMTemp/TempIndex" "$OUTPUT_DIR/Summary/Viralcontigs/TPMTemp/TempIndex"
-
         echo "Running alignment, conversion, and sorting for ${BASENAME}..."
         bwa mem -t "${THREADS}" "$OUTPUT_DIR/Summary/Viralcontigs/TPMTemp/TempIndex" "${Read1}" "${Read2}" | \
           sambamba view -S -f bam -t "${THREADS}" /dev/stdin | \

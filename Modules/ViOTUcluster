@@ -274,31 +274,48 @@ run_module "Summary" "${OUTPUT_DIR}/Log/Summary.log" "summary_module.sh"
 
 echo "[✅][✅][✅]All basic analysis completed successfully. vOTU file and summary files are available in ${OUTPUT_DIR}/Summary."
 
-# Automatically detect if the environment is interactive: if standard input is a terminal and no HPC job environment variables are found, it is considered interactive
+sleep 1
+
+trap '[ -t 1 ] && tput cnorm' EXIT
+
+# Function to handle interactive prompt
+interactive_prompt() {
+  # Restore stdout to terminal for this function
+  exec > /dev/tty 2>&1
+
+  while true; do
+    read -p "[❗] Proceed with advanced analysis? (y/n) : " choice
+    case "$choice" in
+      [Yy]* )
+        echo "Starting advanced analysis..."
+        # Restore logging for module execution
+        exec > >(tee -a "$LOG_FILE" | while IFS= read -r line; do echo "$(date '+%Y-%m-%d %H:%M:%S') - $line"; done) 2>&1
+        run_module "DRAM" "${OUTPUT_DIR}/Log/DRAM.log" "run_dram_analysis.sh ${OUTPUT_DIR}/Summary/vOTU/vOTU.fasta ${OUTPUT_DIR}/Summary/DRAMRes"
+        run_module "iPhop" "${OUTPUT_DIR}/Log/iPhop.log" "run_iphop_analysis.sh ${OUTPUT_DIR}/Summary/vOTU/vOTU.fasta ${OUTPUT_DIR}/Summary/iPhopRes"
+        break
+        ;;
+      [Nn]* )
+        echo "Skipping advanced analysis."
+        break
+        ;;
+      * )
+        echo "Please answer y/n."
+        ;;
+    esac
+  done
+
+  # Restore global redirection after interaction
+  exec > >(tee -a "$LOG_FILE" | while IFS= read -r line; do echo "$(date '+%Y-%m-%d %H:%M:%S') - $line"; done) 2>&1
+}
+
+# Detect environment
 if [ -t 0 ] && [ -z "$SLURM_JOB_ID" ] && [ -z "$PBS_JOBID" ]; then
-    # 交互式环境：等待用户输入
-    while true; do
-        read -p "[❗] Proceed with advanced analysis? (y/n) : " choice > /dev/tty
-        case "$choice" in
-            [Yy]* ) 
-                echo "Starting advanced analysis..." > /dev/tty
-                run_module "DRAM" "${OUTPUT_DIR}/Log/DRAM.log" "run_dram_analysis.sh ${OUTPUT_DIR}/Summary/vOTU/vOTU.fasta ${OUTPUT_DIR}/Summary/DRAMRes"
-                run_module "iPhop" "${OUTPUT_DIR}/Log/iPhop.log" "run_iphop_analysis.sh ${OUTPUT_DIR}/Summary/vOTU/vOTU.fasta ${OUTPUT_DIR}/Summary/iPhopRes"
-                break
-                ;;
-            [Nn]* )
-                echo "Skipping advanced analysis." > /dev/tty
-                break
-                ;;
-            * )
-                echo "Please answer y/n." > /dev/tty
-                ;;
-        esac
-    done
+  interactive_prompt
 else
-    echo "Non-interactive environment detected. Executing advanced analysis automatically."
-    run_module "DRAM" "${OUTPUT_DIR}/Log/DRAM.log" "run_dram_analysis.sh ${OUTPUT_DIR}/Summary/vOTU/vOTU.fasta ${OUTPUT_DIR}/Summary/DRAMRes"
-    run_module "iPhop" "${OUTPUT_DIR}/Log/iPhop.log" "run_iphop_analysis.sh ${OUTPUT_DIR}/Summary/vOTU/vOTU.fasta ${OUTPUT_DIR}/Summary/iPhopRes"
+  # Ensure this message goes to the screen only (optional)
+  echo "Non-interactive environment detected. Executing advanced analysis automatically." > /dev/tty
+  run_module "DRAM" "${OUTPUT_DIR}/Log/DRAM.log" "run_dram_analysis.sh ${OUTPUT_DIR}/Summary/vOTU/vOTU.fasta ${OUTPUT_DIR}/Summary/DRAMRes"
+  run_module "iPhop" "${OUTPUT_DIR}/Log/iPhop.log" "run_iphop_analysis.sh ${OUTPUT_DIR}/Summary/vOTU/vOTU.fasta ${OUTPUT_DIR}/Summary/iPhopRes"
 fi
 
 # Record time
