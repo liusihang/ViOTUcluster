@@ -28,6 +28,8 @@ setup(
     include_package_data=True,
     # Copy all .sh files in the scripts directory to the environment's bin directory
     scripts=glob.glob("scripts/*"),
+    license="GPL-2.0",
+    license_files=["LICENSE"],
     python_requires=">=3.8, <3.9",  # Support all 3.8.x versions
     author="Sihang Liu",
     description="ViOTUcluster: A high-speed, all-in-one solution that streamlines the entire virome analysis workflow",
