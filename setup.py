@@ -23,7 +23,7 @@ except Exception as e:
 
 setup(
     name="viotucluster",
-    version="0.4.1",
+    version="0.4.2",
     packages=find_packages(),
     include_package_data=True,
     # Copy all .sh files in the scripts directory to the environment's bin directory
