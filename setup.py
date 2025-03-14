@@ -9,10 +9,8 @@ from packaging.version import Version
 if sys.version_info[:2] != (3, 8):
     sys.exit("This package requires Python 3.8.")
 
-# Check mamba version, must be >= 1.5.1
 try:
     output = subprocess.check_output(["mamba", "--version"], universal_newlines=True)
-    # Assume mamba --version outputs something like "mamba 1.5.1"
     version_str = output.strip().split()[-1]
     required_mamba_version = Version("1.5.1")
     installed_mamba_version = Version(version_str)
@@ -22,18 +20,17 @@ except Exception as e:
     sys.exit("mamba not detected or version check failed: " + str(e))
 
 setup(
-    name="viotucluster",
-    version="0.4.2",
+    name="ViOTUcluster",
+    version="0.4.4",
     packages=find_packages(),
     include_package_data=True,
-    # Copy all .sh files in the scripts directory to the environment's bin directory
-    scripts=glob.glob("scripts/*"),
+    scripts=glob.glob("Modules/*"),
     license="GPL-2.0",
     license_files=["LICENSE"],
-    python_requires=">=3.8, <3.9",  # Support all 3.8.x versions
+    python_requires=">=3.8, <3.9",
     author="Sihang Liu",
     description="ViOTUcluster: A high-speed, all-in-one solution that streamlines the entire virome analysis workflow",
     long_description=open("README.md", encoding="utf-8").read(),
-    long_description_content_type="text/markdown",  # 指定 Markdown 格式
-    package_data={'': ['scripts/*']},
+    long_description_content_type="text/markdown", 
+    package_data={'': ['Modules/*']},
 )
