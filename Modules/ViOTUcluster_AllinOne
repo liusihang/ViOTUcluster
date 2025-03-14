@@ -4,18 +4,18 @@
 start_time=$(date +%s)
 
 # Initialize variables
-RAW_SEQ_DIR=""  # Directory containing raw sequence files
-OUTPUT_DIR=""  # Specify the output directory for the results
-DATABASE=""  # Path to the database required for analysis, to be specified by the user
-SAMPLETYPE=""  # Specify the sample type: DNA, RNA, or Mix. Default is empty.
-ASSEMBLY_SOFTWARE=""  # Specify the assembly software to be used, e.g., "megahit" or "metaspades"
+RAW_SEQ_DIR=""
+OUTPUT_DIR=""
+DATABASE=""
+SAMPLETYPE=""
+ASSEMBLY_SOFTWARE=""
 REASSEMBLE=false
-VERSION="0.4.2"
-CONCENTRATION_TYPE=""  # Specify the concentration type: non-concentration or concentration. Default is empty.
-THREADS=0  # Default number of threads
+VERSION="0.4.3"
+CONCENTRATION_TYPE=""
+THREADS=0
 LOG_FILE=""
 
-# Capture SIGINT (Ctrl+C) and SIGTERM signals only in the parent process
+# Capture SIGINT (Ctrl+C) and SIGTERM signals
 trap 'cleanup' SIGINT SIGTERM
 
 cleanup_flag=false
@@ -33,13 +33,10 @@ cleanup() {
   exit 1
 }
 
-
-# Function to add a timestamp to log entries
 log_with_timestamp() {
   echo "$(date '+%Y-%m-%d %H:%M:%S') - $1"
 }
 
-# Parameter validation function
 validate_param() {
   local param="$1"
   local valid_values="$2"
@@ -49,7 +46,6 @@ validate_param() {
   fi
 }
 
-# Use getopts to handle short options and manually handle long options
 while [[ $# -gt 0 ]]; do
   case $1 in
     -r)
@@ -116,30 +112,22 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# Determine the number of threads per file based on the THREADS input
 if [ "$THREADS" -eq 0 ]; then
   THREADS=$(nproc)
 else
   THREADS="$THREADS"
 fi
 
-# Check if necessary inputs are provided
 if [ -z "$RAW_SEQ_DIR" ] || [ -z "$OUTPUT_DIR" ] || [ -z "$DATABASE" ] || [ -z "$CONCENTRATION_TYPE" ] || [ -z "$ASSEMBLY_SOFTWARE" ]; then
     echo "Usage: $0 -r <input_path_raw_seqs> -o <output_path> -d <database_path> -a <assembly_software> -n <threads> --non-con/--con [--reassemble]"
     exit 1
 fi
 
-# Validate assembly software option
 validate_param "$ASSEMBLY_SOFTWARE" "megahit metaspades"
-
-# Validate concentration type
 validate_param "$CONCENTRATION_TYPE" "non-concentration concentration"
 
-# Log the command with a timestamp
-log_with_timestamp "Run ViOTUcluster as command: $0 $@"
-
-# Log all environment variables with a timestamp
-log_with_timestamp "Environment variables at start:"
+echo "Run ViOTUcluster as command: $0 $@"
+#log_with_timestamp "Environment variables at start:"
 
 run_module() {
   local module_name="$1"
@@ -148,7 +136,11 @@ run_module() {
 
   mkdir -p "$(dirname "$log_file")"
 
-  echo "Starting $module_name..."
+  msg="Starting $module_name..."
+  border="###############################################"
+  echo "$border"
+  echo "# $msg"
+  echo "$border"
   log_with_timestamp "Starting $module_name..."
 
   local spin='-\|/'
@@ -168,11 +160,10 @@ run_module() {
   local module_start_time
   module_start_time=$(date +%s)
 
-  # 执行命令，将输出按行读取，给每行添加时间戳后同时输出到终端和日志文件
   eval "stdbuf -oL $command" 2>&1 | while IFS= read -r line; do
       timestamped_line="$(date '+%Y-%m-%d %H:%M:%S') - $line"
-      echo "$timestamped_line"                   # 输出到终端
-      echo "$timestamped_line" >> "$log_file"      # 同时写入日志文件
+      echo "$timestamped_line"
+      echo "$timestamped_line" >> "$log_file"
   done
   local result=${PIPESTATUS[0]}
 
@@ -195,7 +186,6 @@ run_module() {
   log_with_timestamp "$module_name completed in ${module_runtime} seconds."
 }
 
-# Check if paired files exist and have the correct format
 for FILE in "${RAW_SEQ_DIR}"/*_R1.*; do
   BASENAME=$(basename "$FILE" | sed 's/_R1\..*//')
   PREFIX="${RAW_SEQ_DIR}/${BASENAME}"
@@ -222,33 +212,26 @@ for FILE in "${RAW_SEQ_DIR}"/*_R1.*; do
   fi
 done
 
-# Process with concentration type
 log_with_timestamp "Processing with $CONCENTRATION_TYPE mode and $THREADS threads."
 
-# Get bin folder location of current Conda environment
 if [ -z "$CONDA_PREFIX" ]; then
   log_with_timestamp "Conda environment is not activated."
   exit 1
 fi
 ScriptDir="${CONDA_PREFIX}/bin"
 
-# Export parameters as environment variables
 export RAW_SEQ_DIR OUTPUT_DIR DATABASE SAMPLETYPE REASSEMBLE ASSEMBLY_SOFTWARE ScriptDir
 
 mkdir -p "${OUTPUT_DIR}/Log"
 
-# Run each module and check for errors
 run_module "Raw sequences Process" "${OUTPUT_DIR}/Log/Preprocess.log" "Preprocess_module.sh '${RAW_SEQ_DIR}' '${ASSEMBLY_SOFTWARE}' '${OUTPUT_DIR}' '${THREADS}'"
 
-# Update exported parameters
 CONTIGS_DIR="${OUTPUT_DIR}/Contigs"
 RAW_SEQ_DIR="${OUTPUT_DIR}/Cleanreads"
 INPUT_DIR=${CONTIGS_DIR}
 
-# Export parameters as environment variables
 export INPUT_DIR OUTPUT_DIR DATABASE SAMPLETYPE REASSEMBLE ScriptDir RAW_SEQ_DIR THREADS
 
-# Perform different processing based on CONCENTRATION_TYPE
 if [ "$CONCENTRATION_TYPE" == "non-concentration" ]; then
   ViOTUcluster -i "${INPUT_DIR}" -r "${RAW_SEQ_DIR}" -o "${OUTPUT_DIR}" -d "${DATABASE}" -n "${THREADS}" --non-con
 else

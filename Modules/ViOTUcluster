@@ -10,9 +10,9 @@ OUTPUT_DIR=""
 DATABASE=""
 SAMPLETYPE=""
 REASSEMBLE=false
-VERSION="0.4.2"  # Define version number
+VERSION="0.4.2"
 CONCENTRATION_TYPE=""
-THREADS="0"  # Default number of threads is the maximum available cores
+THREADS="0"
 LOG_FILE=""
 
 # Capture SIGINT (Ctrl+C) and SIGTERM signals only in the parent process
@@ -51,7 +51,7 @@ while [[ $# -gt 0 ]]; do
     ;;
   -o)
     OUTPUT_DIR=$2
-    LOG_FILE="${OUTPUT_DIR}/pipeline.log"  # Set log file path
+    LOG_FILE="${OUTPUT_DIR}/pipeline.log"
     shift 2
     ;;
   -d)
@@ -86,7 +86,6 @@ while [[ $# -gt 0 ]]; do
     echo "  -r <input_path_raw_seqs>    Specify the input directory to search for raw seqs files."
     echo "  -o <output_path>            Specify the output directory for the results."
     echo "  -d <database_path>          Specify the path to the database required for analysis."
-    #echo "  -t <sample_type>            Specify the sample type: DNA, RNA, or Mix."
     echo "  -n <threads>                Specify the number of threads to use (default: Use max available cores)."
     echo "  --non-con                   Specify non-concentration processing."
     echo "  --con                       Specify concentration processing."
@@ -108,12 +107,11 @@ if [ -z "$OUTPUT_DIR" ];then
   exit 1
 fi
 
-# Create output directory (if it doesn't exist)
 mkdir -p "$OUTPUT_DIR"
 touch "$LOG_FILE"
 
 # Log the command to the log file
-log_with_timestamp "Run ViOTUcluster as command: $0 \"$@\""
+echo "Run ViOTUcluster as command: $0 $@"
 
 # Redirect all output to the log file and terminal, with timestamps
 exec > >(tee -a "$LOG_FILE" | while IFS= read -r line; do echo "$(date '+%Y-%m-%d %H:%M:%S') - $line"; done) 2>&1
@@ -131,7 +129,11 @@ run_module() {
 
   mkdir -p "$(dirname "$log_file")"
 
-  echo "Starting $module_name..."
+  msg="Starting $module_name..."
+  border="###############################################"
+  echo "$border"
+  echo "# $msg"
+  echo "$border"
   log_with_timestamp "Starting $module_name..."
 
   local spin='-\|/'
@@ -151,7 +153,6 @@ run_module() {
   local module_start_time
   module_start_time=$(date +%s)
 
-  # 执行命令，并通过 tee 同时将输出写入日志和终端（不再额外添加时间戳）
   eval "stdbuf -oL $command" 2>&1 | tee -a "$log_file"
   local result=${PIPESTATUS[0]}
 
@@ -174,7 +175,6 @@ run_module() {
   log_with_timestamp "$module_name completed in ${module_runtime} seconds."
 }
 
-
 # Set the Group variable based on SAMPLETYPE
 SAMPLETYPE="Mix"
 case "$SAMPLETYPE" in
@@ -194,7 +194,6 @@ case "$SAMPLETYPE" in
 esac
 
 # Find all .fa and .fasta files in the specified directory
-#FILES=$(find "${OUTPUT_DIR}/FilteredSeqs" -type f \( -name "*.fa" -o -name "*.fasta" \))
 RawFILES=$(find "${INPUT_DIR}" -maxdepth 1 -type f \( -name "*.fa" -o -name "*.fasta" \))
 
 # Determine the number of threads per file based on the THREADS input
@@ -238,7 +237,6 @@ elif [ "$CONCENTRATION_TYPE" == "concentration" ]; then
   log_with_timestamp "Running concentration specific steps..."
 else
   log_with_timestamp "Error: Invalid concentration type."
-  #cleanup
 fi
 
 # Output the selected processing type
@@ -280,7 +278,6 @@ trap '[ -t 1 ] && tput cnorm' EXIT
 
 # Function to handle interactive prompt
 interactive_prompt() {
-  # Restore stdout to terminal for this function
   exec > /dev/tty 2>&1
 
   while true; do
@@ -288,7 +285,6 @@ interactive_prompt() {
     case "$choice" in
       [Yy]* )
         echo "Starting advanced analysis..."
-        # Restore logging for module execution
         exec > >(tee -a "$LOG_FILE" | while IFS= read -r line; do echo "$(date '+%Y-%m-%d %H:%M:%S') - $line"; done) 2>&1
         run_module "DRAM" "${OUTPUT_DIR}/Log/DRAM.log" "run_dram_analysis.sh ${OUTPUT_DIR}/Summary/vOTU/vOTU.fasta ${OUTPUT_DIR}/Summary/DRAMRes"
         run_module "iPhop" "${OUTPUT_DIR}/Log/iPhop.log" "run_iphop_analysis.sh ${OUTPUT_DIR}/Summary/vOTU/vOTU.fasta ${OUTPUT_DIR}/Summary/iPhopRes"
@@ -304,7 +300,6 @@ interactive_prompt() {
     esac
   done
 
-  # Restore global redirection after interaction
   exec > >(tee -a "$LOG_FILE" | while IFS= read -r line; do echo "$(date '+%Y-%m-%d %H:%M:%S') - $line"; done) 2>&1
 }
 
@@ -312,7 +307,6 @@ interactive_prompt() {
 if [ -t 0 ] && [ -z "$SLURM_JOB_ID" ] && [ -z "$PBS_JOBID" ]; then
   interactive_prompt
 else
-  # Ensure this message goes to the screen only (optional)
   echo "Non-interactive environment detected. Executing advanced analysis automatically." > /dev/tty
   run_module "DRAM" "${OUTPUT_DIR}/Log/DRAM.log" "run_dram_analysis.sh ${OUTPUT_DIR}/Summary/vOTU/vOTU.fasta ${OUTPUT_DIR}/Summary/DRAMRes"
   run_module "iPhop" "${OUTPUT_DIR}/Log/iPhop.log" "run_iphop_analysis.sh ${OUTPUT_DIR}/Summary/vOTU/vOTU.fasta ${OUTPUT_DIR}/Summary/iPhopRes"
