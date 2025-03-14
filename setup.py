@@ -34,5 +34,6 @@ setup(
     author="Sihang Liu",
     description="ViOTUcluster: A high-speed, all-in-one solution that streamlines the entire virome analysis workflow",
     long_description=open("README.md", encoding="utf-8").read(),
+    long_description_content_type="text/markdown",  # 指定 Markdown 格式
     package_data={'': ['scripts/*']},
 )
