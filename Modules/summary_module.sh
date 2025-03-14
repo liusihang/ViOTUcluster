@@ -95,7 +95,7 @@ else
   fi
 
   # Build BWA index
-  bwa index -p -b 100000000 "$OUTPUT_DIR/Summary/Viralcontigs/TPMTemp/TempIndex" "$OUTPUT_DIR/Summary/vOTU/vOTU.fasta"
+  bwa index -b "100000000" -p "$OUTPUT_DIR/Summary/Viralcontigs/TPMTemp/TempIndex" "$OUTPUT_DIR/Summary/vOTU/vOTU.fasta"
   if [ $? -ne 0 ]; then
     echo "Error: Failed to build BWA index."
     exit 1
