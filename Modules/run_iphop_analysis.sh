@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-source activate iphop_env
+#source activate iphop_env
 
 echo "Conda environment activated: $(conda info --envs)"
 

@@ -30,7 +30,11 @@ print(f"Assigning tasks to cores: {assigned_cores}")
 def run_dram_annotation(fa_file):
     try:
         output_dir = f"{fa_file}_DRAMAnnot"
+        conda_prefix = os.environ.get("CONDA_PREFIX")
+        env_path = os.path.join(conda_prefix, "envs", "DRAM")
         dram_cmd = [
+            'conda','run',
+            '-p',env_path,
             'DRAM-v.py', 'annotate', 
             '-i', fa_file,
             '-o', output_dir,

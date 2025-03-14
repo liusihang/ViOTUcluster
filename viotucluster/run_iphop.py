@@ -30,7 +30,11 @@ print(f"Assigning tasks to cores: {assigned_cores}")
 def run_iphop_prediction(fa_file):
     try:
         output_dir = f"{fa_file}_iPhopResult"
+        conda_prefix = os.environ.get("CONDA_PREFIX")
+        env_path = os.path.join(conda_prefix, "envs", "iphop")
         iphop_cmd = [
+            'conda','run',
+            '-p',env_path,
             'iphop', 'predict',
             '--fa_file', fa_file,
             '--db_dir', os.path.join(DATABASE, 'Aug_2023_pub_rw'),

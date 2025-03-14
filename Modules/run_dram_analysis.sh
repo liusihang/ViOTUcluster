@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-source activate DRAM
+#source activate DRAM
 
 # Check command-line arguments
 if [ "$#" -ne 2 ]; then
