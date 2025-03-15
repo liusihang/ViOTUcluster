@@ -55,4 +55,4 @@ conda unpack
 source $(conda info --base)/etc/profile.d/conda.sh
 
 echo "[✅] ViOTUcluster Setup complete."
-echo "Current version: 0.4.5"
+echo "Current version: 0.4.6"
