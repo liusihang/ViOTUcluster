@@ -2,3 +2,4 @@ include README.md
 include LICENSE
 recursive-include Modules *
 recursive-include setup_scripts *
+recursive-include ViOTUcluster *

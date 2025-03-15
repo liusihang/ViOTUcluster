@@ -24,7 +24,8 @@ setup(
     version="0.4.5",
     packages=find_packages(),
     include_package_data=True,
-    scripts=glob.glob("Modules/*"),
+    # 将两个目录下的脚本合并在一起
+    scripts=glob.glob("Modules/*") + glob.glob("ViOTUcluster/*"),
     license="GPL-2.0",
     license_files=["LICENSE"],
     python_requires=">=3.8, <3.9",
@@ -32,5 +33,6 @@ setup(
     description="ViOTUcluster: A high-speed, all-in-one solution that streamlines the entire virome analysis workflow",
     long_description=open("README.md", encoding="utf-8").read(),
     long_description_content_type="text/markdown", 
-    package_data={'': ['Modules/*']},
+    # 合并两个目录的包数据
+    package_data={'': ['Modules/*', 'ViOTUcluster/*']},
 )
