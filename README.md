@@ -31,10 +31,6 @@ Below is a polished version of your README document, presented in Markdown forma
 
 ViOTUcluster has been tested on Ubuntu and CentOS and should be compatible with all Linux distributions.
 
-### Known Issues
-
-- No issues have been reported yet. If you encounter any problems, please submit them to the [GitHub Issues](https://github.com/your-repo/issues) page.
-
 ### Prerequisites
 
 Before installing ViOTUcluster, ensure the following tools are available on your system:
@@ -93,6 +89,49 @@ Follow these steps to install ViOTUcluster for the first time:
 
    **Note:** The setup process involves downloading approximately **30 GB** of database files, so the installation time depends heavily on your **network speed**. A stable, high-speed internet connection is recommended to prevent installation failures.
 
+4. **Set Up DRAM and iPhop Environments**
+
+   #### Install DRAM database
+
+   ```bash
+   conda activate ViOTUcluster
+   DRAM
+   DRAM-setup.py prepare_databases --output_dir "/path/to/db/DRAM"
+   ```
+
+   If you have an existing DRAM environment and want to migrate its settings:
+
+   ```bash
+   conda activate old_DRAM_env
+   DRAM-setup.py export_config > my_old_config.txt
+   conda activate ViOTUcluster
+   DRAM
+   DRAM-setup.py import_config --config_loc my_old_config.txt
+   ```
+
+   #### Install iPhop database
+
+   ```bash
+   conda activate ViOTUcluster
+   iPhop
+   iphop download --db_dir "/path/to/db"
+   ```
+
+   #### Important Notes
+
+   - Ensure that the databases for DRAM and iPhop are stored in the directory specified during the `ViOTUcluster_download-database` step.
+   - For details on the expected database structure, see the [File Structure Example](#file-structure-example) section.
+   - For additional instructions on downloading and configuring these databases, refer to the official documentation for [DRAM](https://github.com/WrightonLabCSU/DRAM) and [iPhop](https://bitbucket.org/srouxjgi/iphop/src/main/).
+
+5. **Test the Complete ViOTUcluster Workflow with Mini-Samples**
+  
+   To verify ViOTUcluster full workflow are functioning correctly, you can run a test using the `ViOTUcluster_Test` command with a set of mini FASTQ samples.
+   ```bash
+   conda activate ViOTUcluster
+   ViOTUcluster_Test -d /path/to/db
+   ```
+   This command will automatically utilize all available threads to execute the entire ViOTUcluster workflow on the provided mini FASTQ samples. Be sure to replace /path/to/db with the path to your database directory.
+
 ### Updating ViOTUcluster from an Older Version
 
 To update an existing ViOTUcluster installation to the latest version, use pip:
@@ -103,39 +142,6 @@ pip install ViOTUcluster
 
 This command will upgrade the ViOTUcluster scripts while preserving your existing environment.
 
-### Setting Up DRAM and iPhop Environments
-
-#### Install DRAM database
-
-```bash
-conda activate ViOTUcluster
-DRAM
-DRAM-setup.py prepare_databases --output_dir "/path/to/db/DRAM"
-```
-
-If you have an existing DRAM environment and want to migrate its settings:
-
-```bash
-conda activate old_DRAM_env
-DRAM-setup.py export_config > my_old_config.txt
-conda activate ViOTUcluster
-DRAM
-DRAM-setup.py import_config --config_loc my_old_config.txt
-```
-
-#### Install iPhop database
-
-```bash
-conda activate ViOTUcluster
-iPhop
-iphop download --db_dir "/path/to/db"
-```
-
-#### Important Notes
-
-- Ensure that the databases for DRAM and iPhop are stored in the directory specified during the `ViOTUcluster_download-database` step.
-- For details on the expected database structure, see the [File Structure Example](#file-structure-example) section.
-- For additional instructions on downloading and configuring these databases, refer to the official documentation for [DRAM](https://github.com/WrightonLabCSU/DRAM) and [iPhop](https://bitbucket.org/srouxjgi/iphop/src/main/).
 
 ## Additional Notes
 

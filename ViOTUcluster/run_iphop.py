@@ -22,7 +22,7 @@ OUTPUT_DIR = os.environ['OUTPUT_DIR']
 OUTPUT = os.environ['OUTPUT']
 DATABASE = os.environ['DATABASE']
 
-# Setup logging: 日志文件写入 ${OUTPUT_DIR}/Log/iPhop.log
+# Setup logging
 log_dir = os.path.join(OUTPUT_DIR, 'Log')
 if not os.path.exists(log_dir):
     os.makedirs(log_dir)

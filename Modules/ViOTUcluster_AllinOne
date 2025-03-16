@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Record start time
-start_time=$(date +%s)
+#start_time=$(date +%s)
 
 # Initialize variables
 RAW_SEQ_DIR=""
