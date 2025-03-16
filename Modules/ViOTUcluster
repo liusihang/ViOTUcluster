@@ -10,7 +10,7 @@ OUTPUT_DIR=""
 DATABASE=""
 SAMPLETYPE=""
 REASSEMBLE=false
-VERSION="0.4.6"
+VERSION="0.4.7"
 CONCENTRATION_TYPE=""
 THREADS="0"
 LOG_FILE=""
@@ -310,6 +310,8 @@ else
   echo "Non-interactive environment detected. Executing advanced analysis automatically." > /dev/tty
   run_module "DRAM" "${OUTPUT_DIR}/Log/DRAM.log" "run_dram_analysis.sh ${OUTPUT_DIR}/Summary/vOTU/vOTU.fasta ${OUTPUT_DIR}/Summary/DRAMRes"
   run_module "iPhop" "${OUTPUT_DIR}/Log/iPhop.log" "run_iphop_analysis.sh ${OUTPUT_DIR}/Summary/vOTU/vOTU.fasta ${OUTPUT_DIR}/Summary/iPhopRes"
+
+  echo "[✅][✅]Advanced analysis completed successfully. DRAM and iPhop results are available in ${OUTPUT_DIR}/Summary."
 fi
 
 # Record time

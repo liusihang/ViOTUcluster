@@ -90,4 +90,4 @@ rm -rf "$OUTPUT_DIR/split_files"
 rm -rf "$OUTPUT_DIR/DRAM_results"/*_DRAMAnnot
 
 echo "Cleanup complete."
-conda deactivate
+#conda deactivate

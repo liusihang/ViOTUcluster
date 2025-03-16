@@ -10,21 +10,21 @@ import glob
 import signal
 
 # Ensure necessary environment variables are set
-required_env_vars = ['THREADS_PER_FILE', 'OUTPUT_DIR']
+required_env_vars = ['THREADS', 'OUTPUT_DIR']
 for var in required_env_vars:
     if var not in os.environ:
         print(f"Environment variable {var} is not set.")
         sys.exit(1)
 
 # Get environment variables
-THREADS_PER_FILE = int(os.environ['THREADS_PER_FILE'])
+THREADS = int(os.environ['THREADS'])
 OUTPUT_DIR = os.environ['OUTPUT_DIR']
 
 # Get the number of cores available
 all_cores = list(range(multiprocessing.cpu_count()))  # Get all core numbers of the system
-CORES_TO_USE = THREADS_PER_FILE
+CORES_TO_USE = THREADS
 assigned_cores = all_cores[:CORES_TO_USE]  # Assign cores to be used
-print(f"Assigning tasks to cores: {assigned_cores}")
+#print(f"Assigning tasks to cores: {assigned_cores}")
 
 # Function to run DRAM annotation on a single file
 def run_dram_annotation(fa_file):
@@ -38,7 +38,7 @@ def run_dram_annotation(fa_file):
             'DRAM-v.py', 'annotate', 
             '-i', fa_file,
             '-o', output_dir,
-            '--threads', str(THREADS_PER_FILE)
+            '--threads', str(THREADS)
         ]
         print(f"Running DRAM annotation for {fa_file}")
         process = subprocess.Popen(dram_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -72,7 +72,7 @@ def monitor_dram_tasks(files_list):
                 break
 
         if not all_tasks_completed:
-            time.sleep(30)
+            time.sleep(60)
 
 # Main function
 def main():
@@ -95,7 +95,7 @@ def main():
     print(f"Using {CORES_TO_USE} cores for DRAM annotation.")
 
     # Use ThreadPoolExecutor to process files in parallel
-    with ThreadPoolExecutor(max_workers=min(THREADS_PER_FILE, len(files_list))) as executor:
+    with ThreadPoolExecutor(max_workers=min(THREADS, len(files_list))) as executor:
         futures = []
         for fa_file in files_list:
             # Submit task to thread pool

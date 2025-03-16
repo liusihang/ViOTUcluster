@@ -15,149 +15,134 @@ Tongji University
 # Instruction
 
 1. [Prerequisites](#prerequisites)
-2. [Installation](#setup-viotucluster-environment)
-5. [How to Use](#how-to-use)
-
-7. [File Structure Example](#file-structure-example)
-8. [Final Output](#final-output)
-9. [Contact](#contact)
+2. [Installation](#first-Time-Installation-of-ViOTUcluster)
+3. [How to Use](#how-to-use)
+4. [File Structure Example](#file-structure-example)
+5. [Final Output](#final-output)
+6. [Contact](#contact)
 
 ______
 
-## Installation(tested on Ubuntu; should work in all linux;)
-### Konwn issues
-- Network issues may cause some packages to fail during installation. For more information, refer to the [GitHub issue of Mamba](https://github.com/conda-incubator/setup-miniconda/issues/254#issue-1435440042).in
-- Using a higher version of Mamba (v2.x) may cause package conflicts during installation. Ensure that Mamba v1.5.1 is in ViOTUcluster environment.
+Below is a polished version of your README document, presented in Markdown format. The content has been refined for clarity, consistency, and readability while retaining all essential information.
 
+---
 
+## Installation
+
+ViOTUcluster has been tested on Ubuntu and CentOS and should be compatible with all Linux distributions.
+
+### Known Issues
+
+- No issues have been reported yet. If you encounter any problems, please submit them to the [GitHub Issues](https://github.com/your-repo/issues) page.
 
 ### Prerequisites
 
+Before installing ViOTUcluster, ensure the following tools are available on your system:
+
 - [Miniconda](https://docs.conda.io/en/latest/miniconda.html) or [Anaconda](https://www.anaconda.com/products/distribution)
-- [mamba](https://github.com/mamba-org/mamba) (for faster package management)
+- [mamba](https://github.com/mamba-org/mamba) (recommended for faster package management)
 - [Git](https://git-scm.com/downloads)
-### Setup ViOTUcluster Environment
 
-1. **Create and activate the ViOTUcluster environment**
+### First-Time Installation of ViOTUcluster
 
-    ```bash
-    mamba create -n ViOTUcluster -c conda-forge -c bioconda "python=3.8" "mamba=1.5.1"
-    conda activate ViOTUcluster
-    ```
+Follow these steps to install ViOTUcluster for the first time:
 
-2. **Download and setup ViOTUcluster**
+1. **Download the ViOTUcluster Package**
 
-    ```bash
-    git clone https://github.com/liusihang/ViOTUcluster.git
-    cd ViOTUcluster
-    bash setup_ViOTUcluster.sh
-    ```
+   ViOTUcluster provides a pre-packaged Conda environment to streamline dependency installation.
 
-3. **Verify Installation of All Dependencies**
+   ```bash
+   wget XXXXX
+   ```
 
-    To check if all required dependencies are successfully installed, you can run the following command:
+   This package includes ViOTUcluster and essential envs as vRhyme, DRAM, and iPhop. The pre-packaged environment is hosted on Zenodo.
 
-    ```bash
-    ViOTUcluster_Check
-    ```
+2. **Verify Installation of All Dependencies**
 
-    The output should look like this:
+   To confirm that all required dependencies are correctly installed, run:
 
-    ```bash
-    Checking dependencies...
-    [✅] fastp is installed.
-    [✅] megahit is installed.
-    [✅] spades.py is installed.
-    [✅] virsorter is installed.
-    [✅] viralverify is installed.
-    [✅] genomad is installed.
-    [✅] checkv is installed.
-    [✅] dRep is installed.
-    [✅] checkm is installed.
-    [✅] bwa is installed.
-    All dependencies are installed.
-    ```
+   ```bash
+   conda activate ViOTUcluster
+   ViOTUcluster_Check
+   ```
 
-4. **Setup database**
+   A successful check will produce output similar to this:
 
-    ```
-    ViOTUcluster_download-database "/path/to/db" "num"
-    ```
+   ```bash
+   Checking dependencies...
+   [✅] fastp is installed.
+   [✅] megahit is installed.
+   [✅] spades.py is installed.
+   [✅] virsorter is installed.
+   [✅] viralverify is installed.
+   [✅] genomad is installed.
+   [✅] checkv is installed.
+   [✅] dRep is installed.
+   [✅] checkm is installed.
+   [✅] bwa is installed.
+   All dependencies are installed.
+   ```
 
-    The setup script will automatically install all databases.
-    Make sure to replace ```/path/to/db``` with the path to your desired database directory, and replace ```num``` with the number of threads you would like to use during installation.
+3. **Set Up Databases**
 
-    The setup time for ViOTUcluster largely depends on the _**network speed**_, as it will download nearly **30 GB** of databases during the installation process. _**Poor network conditions may lead to installation failures.**_  Therefore, please ensure that you perform the installation under optimal network conditions.
+   ```bash
+   ViOTUcluster_download-database "/path/to/db" "num"
+   ```
 
+   If the specified directory (`/path/to/db`) does not already contain the required databases, the script will download and install them automatically. Replace `/path/to/db` with your preferred database directory and `num` with the number of threads to use during installation.
 
-### Update ViOTUcluster from an Older Version
+   **Note:** The setup process involves downloading approximately **30 GB** of database files, so the installation time depends heavily on your **network speed**. A stable, high-speed internet connection is recommended to prevent installation failures.
 
-To upgrade ViOTUcluster from an older version, follow these steps:
+### Updating ViOTUcluster from an Older Version
 
-Navigate to the ViOTUcluster directory you cloned from GitHub:
+To update an existing ViOTUcluster installation to the latest version, use pip:
+
+```bash
+pip install ViOTUcluster
+```
+
+This command will upgrade the ViOTUcluster scripts while preserving your existing environment.
+
+### Setting Up DRAM and iPhop Environments
+
+#### Install DRAM database
 
 ```bash
 conda activate ViOTUcluster
-git pull
-bash setup_ViOTUcluster.sh
-```
-This will skip the environment dependency installation and update the ViOTUcluster scripts.
-
-### Setup vRhyme Environment
-
-If you already have vRhyme environment, you can skip this section.
-
-1. **Create and activate the vRhyme environment**
-
-    ```bash
-    conda activate base #(Make sure you are in the base env before install vRhyme)
-    mamba create -c bioconda -n vRhyme python=3 networkx pandas numpy numba scikit-learn pysam samtools mash mummer mmseqs2 prodigal bowtie2 bwa
-    conda activate vRhyme
-    ```
-
-2. **Clone the vRhyme repository and install**
-
-    ```bash
-    git clone https://github.com/AnantharamanLab/vRhyme
-    cd vRhyme
-    gunzip vRhyme/models/vRhyme_machine_model_ET.sav.gz
-    pip install .
-    ```
-
-You can find more information about vRhyme on their website (<https://github.com/AnantharamanLab/vRhyme>).
-
-### Setup DRAM and iPhop Environment
-
-To run the full workflow, including [DRAM-v](https://github.com/WrightonLabCSU/DRAM) and [iPhop](https://bitbucket.org/srouxjgi/iphop/src/main/) analysis, ensure that both DRAM and iPhop are installed in the respective Conda environments `DRAM` and `iphop_env`.
-
-If you have not installed them yet, you can do so with the following commands:
-
-#### Install DRAM
-
-```bash
-wget https://raw.githubusercontent.com/WrightonLabCSU/DRAM/master/environment.yaml
-conda env create -f environment.yaml -n DRAM
-conda activate DRAM
+DRAM
 DRAM-setup.py prepare_databases --output_dir "/path/to/db/DRAM"
 ```
 
-#### Install iPhop
+If you have an existing DRAM environment and want to migrate its settings:
 
 ```bash
-conda create -c conda-forge -n iphop_env python=3.8 mamba
-conda activate iphop_env
-mamba install -c conda-forge -c bioconda iphop
+conda activate old_DRAM_env
+DRAM-setup.py export_config > my_old_config.txt
+conda activate ViOTUcluster
+DRAM
+DRAM-setup.py import_config --config_loc my_old_config.txt
+```
+
+#### Install iPhop database
+
+```bash
+conda activate ViOTUcluster
+iPhop
 iphop download --db_dir "/path/to/db"
 ```
-#### Note
-You may need to set up the databases for DRAM and iPhop initially. Ensure that the DRAM and iPhop databases are located in the same directory specified in `ViOTUcluster_download-database`. For details on the database structure, refer to the [File Structure Example](#file-structure-example). For specific instructions on downloading and using the databases, please visit the official websites of [DRAM](https://github.com/WrightonLabCSU/DRAM) and [iPhop](https://bitbucket.org/srouxjgi/iphop/src/main/).
 
-- [DRAM](https://github.com/WrightonLabCSU/DRAM)
-- [iPhop](https://bitbucket.org/srouxjgi/iphop/src/main/)
+#### Important Notes
 
-## Note
+- Ensure that the databases for DRAM and iPhop are stored in the directory specified during the `ViOTUcluster_download-database` step.
+- For details on the expected database structure, see the [File Structure Example](#file-structure-example) section.
+- For additional instructions on downloading and configuring these databases, refer to the official documentation for [DRAM](https://github.com/WrightonLabCSU/DRAM) and [iPhop](https://bitbucket.org/srouxjgi/iphop/src/main/).
 
-If you encounter any issues during the setup of these environments, feel free to open an issue on the respective GitHub repositories.
+## Additional Notes
+
+If you run into any difficulties while setting up these environments, feel free to report them by opening an issue on the respective GitHub or Bitbucket repositories for [DRAM](https://github.com/WrightonLabCSU/DRAM) or [iPhop](https://bitbucket.org/srouxjgi/iphop/src/main/).
+
+---
+
 
 ## How to Use
 
@@ -342,6 +327,10 @@ Parks DH, Imelfort M, Skennerton CT, Hugenholtz P, Tyson GW. CheckM: assessing t
 ```
 Aligning sequence reads, clone sequences and assembly contigs with BWA-MEM.
 ```
+[Sambamba](https://github.com/biod/sambamba): [Online Publication](https://doi.org/10.1093/bioinformatics/btv098)
+```
+Artem Tarasov, Albert J. Vilella, Edwin Cuppen, Isaac J. Nijman, Pjotr Prins, Sambamba: fast processing of NGS alignment formats, Bioinformatics, Volume 31, Issue 12, June 2015, Pages 2032–2034
+```
 
 [DRAM](DRAM): [Online Publication](https://doi.org/10.1093/nar/gkaa621)
 
@@ -376,7 +365,7 @@ ______
 
 ## Copyright
 
-ViOTUcluster Copyright (C) 2024
+ViOTUcluster Copyright (C) 2025
 
 This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License, version 2, as published by the Free Software Foundation.
 
