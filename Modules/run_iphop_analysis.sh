@@ -42,6 +42,7 @@ cd "$OUTPUT/split_files" || exit
 ls *.fna > iPhop
 
 # Run the Python script for iPhop prediction
+export OUTPUT
 python "${ScriptDir}/run_iphop.py"
 
 # Define a function to check memory usage
