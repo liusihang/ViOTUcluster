@@ -38,8 +38,8 @@ echo "Running ViOTUcluster_Test..."
 { 
     ViOTUcluster_AllinOne -r "$CONDA_PREFIX/ViTest" -o "$CONDA_PREFIX/ViTest/Res" -d "$DATABASE" -a megahit --con
 } 2>&1 | output_handler | grep -m 1 "All basic analysis completed successfully." && {
-    echo "All basic analysis completed successfully. Pausing script execution."
-    kill -SIGSTOP $$  # Simulate Ctrl+Z to pause the script
+    echo "All module completed successfully. Pausing script execution."
+    exit 1
 }
 
 # Check if the command executed successfully

@@ -1,58 +1,90 @@
 #!/usr/bin/env bash
 
-# 获取 Conda 基本安装路径
-CONDA_BASE=$(conda info --base)
+# Exit on any error
+set -e
 
-# 创建 ViOTUcluster 环境目录
-echo "Creating ViOTUcluster environment directory..."
-mkdir -p "$CONDA_BASE/envs/ViOTUcluster"
+# Function to check if running in a terminal
+is_tty() {
+    [ -t 0 ] || [ -t 1 ] || [ -t 2 ]
+}
 
-# 下载必要的包（示例：ViOTUcluster, vRhyme, iphop, DRAM）
-# 在这里将下载链接替换为实际 URL
-echo "Downloading ViOTUcluster, vRhyme, iphop, DRAM packages..."
-#wget -q XXXX -O "$CONDA_BASE/envs/ViOTUcluster/ViOTUcluster.tar.gz"
-#wget -q XXXX -O "$CONDA_BASE/envs/ViOTUcluster/vRhyme.tar.gz"
+# Redirect echo to stderr if no terminal, otherwise stdout
+echo_msg() {
+    if is_tty; then
+        echo "$@"  # Output to stdout in terminal
+    else
+        echo "$@" >&2  # Output to stderr in non-TTY
+    fi
+}
 
-# 解压下载的文件到指定目录
-echo "Extracting files..."
-tar -xzf "ViOTUcluster.tar.gz" -C "$CONDA_BASE/envs/ViOTUcluster"
-#tar -xzf "vRhyme.tar.gz" -C "$CONDA_BASE/envs/ViOTUcluster"
+# Get the base installation path of Conda
+CONDA_BASE=$(conda info --base 2>/dev/null) || { echo_msg "Error: Conda not found. Please install Conda first."; exit 1; }
 
-# 激活 ViOTUcluster 环境
-echo "Activating ViOTUcluster environment..."
-#source $(conda info --base)/etc/profile.d/conda.sh
-source "$CONDA_BASE/envs/ViOTUcluster/bin/activate"
+# Check if CONDA_BASE is set
+if [ -z "$CONDA_BASE" ]; then
+    echo_msg "Error: Could not determine Conda base path."
+    exit 1
+fi
 
-# 解压并准备 Conda 环境
-echo "Unpacking Conda environment..."
-conda unpack
+# Source Conda initialization if available
+if [ -f "$CONDA_BASE/etc/profile.d/conda.sh" ]; then
+    . "$CONDA_BASE/etc/profile.d/conda.sh"
+else
+    echo_msg "Error: Conda initialization script not found at $CONDA_BASE/etc/profile.d/conda.sh"
+    exit 1
+fi
 
-# 设置 SSL 证书验证路径
-echo "Configuring SSL certificate verification..."
-conda config --env --set ssl_verify "$CONDA_PREFIX/ssl/cacert.pem"
-conda env config vars set SSL_CERT_FILE=$(python -c "import certifi; print(certifi.where())")
+# Create ViOTUcluster environment directory
+echo_msg "Creating ViOTUcluster environment directory..."
+mkdir -p "$CONDA_BASE/envs/ViOTUcluster" || { echo_msg "Error: Failed to create directory."; exit 1; }
 
-# 如果需要重新配置证书，也可以选择下面的命令
-# conda env config vars set ssl_verify "$CONDA_PREFIX/ssl/cacert.pem"
+# Download necessary packages
+echo_msg "Downloading ViOTUcluster, vRhyme, and DRAM packages..."
+wget -q https://zenodo.org/records/14263294/files/ViOTUcluster.tar.gz -O "$CONDA_BASE/envs/ViOTUcluster/ViOTUcluster.tar.gz" || { echo_msg "Error: Failed to download ViOTUcluster.tar.gz"; exit 1; }
+wget -q https://zenodo.org/records/14263294/files/vRhyme.tar.gz -O "$CONDA_BASE/envs/ViOTUcluster/vRhyme.tar.gz" || { echo_msg "Error: Failed to download vRhyme.tar.gz"; exit 1; }
+wget -q https://zenodo.org/records/14263294/files/DRAM.tar.gz -O "$CONDA_BASE/envs/ViOTUcluster/DRAM.tar.gz" || { echo_msg "Error: Failed to download DRAM.tar.gz"; exit 1; }
 
-# 创建 vRhyme 环境目录
-echo "Creating vRhyme environment directory..."
-mkdir -p "$CONDA_BASE/envs/ViOTUcluster/envs/vRhyme"
+# Extract and unpack ViOTUcluster environment
+echo_msg "Extracting and unpacking ViOTUcluster environment..."
+tar -xzf "$CONDA_BASE/envs/ViOTUcluster/ViOTUcluster.tar.gz" -C "$CONDA_BASE/envs/ViOTUcluster" || { echo_msg "Error: Failed to extract ViOTUcluster.tar.gz"; exit 1; }
+conda activate "$CONDA_BASE/envs/ViOTUcluster" 2>/dev/null || { echo_msg "Warning: conda activate failed, but proceeding with unpack."; }
+conda-unpack 2>/dev/null || { echo_msg "Error: Failed to unpack ViOTUcluster environment"; exit 1; }
 
-# 解压 vRhyme 包到指定目录
-echo "Extracting vRhyme package..."
-tar -xzf "vRhyme.tar.gz" -C "$CONDA_BASE/envs/ViOTUcluster/envs/vRhyme"
+# Configure SSL certificate verification
+echo_msg "Configuring SSL certificate verification..."
+conda config --env --set ssl_verify "$CONDA_BASE/envs/ViOTUcluster/ssl/cacert.pem" 2>/dev/null || echo_msg "Warning: Failed to set ssl_verify."
+conda env config vars set SSL_CERT_FILE=$(python -c "import certifi; print(certifi.where())" 2>/dev/null) 2>/dev/null || echo_msg "Warning: Failed to set SSL_CERT_FILE."
 
-# 激活 vRhyme 环境
-echo "Activating vRhyme environment..."
-source "$CONDA_BASE/envs/ViOTUcluster/envs/vRhyme/bin/activate"
+# Create and unpack vRhyme environment
+echo_msg "Creating and unpacking vRhyme environment..."
+mkdir -p "$CONDA_BASE/envs/ViOTUcluster/envs/vRhyme" || { echo_msg "Error: Failed to create vRhyme directory."; exit 1; }
+tar -xzf "$CONDA_BASE/envs/ViOTUcluster/vRhyme.tar.gz" -C "$CONDA_BASE/envs/ViOTUcluster/envs/vRhyme" || { echo_msg "Error: Failed to extract vRhyme.tar.gz"; exit 1; }
+conda activate "$CONDA_BASE/envs/ViOTUcluster/envs/vRhyme" 2>/dev/null || { echo_msg "Warning: vRhyme conda activate failed, but proceeding."; }
+conda-unpack 2>/dev/null || { echo_msg "Error: Failed to unpack vRhyme environment"; exit 1; }
 
-# 解压并准备 vRhyme 环境
-echo "Unpacking vRhyme Conda environment..."
-conda unpack
+# Create and unpack DRAM environment
+echo_msg "Creating and unpacking DRAM environment..."
+mkdir -p "$CONDA_BASE/envs/ViOTUcluster/envs/DRAM" || { echo_msg "Error: Failed to create DRAM directory."; exit 1; }
+tar -xzf "$CONDA_BASE/envs/ViOTUcluster/DRAM.tar.gz" -C "$CONDA_BASE/envs/ViOTUcluster/envs/DRAM" || { echo_msg "Error: Failed to extract DRAM.tar.gz"; exit 1; }
+conda activate "$CONDA_BASE/envs/ViOTUcluster/envs/DRAM" 2>/dev/null || { echo_msg "Warning: DRAM conda activate failed, but proceeding."; }
+conda-unpack 2>/dev/null || { echo_msg "Error: Failed to unpack DRAM environment"; exit 1; }
 
-# 最后重新激活 ViOTUcluster 环境
-source $(conda info --base)/etc/profile.d/conda.sh
+# Create iPhop environment
+echo_msg "Creating iPhop environment..."
+conda activate "$CONDA_BASE/envs/ViOTUcluster" 2>/dev/null || { echo_msg "Warning: Failed to reactivate ViOTUcluster, proceeding."; }
+command -v mamba >/dev/null 2>&1 || { echo_msg "Warning: Mamba not found, falling back to conda"; mamba=conda; }
+${mamba:-conda} create -c conda-forge -p "$CONDA_BASE/envs/ViOTUcluster/envs/iPhop" python=3.8 mamba --yes 2>/dev/null || { echo_msg "Error: Failed to create iPhop environment"; exit 1; }
+conda activate "$CONDA_BASE/envs/ViOTUcluster/envs/iPhop" 2>/dev/null || { echo_msg "Warning: iPhop conda activate failed, proceeding."; }
+${mamba:-conda} install -c conda-forge -c bioconda iphop --yes 2>/dev/null || { echo_msg "Error: Failed to install iphop"; exit 1; }
 
-echo "[✅] ViOTUcluster Setup complete."
-echo "Current version: 0.3.6"
+# Final activation of ViOTUcluster
+echo_msg "Finalizing setup..."
+conda activate "$CONDA_BASE/envs/ViOTUcluster" 2>/dev/null || { echo_msg "Warning: Final conda activate failed, environment should still be usable."; }
+
+echo_msg "[✅] ViOTUcluster Setup complete."
+echo_msg "Current version: 0.4.7"
+
+# Clean up downloaded files
+rm -f "$CONDA_BASE/envs/ViOTUcluster/ViOTUcluster.tar.gz" 2>/dev/null
+rm -f "$CONDA_BASE/envs/ViOTUcluster/vRhyme.tar.gz" 2>/dev/null
+rm -f "$CONDA_BASE/envs/ViOTUcluster/DRAM.tar.gz" 2>/dev/null
