@@ -24,9 +24,6 @@ Tongji University
 
 ______
 
-Below is a polished version of your README document, presented in Markdown format. The content has been refined for clarity, consistency, and readability while retaining all essential information.
-
----
 
 ## Installation
 
