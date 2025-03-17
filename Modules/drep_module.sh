@@ -12,11 +12,15 @@ DREP_BINS_FASTA="$OUTPUT_DIR/Summary/temp/DrepBins.fasta"
 if [ -f "$DREP_BINS_FASTA" ]; then
     echo "DrepBins.fasta already exists, skipping dRep and fasta concatenation steps."
 else
+    # Generate a list of genome files
+    GENOME_LIST_FILE="${OUTPUT_DIR}/Summary/temp/genome_list.txt"
+    find "${OUTPUT_DIR}/Summary/SeperateRes/bins" -name "*.fasta" > "$GENOME_LIST_FILE"
+    echo "Genome list file generated at $GENOME_LIST_FILE"
+
     echo "Starting dRep for bins..."
     mkdir -p "$OUTPUT_DIR/Summary/Viralcontigs"
     mkdir -p "$OUTPUT_DIR/Summary/dRepRes"
-    dRep dereplicate "$OUTPUT_DIR/Summary/dRepRes" -g "${OUTPUT_DIR}/Summary/SeperateRes/bins"/*.fasta --ignoreGenomeQuality \
-        -pa 0.8 -sa 0.95 -nc 0.85 -comW 0 -conW 0 -strW 0 -N50W 0 -sizeW 1 -centW 0 -l 3000
+    dRep dereplicate "$OUTPUT_DIR/Summary/dRepRes" -g "$GENOME_LIST_FILE" --ignoreGenomeQuality -pa 0.8 -sa 0.95 -nc 0.85 -comW 0 -conW 0 -strW 0 -N50W 0 -sizeW 1 -centW 0 -l 3000
     echo "dRep for bins completed."
 
     echo "Concatenating fasta sequences..."
@@ -36,6 +40,11 @@ else
     echo "Contigs merging completed."
 
     newDir="$OUTPUT_DIR/Summary/temp"
+    
+    echo "Filtering sequences shorter than 3000bp..."
+    awk 'BEGIN {RS=">";FS="\n"} NR>1 {seq=""; for(i=2;i<=NF;i++) seq=seq $i; if(length(seq)>=3000) print ">" $1 "\n" seq}' \
+        "${newDir}/merged_sequences.fasta" > "${newDir}/merged_sequences_filtered.fasta"
+    mv "${newDir}/merged_sequences_filtered.fasta" "${newDir}/merged_sequences.fasta"
     
     echo "Clustering..."
     makeblastdb -in "${newDir}/merged_sequences.fasta" -dbtype nucl -out "${newDir}/temp_db"

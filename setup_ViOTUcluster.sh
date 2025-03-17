@@ -1,97 +1,90 @@
 #!/usr/bin/env bash
 
-# Set a temporary cache directory to avoid using the local cache
-export CONDA_PKGS_DIRS=$(mktemp -d)
+# Exit on any error
+set -e
 
-# List of dependencies to check
-dependencies=(
-    "fastp"
-    "megahit"
-    "spades.py"
-    "virsorter"
-    "viralverify"
-    "genomad"
-    #"pyhmmer"
-    "checkv"
-    #"vrhyme"
-    "dRep"
-    #"DRAM"
-    #"iPhop"
-    "checkm"
-    "bwa"
-)
-
-# Function to check if a command exists
-command_exists() {
-    command -v "$1" >/dev/null 2>&1
+# Function to check if running in a terminal
+is_tty() {
+    [ -t 0 ] || [ -t 1 ] || [ -t 2 ]
 }
 
-# Check if all dependencies are installed
-all_installed=true
-for dep in "${dependencies[@]}"; do
-    if ! command_exists "$dep"; then
-        all_installed=false
-        break
+# Redirect echo to stderr if no terminal, otherwise stdout
+echo_msg() {
+    if is_tty; then
+        echo "$@"  # Output to stdout in terminal
+    else
+        echo "$@" >&2  # Output to stderr in non-TTY
     fi
-done
+}
 
-if [ "$all_installed" = true ]; then
-    echo "[✅] All dependencies are already installed. Skipping install dependencies."
-else
-    # Install dRep, ViralVerify, Genomad, and CheckV
-    echo "Installing dRep, ViralVerify, Genomad, and CheckV..."
-    mamba install -c conda-forge -c bioconda genomad=1.8.0 --yes
-    mamba install -c conda-forge -c bioconda checkm-genome=1.2.2 --yes
-    mamba install -c conda-forge -c bioconda dRep=3.5.0 --yes
-    mamba install -c conda-forge -c bioconda checkv=1.0.3 --yes
+# Get the base installation path of Conda
+CONDA_BASE=$(conda info --base 2>/dev/null) || { echo_msg "Error: Conda not found. Please install Conda first."; exit 1; }
 
-    echo "Installing ViralVerify..."
-    mamba install -c conda-forge -c bioconda viralverify=1.1 --yes
-
-    # Install scikit-learn, imbalanced-learn, pandas, seaborn, and pyhmmer
-    echo "Installing scikit-learn, imbalanced-learn, pandas, seaborn, and pyhmmer..."
-    mamba install -c conda-forge -c bioconda \
-        scikit-learn=0.22.1 imbalanced-learn pandas seaborn pyhmmer==0.10.14 --yes
-
-    # Install Prodigal, Screed, ruamel.yaml, Snakemake, Click, and conda-package-handling
-    echo "Installing Prodigal, Screed, ruamel.yaml, Snakemake, and related packages..."
-    mamba install -c conda-forge -c bioconda \
-        prodigal screed ruamel.yaml "snakemake>=5.18,<=5.26" click "conda-package-handling<=1.9" --yes
-
-    # Install NumPy
-    echo "Installing NumPy..."
-    mamba install -c conda-forge -c bioconda numpy=1.23.5 --yes
-
-    # Install MEGAHIT, SPAdes, and fastp
-    echo "Installing MEGAHIT, SPAdes, and fastp..."
-    mamba install -c conda-forge -c bioconda megahit spades fastp --no-deps --yes
-    mamba install isa-l=2.31.1 --yes
-
-    # Install BioPython
-    echo "Installing BioPython..."
-    pip3 install bio
-
-    # Clean up the temporary cache directory
-    echo "Cleaning up temporary cache..."
-    rm -rf "$CONDA_PKGS_DIRS"
-
-    # Clone the VirSorter2-pyhmmerAcc repository and install the package
-    git clone https://github.com/liusihang/VirSorter2-pyhmmerAcc || { echo "Git clone failed"; exit 1; }
-    cd VirSorter2-pyhmmerAcc
-    pip install -e . || { echo "Pip install failed"; exit 1; }
-    cd ..
-    rm -rf VirSorter2-pyhmmerAcc
+# Check if CONDA_BASE is set
+if [ -z "$CONDA_BASE" ]; then
+    echo_msg "Error: Could not determine Conda base path."
+    exit 1
 fi
 
-# Run the Move2bin Python script
-echo "Updating scripts..."
-python ./setupscript/Move2bin.py
+# Source Conda initialization if available
+if [ -f "$CONDA_BASE/etc/profile.d/conda.sh" ]; then
+    . "$CONDA_BASE/etc/profile.d/conda.sh"
+else
+    echo_msg "Error: Conda initialization script not found at $CONDA_BASE/etc/profile.d/conda.sh"
+    exit 1
+fi
 
-# Get the current Conda environment path
-CONDA_ENV_PATH=$CONDA_PREFIX
+# Create ViOTUcluster environment directory
+echo_msg "Creating ViOTUcluster environment directory..."
+mkdir -p "$CONDA_BASE/envs/ViOTUcluster" || { echo_msg "Error: Failed to create directory."; exit 1; }
 
-# Add execute permissions to all files in the Conda environment's bin folder
-chmod +x "$CONDA_ENV_PATH/bin/"*
+# Download necessary packages
+echo_msg "Downloading ViOTUcluster, vRhyme, and DRAM packages..."
+wget -q https://zenodo.org/records/14263294/files/ViOTUcluster.tar.gz -O "$CONDA_BASE/envs/ViOTUcluster/ViOTUcluster.tar.gz" || { echo_msg "Error: Failed to download ViOTUcluster.tar.gz"; exit 1; }
+wget -q https://zenodo.org/records/14263294/files/vRhyme.tar.gz -O "$CONDA_BASE/envs/ViOTUcluster/vRhyme.tar.gz" || { echo_msg "Error: Failed to download vRhyme.tar.gz"; exit 1; }
+wget -q https://zenodo.org/records/14263294/files/DRAM.tar.gz -O "$CONDA_BASE/envs/ViOTUcluster/DRAM.tar.gz" || { echo_msg "Error: Failed to download DRAM.tar.gz"; exit 1; }
 
-echo "All packages installed successfully!"
-echo "Current version: 0.3.6"
+# Extract and unpack ViOTUcluster environment
+echo_msg "Extracting and unpacking ViOTUcluster environment..."
+tar -xzf "$CONDA_BASE/envs/ViOTUcluster/ViOTUcluster.tar.gz" -C "$CONDA_BASE/envs/ViOTUcluster" || { echo_msg "Error: Failed to extract ViOTUcluster.tar.gz"; exit 1; }
+conda activate "$CONDA_BASE/envs/ViOTUcluster" 2>/dev/null || { echo_msg "Warning: conda activate failed, but proceeding with unpack."; }
+conda-unpack 2>/dev/null || { echo_msg "Error: Failed to unpack ViOTUcluster environment"; exit 1; }
+
+# Configure SSL certificate verification
+echo_msg "Configuring SSL certificate verification..."
+conda config --env --set ssl_verify "$CONDA_BASE/envs/ViOTUcluster/ssl/cacert.pem" 2>/dev/null || echo_msg "Warning: Failed to set ssl_verify."
+conda env config vars set SSL_CERT_FILE=$(python -c "import certifi; print(certifi.where())" 2>/dev/null) 2>/dev/null || echo_msg "Warning: Failed to set SSL_CERT_FILE."
+
+# Create and unpack vRhyme environment
+echo_msg "Creating and unpacking vRhyme environment..."
+mkdir -p "$CONDA_BASE/envs/ViOTUcluster/envs/vRhyme" || { echo_msg "Error: Failed to create vRhyme directory."; exit 1; }
+tar -xzf "$CONDA_BASE/envs/ViOTUcluster/vRhyme.tar.gz" -C "$CONDA_BASE/envs/ViOTUcluster/envs/vRhyme" || { echo_msg "Error: Failed to extract vRhyme.tar.gz"; exit 1; }
+conda activate "$CONDA_BASE/envs/ViOTUcluster/envs/vRhyme" 2>/dev/null || { echo_msg "Warning: vRhyme conda activate failed, but proceeding."; }
+conda-unpack 2>/dev/null || { echo_msg "Error: Failed to unpack vRhyme environment"; exit 1; }
+
+# Create and unpack DRAM environment
+echo_msg "Creating and unpacking DRAM environment..."
+mkdir -p "$CONDA_BASE/envs/ViOTUcluster/envs/DRAM" || { echo_msg "Error: Failed to create DRAM directory."; exit 1; }
+tar -xzf "$CONDA_BASE/envs/ViOTUcluster/DRAM.tar.gz" -C "$CONDA_BASE/envs/ViOTUcluster/envs/DRAM" || { echo_msg "Error: Failed to extract DRAM.tar.gz"; exit 1; }
+conda activate "$CONDA_BASE/envs/ViOTUcluster/envs/DRAM" 2>/dev/null || { echo_msg "Warning: DRAM conda activate failed, but proceeding."; }
+conda-unpack 2>/dev/null || { echo_msg "Error: Failed to unpack DRAM environment"; exit 1; }
+
+# Create iPhop environment
+echo_msg "Creating iPhop environment..."
+conda activate "$CONDA_BASE/envs/ViOTUcluster" 2>/dev/null || { echo_msg "Warning: Failed to reactivate ViOTUcluster, proceeding."; }
+command -v mamba >/dev/null 2>&1 || { echo_msg "Warning: Mamba not found, falling back to conda"; mamba=conda; }
+${mamba:-conda} create -c conda-forge -p "$CONDA_BASE/envs/ViOTUcluster/envs/iPhop" python=3.8 mamba --yes 2>/dev/null || { echo_msg "Error: Failed to create iPhop environment"; exit 1; }
+conda activate "$CONDA_BASE/envs/ViOTUcluster/envs/iPhop" 2>/dev/null || { echo_msg "Warning: iPhop conda activate failed, proceeding."; }
+${mamba:-conda} install -c conda-forge -c bioconda iphop --yes 2>/dev/null || { echo_msg "Error: Failed to install iphop"; exit 1; }
+
+# Final activation of ViOTUcluster
+echo_msg "Finalizing setup..."
+conda activate "$CONDA_BASE/envs/ViOTUcluster" 2>/dev/null || { echo_msg "Warning: Final conda activate failed, environment should still be usable."; }
+
+echo_msg "[✅] ViOTUcluster Setup complete."
+echo_msg "Current version: 0.4.7"
+
+# Clean up downloaded files
+rm -f "$CONDA_BASE/envs/ViOTUcluster/ViOTUcluster.tar.gz" 2>/dev/null
+rm -f "$CONDA_BASE/envs/ViOTUcluster/vRhyme.tar.gz" 2>/dev/null
+rm -f "$CONDA_BASE/envs/ViOTUcluster/DRAM.tar.gz" 2>/dev/null

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-source activate DRAM
+#source activate DRAM
 
 # Check command-line arguments
 if [ "$#" -ne 2 ]; then
@@ -90,4 +90,4 @@ rm -rf "$OUTPUT_DIR/split_files"
 rm -rf "$OUTPUT_DIR/DRAM_results"/*_DRAMAnnot
 
 echo "Cleanup complete."
-conda deactivate
+#conda deactivate

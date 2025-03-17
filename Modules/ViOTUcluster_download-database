@@ -1,0 +1,101 @@
+#!/usr/bin/env bash
+
+# Usage: ./setup_ViOTUcluster.sh /path/to/db 4
+
+# Check if the correct number of arguments is provided
+if [ "$#" -ne 2 ]; then
+    echo "Usage: $0 <db_directory> <num_threads>"
+    exit 1
+fi
+
+DB_DIR=$1
+NUM_THREADS=$2
+
+# Function to check if VirSorter database is installed
+check_virsorter_db() {
+    if [ -d "$DB_DIR/db/group" ] && [ -d "$DB_DIR/db/hmm" ] && [ -d "$DB_DIR/db/rbs" ]; then
+        echo "[✅] VirSorter2 database already installed."
+        return 0
+    else
+        echo "[❌] VirSorter2 database not found. Proceeding with installation..."
+        return 1
+    fi
+}
+
+# Function to check if CheckV database is installed
+check_checkv_db() {
+    if [ -d "$DB_DIR/checkv-db-v1.5/genome_db" ] && [ -d "$DB_DIR/checkv-db-v1.5/hmm_db" ] && [ -f "$DB_DIR/checkv-db-v1.5/README.txt" ]; then
+        echo "[✅] CheckV database already installed."
+        return 0
+    else
+        echo "[❌] CheckV database not found. Proceeding with installation..."
+        return 1
+    fi
+}
+
+# Function to check if Genomad database is installed
+check_genomad_db() {
+    if [ -f "$DB_DIR/genomad_db/version.txt" ]; then
+        echo "[✅] Genomad database already installed."
+        return 0
+    else
+        echo "[❌] Genomad database not found. Proceeding with installation..."
+        return 1
+    fi
+}
+
+# Function to check if ViralVerify database is downloaded
+check_viralverify_db() {
+    if [ -f "$DB_DIR/ViralVerify/nbc_hmms.hmm" ]; then
+        echo "[✅] ViralVerify database already downloaded."
+        return 0
+    else
+        echo "[❌] ViralVerify database not found. Proceeding with download..."
+        return 1
+    fi
+}
+
+# Get the current Conda environment path
+#CONDA_ENV_PATH=$(conda info --base)/envs/$(basename "$CONDA_DEFAULT_ENV")
+
+# Add execute permissions to all files in the Conda environment's bin folder
+#chmod +x "$CONDA_ENV_PATH/bin/"*
+
+# Setup VirSorter database if not already installed
+if ! check_virsorter_db; then
+    virsorter setup -d "$DB_DIR/db" -j "$NUM_THREADS"
+fi
+
+# Download CheckV database if not already installed
+if ! check_checkv_db; then
+    checkv download_database "$DB_DIR"
+fi
+
+# Download Genomad database if not already installed
+if ! check_genomad_db; then
+    genomad download-database "$DB_DIR"
+fi
+
+# Download ViralVerify database if not already downloaded
+if ! check_viralverify_db; then
+    echo "Downloading ViralVerify database..."
+    curl -L -o "$DB_DIR/nbc_hmms.hmm.gz" "https://figshare.com/ndownloader/files/17904323?private_link=f897d463b31a35ad7bf0"
+    echo "Unzipping ViralVerify database..."
+    mkdir -p "$DB_DIR/ViralVerify"
+    gunzip -c "$DB_DIR/nbc_hmms.hmm.gz" > "$DB_DIR/ViralVerify/nbc_hmms.hmm"
+    rm "$DB_DIR/nbc_hmms.hmm.gz"
+fi
+
+# Convert ViralVerify and other HMM files to binary format
+echo "Converting to binary format..."
+hmmconvert -b "$DB_DIR/ViralVerify/nbc_hmms.hmm" > "$DB_DIR/ViralVerify/nbc_hmms.h3m"
+hmmconvert -b "$DB_DIR/db/hmm/viral/combined.hmm" > "$DB_DIR/db/hmm/viral/combined.h3m"
+
+# Convert all Pfam HMM files to binary format
+for hmm_file in "$DB_DIR/db/hmm/pfam/"*.hmm; do
+    base_name=$(basename "$hmm_file" .hmm)
+    output_file="$DB_DIR/db/hmm/pfam/$base_name.h3m"
+    hmmconvert -b "$hmm_file" > "$output_file"
+done
+
+echo "Database setup completed."

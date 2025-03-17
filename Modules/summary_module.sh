@@ -45,7 +45,7 @@ for folder in "$OUTPUT_DIR/SeprateFile/"*/ ; do
   if [ -f "$unbined_source" ]; then
     cat "$unbined_source" >> "$combined_dest"
     echo -e "\n" >> "$combined_dest"
-    rm "$unbined_source"
+    #rm "$unbined_source"
   else
     echo "Warning: $unbined_source does not exist."
   fi
@@ -56,24 +56,24 @@ for folder in "$OUTPUT_DIR/SeprateFile/"*/ ; do
     if [ -f "$fasta_file" ]; then
       cat "$fasta_file" >> "$combined_dest"
       echo -e "\n" >> "$combined_dest"
-      rm "$fasta_file"
+      #rm "$fasta_file"
     else
       echo "Warning: No .fasta files found in $bestbins_source"
     fi
     done
-    rmdir "$bestbins_source" 2>/dev/null || true
+    #rmdir "$bestbins_source" 2>/dev/null || true
   else
     echo "Warning: $bestbins_source does not exist."
   fi
 
   finialfasta_dir="${folder}Binning/Summary/Finialfasta/"
-  rmdir "$finialfasta_dir" 2>/dev/null || true
+  #rmdir "$finialfasta_dir" 2>/dev/null || true
 
   summary_dir="${folder}Binning/Summary/"
-  rmdir "$summary_dir" 2>/dev/null || true
+  #rmdir "$summary_dir" 2>/dev/null || true
 
   binning_dir="${folder}Binning/"
-  rmdir "$binning_dir" 2>/dev/null || true
+  #rmdir "$binning_dir" 2>/dev/null || true
   fi
   rm "$combined_dest"
 done
@@ -95,7 +95,7 @@ else
   fi
 
   # Build BWA index
-  bwa index -p "$OUTPUT_DIR/Summary/Viralcontigs/TPMTemp/TempIndex" "$OUTPUT_DIR/Summary/vOTU/vOTU.fasta"
+  bwa index -b "100000000" -p "$OUTPUT_DIR/Summary/Viralcontigs/TPMTemp/TempIndex" "$OUTPUT_DIR/Summary/vOTU/vOTU.fasta"
   if [ $? -ne 0 ]; then
     echo "Error: Failed to build BWA index."
     exit 1
@@ -121,32 +121,27 @@ else
       exit 1
     fi
 
-    # Perform BWA alignment
-    bwa mem -t "${THREADS}" "$OUTPUT_DIR/Summary/Viralcontigs/TPMTemp/TempIndex" ${Read1} ${Read2} > "$OUTPUT_DIR/Summary/Viralcontigs/TPMTemp/${BASENAME}_gene.sam"
-    if [ $? -ne 0 ]; then
-      echo "Error: Failed to perform BWA alignment for $BASENAME."
-      exit 1
-    fi
+    # Check and generate sorted BAM file with index
+    if [ ! -f "$OUTPUT_DIR/Summary/Viralcontigs/TPMTemp/${BASENAME}_sorted_gene.bam" ]; then
+        echo "Running alignment, conversion, and sorting for ${BASENAME}..."
+        bwa mem -t "${THREADS}" "$OUTPUT_DIR/Summary/Viralcontigs/TPMTemp/TempIndex" "${Read1}" "${Read2}" | \
+          sambamba view -S -f bam -t "${THREADS}" /dev/stdin | \
+          sambamba sort -t "${THREADS}" -o "$OUTPUT_DIR/Summary/Viralcontigs/TPMTemp/${BASENAME}_sorted_gene.bam" /dev/stdin
+        
+        if [ $? -ne 0 ]; then
+          echo "Error: Failed to complete alignment pipeline for $BASENAME."
+          exit 1
+        fi
 
-    # Convert SAM to BAM
-    samtools view -bS --threads "${THREADS}" "$OUTPUT_DIR/Summary/Viralcontigs/TPMTemp/${BASENAME}_gene.sam" > "$OUTPUT_DIR/Summary/Viralcontigs/TPMTemp/${BASENAME}_gene.bam"
-    if [ $? -ne 0 ]; then
-      echo "Error: Failed to convert SAM to BAM for $BASENAME."
-      exit 1
-    fi
-
-    # Sort BAM file
-    samtools sort "$OUTPUT_DIR/Summary/Viralcontigs/TPMTemp/${BASENAME}_gene.bam" -o "$OUTPUT_DIR/Summary/Viralcontigs/TPMTemp/${BASENAME}_sorted_gene.bam" --threads "${THREADS}"
-    if [ $? -ne 0 ]; then
-      echo "Error: Failed to sort BAM file for $BASENAME."
-      exit 1
-    fi
-
-    # Generate BAM index
-    samtools index "$OUTPUT_DIR/Summary/Viralcontigs/TPMTemp/${BASENAME}_sorted_gene.bam"
-    if [ $? -ne 0 ]; then
-      echo "Error: Failed to generate BAM index for $BASENAME."
-      exit 1
+        echo "Generating BAM index for ${BASENAME}..."
+        sambamba index -t "${THREADS}" "$OUTPUT_DIR/Summary/Viralcontigs/TPMTemp/${BASENAME}_sorted_gene.bam"
+        
+        if [ $? -ne 0 ]; then
+          echo "Error: Failed to generate BAM index for $BASENAME."
+          exit 1
+        fi
+    else
+        echo "Alignment already completed for ${BASENAME}. Skipping..."
     fi
 
     # Create directory for coverage calculation

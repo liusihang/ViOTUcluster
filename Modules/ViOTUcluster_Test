@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+
+# Default database path (adjust as needed)
+# DEFAULT_DATABASE="/path/to/default/database"
+
+# Parse command line arguments
+while getopts "d:" opt; do
+    case $opt in
+        d) DATABASE="$OPTARG" ;;  # Specify database path with -d option
+        *) echo "Usage: $0 [-d database_path]" ; exit 1 ;;
+    esac
+done
+
+# Check if the database path exists
+if [ ! -d "$DATABASE" ]; then
+    echo "Error: Database directory does not exist: $DATABASE"
+    exit 1
+fi
+
+# Log file path
+LOG_FILE="output.log"
+
+# Function to handle output: display in terminal if available, otherwise log to file
+output_handler() {
+    if [ -t 1 ]; then
+        # If stdout is a terminal, display directly
+        tee /dev/tty
+    else
+        # If not, log to file
+        tee -a "$LOG_FILE"
+    fi
+}
+
+# Execute ViOTUcluster_AllinOne command and capture output
+echo "Running ViOTUcluster_Test..."
+
+# Run the command and pipe output through the handler
+{ 
+    ViOTUcluster_AllinOne -r "$CONDA_PREFIX/ViTest" -o "$CONDA_PREFIX/ViTest/Res" -d "$DATABASE" -a megahit --con
+} 2>&1 | output_handler | grep -m 1 "All basic analysis completed successfully." && {
+    echo "All module completed successfully. Pausing script execution."
+    exit 1
+}
+
+# Check if the command executed successfully
+if [ $? -eq 0 ]; then
+    echo "ViOTUcluster completed successfully."
+    # Delete the result folder only if successful
+    rm -rf "$CONDA_PREFIX/ViTest/Res"
+else
+    echo "Error: ViOTUcluster execution failed."
+    # Prompt user to open the result folder for inspection
+    read -p "Press y to open the result folder for inspection: " choice
+    if [ "$choice" == "y" ]; then
+        # Use xdg-open to open the folder in Linux environment
+        if command -v xdg-open &> /dev/null; then
+            xdg-open "$CONDA_PREFIX/ViTest/Res"
+        else
+            echo "Cannot open the folder, please open it manually: $CONDA_PREFIX/ViTest/Res"
+        fi
+    fi
+    echo "The result folder has been retained for inspection: $CONDA_PREFIX/ViTest/Res"
+    exit 1
+fi
