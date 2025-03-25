@@ -112,6 +112,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+REASSEMBLE=false
 if [ "$THREADS" -eq 0 ]; then
   THREADS=$(nproc)
 else

@@ -101,6 +101,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+REASSEMBLE=false
 # Ensure output directory and log file are created
 if [ -z "$OUTPUT_DIR" ];then
   echo "Error: Output directory not specified"
