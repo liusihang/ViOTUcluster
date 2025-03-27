@@ -66,8 +66,8 @@ def merge_tpm_files(input_folder, merged_output_file):
         # Sort columns alphabetically
         merged_df = merged_df.sort_index(axis=1)
         
-        # Remove specific suffix from column names
-        merged_df.columns = merged_df.columns.str.replace('_coverage_TPM', '', regex=False)
+        # Remove '_coverage' from column names
+        merged_df.columns = merged_df.columns.str.replace('_coverage', '', regex=False)
         
         # Save the merged TPM data to a CSV file
         merged_df.to_csv(merged_output_file)
@@ -84,7 +84,6 @@ def main():
     2. Output CSV file path for the merged TPM data.
     """
     if len(sys.argv) != 3:
-        print("Usage: python script.py <input_folder> <merged_output_file>")
         sys.exit(1)
     
     input_folder = sys.argv[1]

@@ -54,7 +54,7 @@ process_file() {
   fi
 
   # Run check_removal.py to remove low-quality sequences based on the quality report
-  echo "Running check_removal.py..."
+  #echo "Running check_removal.py..."
   if ! python "${ScriptDir}/check_removal.py" "$out_dir/${BASENAME}_CheckRes/quality_summary.tsv" "$out_dir/${BASENAME}_filtered.fasta"; then
     echo "Error during check removal for $BASENAME. Exiting..."
     return 1
@@ -70,7 +70,7 @@ process_file() {
 export -f process_file
 
 # Run in parallel
-echo "Starting parallel processing..."
+#echo "Starting parallel processing..."
 parallel process_file ::: $FILES
 
 echo "CrossValid analysis completed."

@@ -17,15 +17,15 @@ else
     find "${OUTPUT_DIR}/Summary/SeperateRes/bins" -name "*.fasta" > "$GENOME_LIST_FILE"
     echo "Genome list file generated at $GENOME_LIST_FILE"
 
-    echo "Starting dRep for bins..."
+    #echo "Starting dRep for bins..."
     mkdir -p "$OUTPUT_DIR/Summary/Viralcontigs"
     mkdir -p "$OUTPUT_DIR/Summary/dRepRes"
     dRep dereplicate "$OUTPUT_DIR/Summary/dRepRes" -g "$GENOME_LIST_FILE" --ignoreGenomeQuality -pa 0.8 -sa 0.95 -nc 0.85 -comW 0 -conW 0 -strW 0 -N50W 0 -sizeW 1 -centW 0 -l 3000
-    echo "dRep for bins completed."
+    #echo "dRep for bins completed."
 
-    echo "Concatenating fasta sequences..."
+    #echo "Concatenating fasta sequences..."
     python "${ScriptDir}/concat_fasta_sequences.py" "$OUTPUT_DIR/Summary/dRepRes/dereplicated_genomes" "$DREP_BINS_FASTA"
-    echo "Fasta concatenation completed."
+    #echo "Fasta concatenation completed."
 fi
 
 # Define the path for DrepViralcontigs.fasta
@@ -41,12 +41,12 @@ else
 
     newDir="$OUTPUT_DIR/Summary/temp"
     
-    echo "Filtering sequences shorter than 5000bp..."
+    #echo "Filtering sequences shorter than 5000bp..."
     awk 'BEGIN {RS=">";FS="\n"} NR>1 {seq=""; for(i=2;i<=NF;i++) seq=seq $i; if(length(seq)>=5000) print ">" $1 "\n" seq}' \
         "${newDir}/merged_sequences.fasta" > "${newDir}/merged_sequences_filtered.fasta"
     mv "${newDir}/merged_sequences_filtered.fasta" "${newDir}/merged_sequences.fasta"
     
-    echo "Clustering..."
+    #echo "Clustering..."
     makeblastdb -in "${newDir}/merged_sequences.fasta" -dbtype nucl -out "${newDir}/temp_db"
 
     blastn -query "${newDir}/merged_sequences.fasta" -db "${newDir}/temp_db" -outfmt "6 std qlen slen" \
@@ -61,7 +61,7 @@ else
     rm -f "${newDir}/temp_db.*"
     rm -f "${newDir}/merged_sequences_blast.tsv"
 
-    echo "Merging cluster results..."
+    #echo "Merging cluster results..."
     python "${ScriptDir}/SelectCluster.py" "${newDir}/merged_sequences.fasta" "${newDir}/merged_sequences_clusters.tsv" "$DREP_VIRAL_FASTA"
     echo "dRep and clustering for unbined contigs completed."
 fi

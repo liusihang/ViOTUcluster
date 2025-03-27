@@ -21,8 +21,8 @@ for FILE in $FILES; do
     exit 1
   fi
 
-  echo "Using Read1: $Read1"
-  echo "Using Read2: $Read2"
+  #echo "Using Read1: $Read1"
+  #echo "Using Read2: $Read2"
 
   # Create Binning directory
   mkdir -p "$OUT_DIR/Binning"
