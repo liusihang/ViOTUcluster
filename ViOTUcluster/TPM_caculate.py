@@ -69,6 +69,9 @@ def merge_tpm_files(input_folder, merged_output_file):
         # Remove '_coverage' from column names
         merged_df.columns = merged_df.columns.str.replace('_coverage', '', regex=False)
         
+        # Set the index name to "OTU" so that the first column in the CSV is named OTU
+        merged_df.index.name = "OTU"
+        
         # Save the merged TPM data to a CSV file
         merged_df.to_csv(merged_output_file)
         print(f"Merged TPM file saved to {merged_output_file}")
