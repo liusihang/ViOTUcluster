@@ -23,7 +23,6 @@ else
         exit 1
     fi
 
-    # Perform Binning analysis
     for FILE in $FILES; do
         echo "Processing $FILE..."
         
@@ -46,34 +45,20 @@ else
         fi
 
         # Align reads using BWA-MEM
-        echo "Aligning reads for $BASENAME..."
-        bwa mem -t "${THREADS}" "$OUTPUT_DIR/Summary/Viralcontigs/TPMTemp/TempIndex" "${Read1}" "${Read2}" > "$OUTPUT_DIR/Summary/Viralcontigs/TPMTemp/${BASENAME}_gene.sam"
+        echo "Aligning reads, converting SAM to BAM, and sorting for ${BASENAME}..."
+        bwa mem -t "${THREADS}" "$OUTPUT_DIR/Summary/Viralcontigs/TPMTemp/TempIndex" "${Read1}" "${Read2}" 2>> "${OUTPUT_DIR}/Log/Summary.log" | \
+        sambamba view -S -f bam -t "${THREADS}" /dev/stdin 2>> "${OUTPUT_DIR}/Log/Summary.log" | \
+        sambamba sort -t "${THREADS}" -o "$OUTPUT_DIR/Summary/Viralcontigs/TPMTemp/${BASENAME}_sorted_gene.bam" /dev/stdin 2>> "${OUTPUT_DIR}/Log/Summary.log"
+
         if [ $? -ne 0 ]; then
-            echo "Error: Failed to perform BWA alignment for $BASENAME."
+            echo "Error: Alignment, conversion, or sorting failed for ${BASENAME}."
             exit 1
         fi
 
-        # Convert SAM to BAM
-        echo "Converting SAM to BAM..."
-        samtools view -bS --threads "${THREADS}" "$OUTPUT_DIR/Summary/Viralcontigs/TPMTemp/${BASENAME}_gene.sam" > "$OUTPUT_DIR/Summary/Viralcontigs/TPMTemp/${BASENAME}_gene.bam"
+        echo "Indexing sorted BAM file..."
+        sambamba index -t "${THREADS}" "$OUTPUT_DIR/Summary/Viralcontigs/TPMTemp/${BASENAME}_sorted_gene.bam"
         if [ $? -ne 0 ]; then
-            echo "Error: Failed to convert SAM to BAM for $BASENAME."
-            exit 1
-        fi
-
-        # Sort BAM file by coordinates
-        echo "Sorting BAM file..."
-        samtools sort "$OUTPUT_DIR/Summary/Viralcontigs/TPMTemp/${BASENAME}_gene.bam" -o "$OUTPUT_DIR/Summary/Viralcontigs/TPMTemp/${BASENAME}_sorted_gene.bam" --threads "${THREADS}"
-        if [ $? -ne 0 ]; then
-            echo "Error: Failed to sort BAM file for $BASENAME."
-            exit 1
-        fi
-
-        # Index the sorted BAM file
-        echo "Indexing BAM file..."
-        samtools index "$OUTPUT_DIR/Summary/Viralcontigs/TPMTemp/${BASENAME}_sorted_gene.bam"
-        if [ $? -ne 0 ]; then
-            echo "Error: Failed to generate BAM index for $BASENAME."
+            echo "Error: Failed to generate BAM index for ${BASENAME}."
             exit 1
         fi
 
@@ -85,7 +70,7 @@ else
             exit 1
         fi
         cp "$OUTPUT_DIR/Summary/vOTU/vOTU.fasta" "$OUTPUT_DIR/Summary/Viralcontigs/TPMTemp/binsf"
-        checkm coverage -x fasta -m 20 -t "${THREADS}" "$OUTPUT_DIR/Summary/Viralcontigs/TPMTemp/binsf" "$OUTPUT_DIR/Summary/Viralcontigs/Temp/${BASENAME}_coverage.tsv" "$OUTPUT_DIR/Summary/Viralcontigs/TPMTemp/${BASENAME}_sorted_gene.bam"
+        checkm coverage -x fasta -m 0 -t "${THREADS}" "$OUTPUT_DIR/Summary/Viralcontigs/TPMTemp/binsf" "$OUTPUT_DIR/Summary/Viralcontigs/Temp/${BASENAME}_coverage.tsv" "$OUTPUT_DIR/Summary/Viralcontigs/TPMTemp/${BASENAME}_sorted_gene.bam"
         if [ $? -ne 0 ]; then
             echo "Error: Failed to calculate coverage for $BASENAME."
             exit 1
