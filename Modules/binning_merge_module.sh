@@ -2,11 +2,11 @@
 
 # Enable error handling: exit the script if any command fails
 set -e
-trap 'echo "An error occurred. Exiting..."; exit 1;' ERR
+trap 'echo "[❌] An error occurred. Exiting..."; exit 1;' ERR
 
 # Perform Binning analysis
 for FILE in $FILES; do
-  echo "Processing $FILE"
+  echo "[🔄] Processing $FILE"
 
   BASENAME=$(basename "$FILE" .fa)
   BASENAME=${BASENAME%.fasta}
@@ -17,7 +17,7 @@ for FILE in $FILES; do
   Read2=$(find "${RAW_SEQ_DIR}" -maxdepth 1 -type f -name "${BASENAME}_R2*" | head -n 1)
 
   if [ -z "$Read1" ] || [ -z "$Read2" ]; then
-    echo "Error: Paired-end files for $BASENAME not found in the expected formats."
+    echo "[❌] Error: Paired-end files for $BASENAME not found in the expected formats."
     exit 1
   fi
 
@@ -25,21 +25,22 @@ for FILE in $FILES; do
   #echo "Using Read2: $Read2"
 
   # Create Binning directory
+  echo "[📂] Creating Binning directory..."
   mkdir -p "$OUT_DIR/Binning"
 
   # Check and generate BAM file
   if [ ! -f "$OUT_DIR/Binning/alignment.sorted.bam" ]; then
-    echo "Indexing reference for ${BASENAME}..."
+    echo "[🔄] Indexing reference for ${BASENAME}..."
     bwa index -p "$OUT_DIR/Binning/assembly_index" "$OUT_DIR/${BASENAME}_filtered.fasta" >> "${OUTPUT_DIR}/Log/Binning_merge.log" 2>&1
 
-    echo "Running alignment and sorting for ${BASENAME}..."
+    echo "[🔄] Running alignment and sorting for ${BASENAME}..."
     bwa mem -t "${THREADS}" "$OUT_DIR/Binning/assembly_index" "$Read1" "$Read2" 2>> "${OUTPUT_DIR}/Log/Binning_merge.log" | \
       sambamba view -S -f bam -t "${THREADS}" /dev/stdin 2>> "${OUTPUT_DIR}/Log/Binning_merge.log" | \
       sambamba sort -t "${THREADS}" -o "$OUT_DIR/Binning/alignment.sorted.bam" /dev/stdin 2>> "${OUTPUT_DIR}/Log/Binning_merge.log"
-    
+
     sambamba index -t "${THREADS}" "$OUT_DIR/Binning/alignment.sorted.bam" 2>> "${OUTPUT_DIR}/Log/Binning_merge.log"
   else
-    echo "Alignment already completed for ${BASENAME}. Skipping..." >> "${OUTPUT_DIR}/Log/Binning_merge.log"
+    echo "[⏭️] Alignment already completed for ${BASENAME}. Skipping..." >> "${OUTPUT_DIR}/Log/Binning_merge.log"
   fi
 
   VRHYME_DIR="$OUT_DIR/Binning/vRhyme_results_${BASENAME}_filtered"
@@ -47,15 +48,15 @@ for FILE in $FILES; do
 
   # Check if vRhyme results already exist and are complete
   if [ -f "$LOG_FILE" ] && grep -q "Writing finalized bin sequences to individual fasta files" "$LOG_FILE"; then
-    echo "vRhyme results for $BASENAME already exist. Skipping vRhyme run."
+    echo "[⏭️] vRhyme results for $BASENAME already exist. Skipping vRhyme run."
   else
-    echo "Running vRhyme for $BASENAME..."
+    echo "[🔄] Running vRhyme for $BASENAME..."
     #source "$(conda info --base)/etc/profile.d/conda.sh"
     #conda activate vRhyme
 
     # Remove existing vRhyme results directory
     if [ -d "$VRHYME_DIR" ]; then
-      echo "Deleting existing vRhyme results directory: $VRHYME_DIR"
+      echo "[📂] Deleting existing vRhyme results directory: $VRHYME_DIR"
       rm -rf "$VRHYME_DIR"
     fi
 
@@ -64,12 +65,12 @@ for FILE in $FILES; do
                                 -t "${THREADS_PER_FILE}" \
                                 -o "$VRHYME_DIR"
 
-
     #conda deactivate
   fi
 
   # Determine if reassembly is needed
   if [ "$REASSEMBLE" = true ]; then
+    echo "[🔄] Starting reassembly for $BASENAME..."
     ALL_BINS_FA="$OUT_DIR/Binning/summary_bins_contigs.fa"
     cat "$VRHYME_DIR/vRhyme_best_bins_fasta/"*.fasta > "$ALL_BINS_FA"
 
@@ -99,6 +100,7 @@ for FILE in $FILES; do
   fi
 
   # Create bins directory
+  echo "[📂] Creating final bins directory..."
   mkdir -p "${OUTPUT_DIR}/Summary/SeperateRes/bins"
 
   # Define unbined output file path
@@ -106,9 +108,10 @@ for FILE in $FILES; do
 
   # Skip steps if unbined fasta already exists
   if [ -f "$UNBINNED_FASTA" ]; then
-    echo "All processing steps already completed for $FILE, skipping..."
+    echo "[⏭️] All processing steps already completed for $FILE, skipping..."
   else
     # Rename and copy vRhyme results
+    echo "[🔄] Organizing vRhyme output for $BASENAME..."
     for vRhymeFILE in "$VRHYME_DIR/vRhyme_best_bins_fasta/"*.fasta; do
       NEW_NAME=$(basename "$vRhymeFILE" | sed "s/^vRhyme_/${BASENAME}_/")
       NEW_PATH="$OUT_DIR/Binning/Summary/Finialfasta/Bestbins/$NEW_NAME"
@@ -120,6 +123,7 @@ for FILE in $FILES; do
     done
 
     # Merge bins and unbined sequences
+    echo "[🔄] Merging bins and generating unbined sequences..."
     python "${ScriptDir}/Mergebins.py" -i "$VRHYME_DIR/vRhyme_best_bins_fasta" -o "${OUTPUT_DIR}/Summary/SeperateRes/bins/${BASENAME}_bins.fasta"
 
     # Generate unbined sequences
@@ -128,7 +132,7 @@ for FILE in $FILES; do
 
     # Combine bins and unbined sequences
     cat "${OUTPUT_DIR}/Summary/SeperateRes/bins/${BASENAME}_bins.fasta" "${OUTPUT_DIR}/Summary/SeperateRes/unbined/${BASENAME}_unbined.fasta" > "${OUTPUT_DIR}/Summary/SeperateRes/${BASENAME}_viralseqs.fasta"
-    
-    echo "Rebinning and reassembly complete for $FILE"
+
+    echo "[✅] Rebinning and reassembly complete for $FILE"
   fi
 done

@@ -15,7 +15,7 @@ THREADS=$4
 
 # Validate assembly software option
 if [[ "$ASSEMBLY_SOFTWARE" != "megahit" && "$ASSEMBLY_SOFTWARE" != "metaspades" ]]; then
-    echo "Error: Invalid assembly software. Please choose either 'megahit' or 'metaspades'."
+    echo "[❌] Error: Invalid assembly software. Please choose either 'megahit' or 'metaspades'."
     exit 1
 fi
 
@@ -26,7 +26,7 @@ CONTIGS_DIR="${OUTPUT_DIR}/Contigs"
 
 mkdir -p "$Cleanreads" "$ASSEMBLY_DIR" "$CONTIGS_DIR"
 if [ $? -ne 0 ]; then
-    echo "Error: Failed to create output directories."
+    echo "[❌] Error: Failed to create output directories."
     exit 1
 fi
 

@@ -29,16 +29,15 @@ process_file() {
 
   # Perform cross-validation for virus contigs
   echo -e "\n\n\n# Performing cross-validation for virus contigs!!!\n\n\n"
-  echo "Running CrossValidAnA.py..."
+  echo "Running CrossValid..."
   if ! python "${ScriptDir}/CrossValid.py" "$genomad_dir" "$viralverify_dir" "$virsorter_dir" "$BASENAME" "$out_dir" "$CONCENTRATION_TYPE"; then
     echo "Error during cross-validation for $BASENAME. Exiting..."
     return 1
   fi
 
-  # Extract sequences from raw results
-  echo "Running FilterRawResSeqs.py..."
+  # Extract sequences from raw results."
   if ! python "${ScriptDir}/FilterRawResSeqs.py" "$FILE" "$BASENAME" "$out_dir"; then
-    echo "Error during sequence extraction for $BASENAME. Exiting..."
+    echo "[❌] Error during sequence extraction for $BASENAME. Exiting..."
     return 1
   fi
 
@@ -56,7 +55,7 @@ process_file() {
   # Run check_removal.py to remove low-quality sequences based on the quality report
   #echo "Running check_removal.py..."
   if ! python "${ScriptDir}/check_removal.py" "$out_dir/${BASENAME}_CheckRes/quality_summary.tsv" "$out_dir/${BASENAME}_filtered.fasta"; then
-    echo "Error during check removal for $BASENAME. Exiting..."
+    echo " [❌]Error during check removal for $BASENAME. Exiting..."
     return 1
   fi
 

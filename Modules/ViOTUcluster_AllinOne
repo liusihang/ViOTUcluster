@@ -41,7 +41,7 @@ validate_param() {
   local param="$1"
   local valid_values="$2"
   if [[ ! " ${valid_values[@]} " =~ " ${param} " ]]; then
-    echo "Error: Invalid ${param}. Please choose from: ${valid_values[@]}."
+    echo "[❌] Error: Invalid ${param}. Please choose from: ${valid_values[@]}."
     exit 1
   fi
 }

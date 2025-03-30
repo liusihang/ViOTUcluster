@@ -233,15 +233,15 @@ done
 
 # Perform different processing based on CONCENTRATION_TYPE
 if [ "$CONCENTRATION_TYPE" == "non-concentration" ]; then
-  log_with_timestamp "Running non-concentration specific steps..."
+  log_with_timestamp "[🔄] Running non-concentration specific steps..."
 elif [ "$CONCENTRATION_TYPE" == "concentration" ]; then
-  log_with_timestamp "Running concentration specific steps..."
+  log_with_timestamp "[🔄] Running concentration specific steps..."
 else
-  log_with_timestamp "Error: Invalid concentration type."
+  log_with_timestamp "[❌] Error: Invalid concentration type."
 fi
 
 # Output the selected processing type
-echo "Processing with $CONCENTRATION_TYPE mode and $THREADS threads."
+echo "[🔄] Processing with $CONCENTRATION_TYPE mode and $THREADS threads."
 
 # Get the bin folder location of the current Conda environment
 if [ -z "$CONDA_PREFIX" ]; then

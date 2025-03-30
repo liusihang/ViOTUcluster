@@ -2,10 +2,14 @@
 # Merge all
 echo "[🔄] Merging final sequences..."
 
-# Define the path for quality_summary.tsv
+# Define the path for the quality_summary.tsv file
 QUALITY_SUMMARY="$OUTPUT_DIR/Summary/vOTU/vOTU_CheckRes/quality_summary.tsv"
 
-# Check if quality_summary tryptophan already exists
+# Define paths for input FASTA files
+DREP_VIRAL_FASTA="$OUTPUT_DIR/Summary/dRepRes/DrepViralcontigs.fasta"
+DREP_BINS_FASTA="$OUTPUT_DIR/Summary/dRepRes/DrepBins.fasta"
+
+# Check if quality_summary.tsv already exists
 if [ -f "$QUALITY_SUMMARY" ]; then
   echo "[✅] quality_summary.tsv already exists, skipping vOTU merging and CheckV analysis."
 else
@@ -15,11 +19,11 @@ else
 
   # Rename DrepViralcontigs.fasta file
   echo "[🔄] Renaming sequences..."
-  python "${ScriptDir}/Rename.py" -i "$OUTPUT_DIR/Summary/temp/DrepViralcontigs.fasta"
+  python "${ScriptDir}/Rename.py" -i "$DREP_VIRAL_FASTA"
 
   # Merge DrepViralcontigs.fasta and DrepBins.fasta into vOTU.fasta
-  echo "[🔄] Merging fasta files..."
-  cat "$OUTPUT_DIR/Summary/temp/DrepViralcontigs.fasta" "$OUTPUT_DIR/Summary/temp/DrepBins.fasta" > "$OUTPUT_DIR/Summary/vOTU/vOTU.fasta"
+  echo "[🔄] Merging FASTA files..."
+  cat "$DREP_VIRAL_FASTA" "$DREP_BINS_FASTA" > "$OUTPUT_DIR/Summary/vOTU/vOTU.fasta"
 
   # Run CheckV analysis
   echo "[🔄] Running CheckV analysis..."
@@ -140,8 +144,8 @@ else
   echo "[✅] Taxonomy prediction completed successfully."
 fi
 
-#rm -r "$OUTPUT_DIR/Summary/temp"
-#rm -r "$OUTPUT_DIR/Summary/dRepRes"
-#rm -r "$OUTPUT_DIR/Summary/Viralcontigs"
+rm -r "$OUTPUT_DIR/Summary/temp"
+rm -r "$OUTPUT_DIR/Summary/dRepRes"
+rm -r "$OUTPUT_DIR/Summary/Viralcontigs"
 
 echo "[✅] All files processed and combined successfully."

@@ -2,7 +2,7 @@
 
 # Set error handling mechanism: if an error occurs, the script will stop executing
 set -e
-trap 'echo "An error occurred. Exiting..."; exit 1;' ERR
+trap 'echo "[❌] An error occurred. Exiting..."; exit 1;' ERR
 
 # Make sure BASE_CONDA_PREFIX is correctly set
 BASE_CONDA_PREFIX=$(conda info --base)
@@ -11,9 +11,11 @@ conda_sh="$BASE_CONDA_PREFIX/etc/profile.d/conda.sh"
 # Export necessary variables and functions
 export OUTPUT_DIR DATABASE Group CONCENTRATION_TYPE THREADS_PER_FILE FILES
 
-# Main Function
+# Run main viral prediction script
+echo "[🔄] Starting viral prediction pipeline..."
 python -c 'import os; print(os.environ.get("OUTPUT_DIR"))'
 python "${ScriptDir}/viralprediction.py"
+echo "[✅] Viral prediction script submitted."
 
 # Check if all tasks are completed
 all_tasks_completed=false
@@ -52,7 +54,7 @@ while [ "$all_tasks_completed" == "false" ]; do
 
   # Log only if the incomplete count has changed
   if [ "$incomplete_count" -ne "$previous_incomplete_count" ]; then
-    echo "$(date '+%Y-%m-%d %H:%M:%S') - Still $incomplete_count files remaining"
+    echo "[🔄] $(date '+%Y-%m-%d %H:%M:%S') - Still $incomplete_count files remaining..."
     previous_incomplete_count=$incomplete_count
   fi
 
@@ -62,4 +64,4 @@ while [ "$all_tasks_completed" == "false" ]; do
   fi
 done
 
-echo "$(date '+%Y-%m-%d %H:%M:%S') - All Viral predictions completed."
+echo "[✅] $(date '+%Y-%m-%d %H:%M:%S') - All viral predictions completed successfully!"
