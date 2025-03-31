@@ -46,7 +46,7 @@ else
     echo "[🔄] Filtering sequences shorter than 5000bp..."
     awk 'BEGIN {RS=">";FS="\n"} NR>1 {seq=""; for(i=2;i<=NF;i++) seq=seq $i; if(length(seq)>=5000) print ">" $1 "\n" seq}' \
         "${newDir}/merged_sequences.fasta" > "${newDir}/merged_sequences_filtered.fasta"
-    mv "${newDir}/merged_sequences_filtered.fasta" "${newDir}/merged_sequences.fasta"
+    cp "${newDir}/merged_sequences_filtered.fasta" "${newDir}/merged_sequences.fasta"
     echo "[✅] Filtering completed."
 
     echo "[🔄] Building BLAST database and running clustering..."

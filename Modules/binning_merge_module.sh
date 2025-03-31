@@ -118,7 +118,7 @@ for FILE in $FILES; do
       
       mkdir -p "${OUT_DIR}/Binning/Summary/Finialfasta/Bestbins"
       
-      mv "$vRhymeFILE" "$NEW_PATH"
+      cp "$vRhymeFILE" "$NEW_PATH"
       cp "$NEW_PATH" "${OUTPUT_DIR}/Summary/SeperateRes/bins"
     done
 
