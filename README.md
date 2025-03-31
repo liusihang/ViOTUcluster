@@ -17,7 +17,8 @@ Tongji University
 Demo for using ViOTUcluster
 
 [![asciicast](https://asciinema.org/a/710742.svg)](https://asciinema.org/a/710742)
-Recorded with [asciinema](https://docs.asciinema.org)
+
+_Recorded with [asciinema](https://docs.asciinema.org)_ 
 
 
 
