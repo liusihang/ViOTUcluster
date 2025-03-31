@@ -132,7 +132,7 @@ for FILE in $FILES; do
 
     # Combine bins and unbined sequences
     cat "${OUTPUT_DIR}/Summary/SeperateRes/bins/${BASENAME}_bins.fasta" "${OUTPUT_DIR}/Summary/SeperateRes/unbined/${BASENAME}_unbined.fasta" > "${OUTPUT_DIR}/Summary/SeperateRes/${BASENAME}_viralseqs.fasta"
-
+    rm -f "${OUTPUT_DIR}/Summary/SeperateRes/bins/${BASENAME}_bins.fasta"
     echo "[✅] Rebinning and reassembly complete for $FILE"
   fi
 done
