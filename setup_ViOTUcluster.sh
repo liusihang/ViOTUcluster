@@ -71,11 +71,32 @@ conda-unpack 2>/dev/null || { echo_msg "Error: Failed to unpack DRAM environment
 
 # Create iPhop environment
 echo_msg "Creating iPhop environment..."
-conda activate "$CONDA_BASE/envs/ViOTUcluster" 2>/dev/null || { echo_msg "Warning: Failed to reactivate ViOTUcluster, proceeding."; }
-command -v mamba >/dev/null 2>&1 || { echo_msg "Warning: Mamba not found, falling back to conda"; mamba=conda; }
-${mamba:-conda} create -c conda-forge -p "$CONDA_BASE/envs/ViOTUcluster/envs/iPhop" python=3.8 mamba --yes 2>/dev/null || { echo_msg "Error: Failed to create iPhop environment"; exit 1; }
-conda activate "$CONDA_BASE/envs/ViOTUcluster/envs/iPhop" 2>/dev/null || { echo_msg "Warning: iPhop conda activate failed, proceeding."; }
-${mamba:-conda} install -c conda-forge -c bioconda iphop --yes 2>/dev/null || { echo_msg "Error: Failed to install iphop"; exit 1; }
+
+# Try to activate ViOTUcluster environment
+conda activate "$CONDA_BASE/envs/ViOTUcluster" 2>/dev/null || {
+    echo_msg "Warning: Failed to activate ViOTUcluster, proceeding."
+}
+# Determine whether to use mamba or conda
+if command -v mamba >/dev/null 2>&1; then
+    mamba_cmd="mamba"
+else
+    echo_msg "Warning: Mamba not found, falling back to conda"
+    mamba_cmd="conda"
+fi
+# Create iPhop environment
+"$mamba_cmd" create -y -c conda-forge -p "$CONDA_BASE/envs/ViOTUcluster/envs/iPhop" python=3.8 mamba || {
+    echo_msg "Error: Failed to create iPhop environment"
+    exit 1
+}
+# Activate iPhop environment
+conda activate "$CONDA_BASE/envs/ViOTUcluster/envs/iPhop" 2>/dev/null || {
+    echo_msg "Warning: iPhop conda activate failed, proceeding."
+}
+# Install iPhop
+"$mamba_cmd" install -y -c conda-forge -c bioconda iphop || {
+    echo_msg "Error: Failed to install iphop"
+    exit 1
+}
 
 # Final activation of ViOTUcluster
 echo_msg "Finalizing setup..."
