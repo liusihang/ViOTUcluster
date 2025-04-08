@@ -44,7 +44,7 @@ def run_iphop_prediction(fa_file):
     try:
         output_dir = f"{fa_file}_iPhopResult"
         conda_prefix = os.environ.get("CONDA_PREFIX")
-        env_path = os.path.join(conda_prefix, "envs", "iphop")
+        env_path = os.path.join(conda_prefix, "envs", "iPhop")
         t_value = min(THREADS, 20)  # Set t value: max 20, otherwise THREADS
         iphop_cmd = [
             'conda', 'run',

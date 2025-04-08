@@ -107,7 +107,7 @@ echo_msg "Finalizing setup..."
 conda activate "$CONDA_BASE/envs/ViOTUcluster" 2>/dev/null || { echo_msg "Warning: Final conda activate failed, environment should still be usable."; }
 
 echo_msg "[✅] ViOTUcluster Setup complete."
-echo_msg "Current version: 0.5.2"
+echo_msg "Current version: 0.5.2.1"
 
 # Clean up downloaded files
 rm -f "$CONDA_BASE/envs/ViOTUcluster/ViOTUcluster.tar.gz" 2>/dev/null
