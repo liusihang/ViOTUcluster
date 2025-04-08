@@ -41,8 +41,8 @@ mkdir -p "$CONDA_BASE/envs/ViOTUcluster" || { echo_msg "Error: Failed to create 
 # Download necessary packages
 echo_msg "Downloading ViOTUcluster, vRhyme, and DRAM packages..."
 wget -q https://zenodo.org/records/15108141/files/ViOTUcluster.tar.gz -O "$CONDA_BASE/envs/ViOTUcluster/ViOTUcluster.tar.gz" || { echo_msg "Error: Failed to download ViOTUcluster.tar.gz"; exit 1; }
-#wget -q https://zenodo.org/records/15108141/files/vRhyme.tar.gz -O "$CONDA_BASE/envs/ViOTUcluster/vRhyme.tar.gz" || { echo_msg "Error: Failed to download vRhyme.tar.gz"; exit 1; }
-wget -q https://zenodo.org/records/15108141/files/DRAM.tar.gz -O "$CONDA_BASE/envs/ViOTUcluster/DRAM.tar.gz" || { echo_msg "Error: Failed to download DRAM.tar.gz"; exit 1; }
+wget -q https://zenodo.org/records/15108141/files/vRhyme.tar.gz -O "$CONDA_BASE/envs/ViOTUcluster/vRhyme.tar.gz" || { echo_msg "Error: Failed to download vRhyme.tar.gz"; exit 1; }
+#wget -q https://zenodo.org/records/15108141/files/DRAM.tar.gz -O "$CONDA_BASE/envs/ViOTUcluster/DRAM.tar.gz" || { echo_msg "Error: Failed to download DRAM.tar.gz"; exit 1; }
 
 # Extract and unpack ViOTUcluster environment
 echo_msg "Extracting and unpacking ViOTUcluster environment..."
@@ -68,8 +68,9 @@ mkdir -p "$CONDA_BASE/envs/ViOTUcluster/envs/DRAM" || { echo_msg "Error: Failed 
 
 wget https://raw.githubusercontent.com/WrightonLabCSU/DRAM/master/environment.yaml || { echo_msg "Error: Failed to download environment.yaml"; exit 1; }
 mamba env create -f environment.yaml -p "$CONDA_BASE/envs/ViOTUcluster/envs/DRAM" || { echo_msg "Error: Failed to create DRAM environment"; exit 1; }
-conda run -p "$CONDA_BASE/envs/ViOTUcluster/envs/DRAM" bash -c "echo 'DRAM environment activated'" || { echo_msg "Warning: DRAM conda activate failed, but proceeding."; }
-
+#conda run -p "$CONDA_BASE/envs/ViOTUcluster/envs/DRAM" bash -c "echo 'DRAM environment activated'" || { echo_msg "Warning: DRAM conda activate failed, but proceeding."; }
+echo_msg "Downloading and replacing DRAM-setup.py script..."
+wget https://raw.githubusercontent.com/WrightonLabCSU/DRAM/master/scripts/DRAM-setup.py -O "$CONDA_BASE/envs/ViOTUcluster/envs/DRAM/DRAM-setup.py" || { echo_msg "Error: Failed to download DRAM-setup.py"; exit 1; }
 echo_msg "DRAM environment setup completed."
 
 # Create iPhop environment

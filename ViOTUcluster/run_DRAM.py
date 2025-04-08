@@ -51,7 +51,7 @@ def run_dram_annotation(fa_file):
 
         if process.returncode != 0:
             raise RuntimeError(f"DRAM annotation failed for {fa_file} with exit code {process.returncode}")
-
+            sys.exit(1)
         print(f"DRAM annotation completed for {fa_file}")
     except subprocess.CalledProcessError as e:
         print(f"An error occurred while processing {fa_file}: {e}")
