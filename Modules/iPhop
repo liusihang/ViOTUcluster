@@ -1,3 +1,0 @@
-#!/usr/bin/env bash
-
-source "$(conda info --base)/envs/ViOTUcluster/envs/iPhop/bin/activate"

@@ -62,12 +62,15 @@ tar -xzf "$CONDA_BASE/envs/ViOTUcluster/vRhyme.tar.gz" -C "$CONDA_BASE/envs/ViOT
 conda activate "$CONDA_BASE/envs/ViOTUcluster/envs/vRhyme" 2>/dev/null || { echo_msg "Warning: vRhyme conda activate failed, but proceeding."; }
 conda-unpack 2>/dev/null || { echo_msg "Error: Failed to unpack vRhyme environment"; exit 1; }
 
-# Create and unpack DRAM environment
+# Create DRAM environment
 echo_msg "Creating and unpacking DRAM environment..."
 mkdir -p "$CONDA_BASE/envs/ViOTUcluster/envs/DRAM" || { echo_msg "Error: Failed to create DRAM directory."; exit 1; }
-tar -xzf "$CONDA_BASE/envs/ViOTUcluster/DRAM.tar.gz" -C "$CONDA_BASE/envs/ViOTUcluster/envs/DRAM" || { echo_msg "Error: Failed to extract DRAM.tar.gz"; exit 1; }
-conda activate "$CONDA_BASE/envs/ViOTUcluster/envs/DRAM" 2>/dev/null || { echo_msg "Warning: DRAM conda activate failed, but proceeding."; }
-conda-unpack 2>/dev/null || { echo_msg "Error: Failed to unpack DRAM environment"; exit 1; }
+
+wget https://raw.githubusercontent.com/WrightonLabCSU/DRAM/master/environment.yaml || { echo_msg "Error: Failed to download environment.yaml"; exit 1; }
+mamba env create -f environment.yaml -p "$CONDA_BASE/envs/ViOTUcluster/envs/DRAM" || { echo_msg "Error: Failed to create DRAM environment"; exit 1; }
+conda run -p "$CONDA_BASE/envs/ViOTUcluster/envs/DRAM" bash -c "echo 'DRAM environment activated'" || { echo_msg "Warning: DRAM conda activate failed, but proceeding."; }
+
+echo_msg "DRAM environment setup completed."
 
 # Create iPhop environment
 echo_msg "Creating iPhop environment..."
