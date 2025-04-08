@@ -41,7 +41,7 @@ mkdir -p "$CONDA_BASE/envs/ViOTUcluster" || { echo_msg "Error: Failed to create 
 # Download necessary packages
 echo_msg "Downloading ViOTUcluster, vRhyme, and DRAM packages..."
 wget -q https://zenodo.org/records/15108141/files/ViOTUcluster.tar.gz -O "$CONDA_BASE/envs/ViOTUcluster/ViOTUcluster.tar.gz" || { echo_msg "Error: Failed to download ViOTUcluster.tar.gz"; exit 1; }
-wget -q https://zenodo.org/records/15108141/files/vRhyme.tar.gz -O "$CONDA_BASE/envs/ViOTUcluster/vRhyme.tar.gz" || { echo_msg "Error: Failed to download vRhyme.tar.gz"; exit 1; }
+#wget -q https://zenodo.org/records/15108141/files/vRhyme.tar.gz -O "$CONDA_BASE/envs/ViOTUcluster/vRhyme.tar.gz" || { echo_msg "Error: Failed to download vRhyme.tar.gz"; exit 1; }
 wget -q https://zenodo.org/records/15108141/files/DRAM.tar.gz -O "$CONDA_BASE/envs/ViOTUcluster/DRAM.tar.gz" || { echo_msg "Error: Failed to download DRAM.tar.gz"; exit 1; }
 
 # Extract and unpack ViOTUcluster environment
