@@ -80,6 +80,10 @@ fi
 if ! check_viralverify_db; then
     echo "Downloading ViralVerify database..."
     curl -L -o "$DB_DIR/nbc_hmms.hmm.gz" "https://figshare.com/ndownloader/files/17904323?private_link=f897d463b31a35ad7bf0"
+    if [ $? -ne 0 ]; then
+        echo "[❌] Failed to download ViralVerify database."
+        exit 1
+    fi
     echo "Unzipping ViralVerify database..."
     mkdir -p "$DB_DIR/ViralVerify"
     gunzip -c "$DB_DIR/nbc_hmms.hmm.gz" > "$DB_DIR/ViralVerify/nbc_hmms.hmm"

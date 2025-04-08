@@ -10,7 +10,7 @@ OUTPUT_DIR=""
 DATABASE=""
 SAMPLETYPE=""
 REASSEMBLE=false
-VERSION="0.5.1"
+VERSION="0.5.2"
 CONCENTRATION_TYPE=""
 THREADS="0"
 LOG_FILE=""
@@ -279,10 +279,24 @@ trap '[ -t 1 ] && tput cnorm' EXIT
 
 # Function to handle interactive prompt
 interactive_prompt() {
-  exec > /dev/tty 2>&1
+  # Check if /dev/tty exists
+  if [ -c /dev/tty ]; then
+    exec > /dev/tty 2>&1
+  else
+    echo "No terminal available. Logging to file."
+    exec > >(tee -a "$LOG_FILE" | while IFS= read -r line; do echo "$(date '+%Y-%m-%d %H:%M:%S') - $line"; done) 2>&1
+  fi
 
+  # Use a fallback method to read input if /dev/tty is not available
   while true; do
-    read -p "[❗] Proceed with advanced analysis? (y/n) : " choice
+    if [ -c /dev/tty ]; then
+      read -p "[❗] Proceed with advanced analysis? (y/n) : " choice
+    else
+      # If /dev/tty is not available, read from stdin (which could be redirected)
+      echo "[❗] Proceed with advanced analysis? (y/n) : "
+      read choice
+    fi
+
     case "$choice" in
       [Yy]* )
         echo "Starting advanced analysis..."
@@ -301,8 +315,10 @@ interactive_prompt() {
     esac
   done
 
+  # Ensure logging continues after the prompt
   exec > >(tee -a "$LOG_FILE" | while IFS= read -r line; do echo "$(date '+%Y-%m-%d %H:%M:%S') - $line"; done) 2>&1
 }
+
 
 # Detect environment
 if [ -t 0 ] && [ -z "$SLURM_JOB_ID" ] && [ -z "$PBS_JOBID" ]; then
