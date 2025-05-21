@@ -12,7 +12,12 @@ liusihang@tongji.edu.cn
 College of Environmental Science and Engineering
 Tongji University 
 ```
+## Full Text & Citation
+See more details in the [manuscript](https://doi.org/10.1002/imo2.70023) on iMetaOmics: 
 
+```tex
+Liu, S., Ye, Y., Guo, B., Hu, Y., Jiang, K., Liang, C., Xia, S. and Wang, H. (2025), ViOTUcluster: A high-speed, All-in-one pipeline for viromic analysis of metagenomic data. iMetaOmics e70023. https://doi.org/10.1002/imo2.70023   
+```
 # Instruction
 Demo for using ViOTUcluster
 
