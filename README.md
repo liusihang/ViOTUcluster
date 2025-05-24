@@ -53,13 +53,23 @@ Before installing ViOTUcluster, ensure the following tools are available on your
 
 Follow these steps to install ViOTUcluster for the first time:
 
-1. **Download the ViOTUcluster Package**
+1.  **Download and Setup ViOTUcluster**
 
-   ViOTUcluster offers a pre-packaged Conda environment hosted on Zenodo, simplifying dependency installation for tools like vRhyme, DRAM, and iPhop.
-   ```bash
-   wget -qO- https://raw.githubusercontent.com/liusihang/ViOTUcluster/master/setup_ViOTUcluster.sh | bash
-   ```
-   This package includes ViOTUcluster and essential environments such as vRhyme, DRAM, and iPhop. The pre-packaged environment files are hosted on Zenodo, and the setup script automates their download and installation.
+    ViOTUcluster simplifies the installation of itself and its core dependencies (like vRhyme, DRAM, and iPhop) by providing a setup script that downloads pre-packaged Conda environments.
+
+    The setup script can be run directly using `wget` and `bash`.
+
+    **Default Installation (Recommended for most users, downloads from Zenodo):**
+    This command will download the setup script and execute it, which will then download the environment packages from Zenodo.
+    ```bash
+    wget -qO- https://raw.githubusercontent.com/liusihang/ViOTUcluster/master/setup_ViOTUcluster.sh | bash
+    ```
+
+    **Alternative for Users in Mainland China (Downloads from China SciDB):**
+    If you are in mainland China or experience slow downloads from Zenodo, you can instruct the script to use download mirrors hosted on China SciDB.
+    ```bash
+    wget -qO- https://raw.githubusercontent.com/liusihang/ViOTUcluster/master/setup_ViOTUcluster.sh | bash -s china
+    ```
 
 2. **Verify Installation of All Dependencies**
 
