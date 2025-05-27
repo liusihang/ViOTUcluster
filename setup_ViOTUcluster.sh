@@ -106,46 +106,12 @@ conda-unpack 2>/dev/null || { echo_msg "Error: Failed to unpack vRhyme environme
 echo_msg "Creating and unpacking DRAM environment..."
 mkdir -p "$CONDA_BASE/envs/ViOTUcluster/envs/DRAM" || { echo_msg "Error: Failed to create DRAM directory."; exit 1; }
 
-# Temporarily change to a directory where environment.yaml can be downloaded
-# or ensure the current directory is writable and suitable.
-# For simplicity, let's download to /tmp and then remove it.
-TEMP_ENV_YAML="/tmp/environment_dram.yaml"
-echo_msg "Downloading DRAM environment.yaml..."
-wget -q https://raw.githubusercontent.com/WrightonLabCSU/DRAM/master/environment.yaml -O "$TEMP_ENV_YAML" || { echo_msg "Error: Failed to download environment.yaml for DRAM"; rm -f "$TEMP_ENV_YAML"; exit 1; }
-
-# Determine mamba or conda for DRAM env creation
-if command -v mamba >/dev/null 2>&1; then
-    mamba_cmd_dram="mamba"
-else
-    echo_msg "Warning: Mamba not found, falling back to conda for DRAM environment creation (this might be slower)."
-    mamba_cmd_dram="conda"
-fi
-
-echo_msg "Creating DRAM environment using $mamba_cmd_dram..."
-"$mamba_cmd_dram" env create -f "$TEMP_ENV_YAML" -p "$CONDA_BASE/envs/ViOTUcluster/envs/DRAM" || { echo_msg "Error: Failed to create DRAM environment"; rm -f "$TEMP_ENV_YAML"; exit 1; }
-rm -f "$TEMP_ENV_YAML" # Clean up downloaded yaml
-
-# Activate DRAM and run setup (original script had this commented out but implied setup)
-# First, try to activate the main ViOTUcluster env to ensure conda commands are in PATH correctly
-conda activate "$CONDA_BASE/envs/ViOTUcluster" 2>/dev/null || echo_msg "Warning: Failed to activate ViOTUcluster before DRAM setup, proceeding."
-
-echo_msg "Downloading DRAM-setup.py script..."
-# Ensure the target directory for DRAM-setup.py exists (it should from env creation, but good to be safe)
-mkdir -p "$CONDA_BASE/envs/ViOTUcluster/envs/DRAM/bin" # Common place for scripts, or adjust if DRAM expects it elsewhere
-DRAM_SETUP_PY_PATH="$CONDA_BASE/envs/ViOTUcluster/envs/DRAM/bin/DRAM-setup.py" # Changed from root of env
-wget -q https://raw.githubusercontent.com/WrightonLabCSU/DRAM/master/scripts/DRAM-setup.py -O "$DRAM_SETUP_PY_PATH" || { echo_msg "Error: Failed to download DRAM-setup.py"; exit 1; }
-chmod +x "$DRAM_SETUP_PY_PATH"
-
-# Run DRAM setup. This usually involves downloading databases.
-# Need to activate DRAM environment to run its setup script
-echo_msg "Running DRAM setup (this might take a while)..."
-# Using conda run to execute within the DRAM environment
-conda run -p "$CONDA_BASE/envs/ViOTUcluster/envs/DRAM" python "$DRAM_SETUP_PY_PATH" --output_dir "$CONDA_BASE/envs/ViOTUcluster/envs/DRAM/DRAM_databases" --skip_trnascan || {
-    echo_msg "Error: DRAM setup failed. Please check DRAM documentation for manual setup."
-    # Depending on severity, you might want to exit or just warn
-    # exit 1;
-}
-echo_msg "DRAM environment setup attempted."
+wget https://raw.githubusercontent.com/WrightonLabCSU/DRAM/master/environment.yaml || { echo_msg "Error: Failed to download environment.yaml"; exit 1; }
+mamba env create -f environment.yaml -p "$CONDA_BASE/envs/ViOTUcluster/envs/DRAM" || { echo_msg "Error: Failed to create DRAM environment"; exit 1; }
+#conda run -p "$CONDA_BASE/envs/ViOTUcluster/envs/DRAM" bash -c "echo 'DRAM environment activated'" || { echo_msg "Warning: DRAM conda activate failed, but proceeding."; }
+echo_msg "Downloading and replacing DRAM-setup.py script..."
+wget https://raw.githubusercontent.com/WrightonLabCSU/DRAM/master/scripts/DRAM-setup.py -O "$CONDA_BASE/envs/ViOTUcluster/envs/DRAM/DRAM-setup.py" || { echo_msg "Error: Failed to download DRAM-setup.py"; exit 1; }
+echo_msg "DRAM environment setup completed."
 
 
 # Create iPhop environment
