@@ -16,7 +16,7 @@ Tongji University
 See more details in the [manuscript](https://doi.org/10.1002/imo2.70023) on iMetaOmics: 
 
 ```tex
-Liu, S., Ye, Y., Guo, B., Hu, Y., Jiang, K., Liang, C., Xia, S. and Wang, H. (2025), ViOTUcluster: A high-speed, All-in-one pipeline for viromic analysis of metagenomic data. iMetaOmics e70023. https://doi.org/10.1002/imo2.70023   
+Liu, S., Ye, Y., Guo, B., Hu, Y., Jiang, K., Liang, C., Xia, S. and Wang, H. (2025), ViOTUcluster: A high-speed, All-in-one pipeline for viromic analysis of metagenomic data. iMetaOmics e70023. https://doi.org/10.1002/imo2.70023
 ```
 # Instruction
 Demo for using ViOTUcluster
@@ -28,20 +28,14 @@ _Recorded with [asciinema](https://docs.asciinema.org)_
 
 
 1. [Prerequisites](#prerequisites)
-2. [Installation](#first-Time-Installation-of-ViOTUcluster)
+2. [Installation](#installation)
 3. [How to Use](#how-to-use)
 4. [File Structure Example](#file-structure-example)
 5. [Final Output](#final-output)
 6. [Contact](#contact)
 
 ______
-
-
-## Installation
-
-ViOTUcluster has been tested on Ubuntu and CentOS and should be compatible with all Linux distributions.
-
-### Prerequisites
+## Prerequisites
 
 Before installing ViOTUcluster, ensure the following tools are available on your system:
 
@@ -49,9 +43,23 @@ Before installing ViOTUcluster, ensure the following tools are available on your
 - [mamba](https://github.com/mamba-org/mamba) (recommended for faster package management)
 - [Git](https://git-scm.com/downloads)
 
+## Installation
+
+ViOTUcluster has been tested on Ubuntu and CentOS and should be compatible with all Linux distributions.
+
 ### First-Time Installation of ViOTUcluster
 
 Follow these steps to install ViOTUcluster for the first time:
+
+ViOTUcluster comes with an **all-in-one setup script** that pulls three pre-packed Conda environments (ViOTUcluster / vRhyme / DRAM + iPhop) and unpacks them in one shot.
+
+| Option                                            | What it does                                                                                               |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `--china`                                         | Switch download source from Zenodo to China SciDB mirrors (faster in mainland CN).                         |
+| `-p PATH`                                         | Install the whole stack *outside* your base Conda directory (default is `<conda-root>/envs/ViOTUcluster`). |
+| `-h`, `--help`                                    | Show full option list.                                                                                     |
+
+---
 
 1.  **Download and Setup ViOTUcluster**
 
@@ -68,10 +76,26 @@ Follow these steps to install ViOTUcluster for the first time:
     **Alternative for Users in Mainland China (Downloads from China SciDB):**
     If you are in mainland China or experience slow downloads from Zenodo, you can instruct the script to use download mirrors hosted on China SciDB.
     ```bash
-    wget -qO- https://raw.githubusercontent.com/liusihang/ViOTUcluster/master/setup_ViOTUcluster.sh | bash -s china
+    wget -qO- https://raw.githubusercontent.com/liusihang/ViOTUcluster/master/setup_ViOTUcluster.sh | bash -s -- --china
+    ```
+    
+    **For users who lack write access to the Conda base directory or who prefer to install to a custom location:**
+    ```bash
+    wget -qO- https://raw.githubusercontent.com/liusihang/ViOTUcluster/master/setup_ViOTUcluster.sh \
+      | bash -s -- -p /PATH/YOU/WANT
     ```
 
-2. **Verify Installation of All Dependencies**
+    You can combine flags, for example:
+
+    ```bash
+    wget -qO- https://raw.githubusercontent.com/liusihang/ViOTUcluster/master/setup_ViOTUcluster.sh \
+      | bash -s -- --china -p /PATH/YOU/WANT
+    ```
+    **Note:** When you install to a custom prefix, activate the environment with the full path, e.g.
+    ```bash
+    conda activate /YOUR/CUSTOM/PATH/ViOTUcluster
+    ```
+3. **Verify Installation of All Dependencies**
 
    To confirm that all required dependencies are correctly installed, run:
 
@@ -97,7 +121,7 @@ Follow these steps to install ViOTUcluster for the first time:
    All dependencies are installed.
    ```
 
-3. **Set Up Databases**
+4. **Set Up Databases**
 
    ```bash
    ViOTUcluster_download-database "/path/to/db" "num"
@@ -107,7 +131,7 @@ Follow these steps to install ViOTUcluster for the first time:
 
    **Note:** The setup process involves downloading approximately **30 GB** of database files, so the installation time depends heavily on your **network speed**. A stable, high-speed internet connection is recommended to prevent installation failures.
 
-4. **Set Up DRAM and iPhop Environments**
+5. **Set Up DRAM and iPhop Environments**
 
    #### Install DRAM Database
 
@@ -150,7 +174,7 @@ Follow these steps to install ViOTUcluster for the first time:
       - [iPhop](https://bitbucket.org/srouxjgi/iphop/src/main/).
 
 
-5. **Test the Complete ViOTUcluster Workflow with Mini-Samples**
+6. **Test the Complete ViOTUcluster Workflow with Mini-Samples**
   
    To verify ViOTUcluster full workflow are functioning correctly, you can run a test using the `ViOTUcluster_Test` command with a set of mini FASTQ samples.
    ```bash
