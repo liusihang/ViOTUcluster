@@ -81,15 +81,13 @@ ViOTUcluster comes with an **all-in-one setup script** that pulls three pre-pack
     
     **For users who lack write access to the Conda base directory or who prefer to install to a custom location:**
     ```bash
-    wget -qO- https://raw.githubusercontent.com/liusihang/ViOTUcluster/master/setup_ViOTUcluster.sh \
-      | bash -s -- -p /PATH/YOU/WANT
+    wget -qO- https://raw.githubusercontent.com/liusihang/ViOTUcluster/master/setup_ViOTUcluster.sh | bash -s -- -p /PATH/YOU/WANT
     ```
 
     You can combine flags, for example:
 
     ```bash
-    wget -qO- https://raw.githubusercontent.com/liusihang/ViOTUcluster/master/setup_ViOTUcluster.sh \
-      | bash -s -- --china -p /PATH/YOU/WANT
+    wget -qO- https://raw.githubusercontent.com/liusihang/ViOTUcluster/master/setup_ViOTUcluster.sh | bash -s -- --china -p /PATH/YOU/WANT
     ```
     **Note:** When you install to a custom prefix, activate the environment with the full path, e.g.
     ```bash
