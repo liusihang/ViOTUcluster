@@ -92,7 +92,6 @@ ViOTUcluster comes with an **all-in-one setup script** that pulls three pre-pack
     **Note:** When you install to a custom prefix, activate the environment with the full path, e.g.
     ```bash
     conda activate /YOUR/CUSTOM/PATH/ViOTUcluster
-    pip install --upgrade ViOTUcluster #Important，to keep all script up-to-date.
     ```
 3. **Verify Installation of All Dependencies**
 
@@ -100,6 +99,7 @@ ViOTUcluster comes with an **all-in-one setup script** that pulls three pre-pack
 
    ```bash
    conda activate ViOTUcluster
+   pip install --upgrade ViOTUcluster #Important，to keep all script up-to-date.
    ViOTUcluster_Check
    ```
 
