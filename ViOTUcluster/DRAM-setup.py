@@ -2,6 +2,8 @@
 import os
 import subprocess
 import sys
+import urllib.request
+import stat
 
 def run_dram_setup(action, file_dir):
     try:
@@ -10,7 +12,14 @@ def run_dram_setup(action, file_dir):
             raise EnvironmentError("Conda environment is not activated.")
         
         env_path = os.path.join(conda_prefix, "envs", "DRAM")
-        
+        bin_path = os.path.join(env_path, "bin") 
+        target   = os.path.join(bin_path, "DRAM-setup.py")
+        url = "https://raw.githubusercontent.com/WrightonLabCSU/DRAM/master/scripts/DRAM-setup.py"
+        with urllib.request.urlopen(url) as resp, open(target, "wb") as f:
+            f.write(resp.read())
+
+        current = os.stat(target).st_mode
+        os.chmod(target, current | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
         # Define the command based on the action type
         if action == "download":
             # Command for downloading the database
