@@ -16,9 +16,9 @@ def download_iphop_db(db_dir):
             'conda', 'run',
             '-p', env_path,
             'iphop', 'download',
+            '--no_prompt',
             '--db_dir', db_dir
         ]
-        
         # Run the command to download the database
         subprocess.run(iphops_cmd, check=True)
         print(f"[✅] iPhop database download completed. Output directory: {db_dir}")
