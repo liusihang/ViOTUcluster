@@ -38,9 +38,9 @@ cleanup() {
 log_with_timestamp() {
   # Check if LOG_FILE is set and writable, otherwise echo to stderr
   if [ -n "$LOG_FILE" ] && [ -w "$(dirname "$LOG_FILE")" ]; then
-    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "$LOG_FILE"
+    echo "$1" >> "$LOG_FILE"
   else
-    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >&2
+    echo "$1" >&2
   fi
 }
 

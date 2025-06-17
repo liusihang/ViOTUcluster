@@ -1,58 +1,98 @@
 #!/usr/bin/env bash
 
-# Default database path (adjust as needed)
+# Default database path (adjust and uncomment if you want a default if -d is not provided)
 # DEFAULT_DATABASE="/path/to/default/database"
 
-# Parse command line arguments
-while getopts "d:" opt; do
+# --- Configuration ---
+if [ -z "$CONDA_PREFIX" ]; then
+    echo "[❌] Error: CONDA_PREFIX environment variable is not set. Please activate your conda environment."
+    exit 1
+fi
+
+VI_TEST_BASE_DIR="$CONDA_PREFIX/ViTest"
+OUTPUT_DIR="$VI_TEST_BASE_DIR/Res"
+LOG_FILE="$OUTPUT_DIR/pipeline.log"
+DATABASE="" 
+
+# --- Parse command line arguments ---
+while getopts "d:h" opt; do
     case $opt in
-        d) DATABASE="$OPTARG" ;;  # Specify database path with -d option
-        *) echo "Usage: $0 [-d database_path]" ; exit 1 ;;
+        d) DATABASE="$OPTARG" ;; 
+        h)
+            echo "Usage: $0 -d database_path"
+            echo "Options:"
+            echo "  -d <database_path>  Path to the ViOTU database directory (required)."
+            echo "  -h                  Display this help message."
+            exit 0
+            ;;
+        *)
+            echo "Usage: $0 -d database_path" >&2
+            exit 1
+            ;;
     esac
 done
+shift $((OPTIND -1)) 
 
+# --- Validate arguments ---
 # Check if the database path is provided
 if [ -z "$DATABASE" ]; then
-    echo "[❌] Error: Database path is required."
-    echo "Usage: $0 [-d database_path]"
+    # If DEFAULT_DATABASE was intended to be used:
+    # if [ -n "$DEFAULT_DATABASE" ]; then
+    #     echo "[ℹ️] No database path provided via -d, using default: $DEFAULT_DATABASE"
+    #     DATABASE="$DEFAULT_DATABASE"
+    # else
+    echo "[❌] Error: Database path is required. Use -d <database_path>."
+    echo "Usage: $0 -d database_path"
     exit 1
+    # fi
 fi
 
-# Check if the database path exists
+# Check if the database path exists and is a directory
 if [ ! -d "$DATABASE" ]; then
-    echo "[❌] Error: Database directory does not exist: $DATABASE"
+    echo "[❌] Error: Database directory does not exist or is not a directory: $DATABASE"
     exit 1
 fi
 
-echo "[🔄] Running ViOTUcluster_Test..."
-# Ensure the result folder exists, even if it doesn't
-rm -rf "$CONDA_PREFIX/ViTest/Res"
-
-# Execute ViOTUcluster_AllinOne command and output directly to terminal
-ViOTUcluster_AllinOne -r "$CONDA_PREFIX/ViTest" -o "$CONDA_PREFIX/ViTest/Res" -d "$DATABASE" -a megahit --con 2>&1
-
-# Check for success message in output
-if grep -q "All basic analysis completed successfully." "$CONDA_PREFIX/ViTest/Res/log.txt"; then
-    echo "[✅] All modules completed successfully."
-else
-    echo "[❌] ViOTUcluster execution failed."
+# --- Main execution ---
+echo "[🔄] Preparing output directory: $OUTPUT_DIR"
+# Ensure the result folder exists and is clean
+rm -rf "$OUTPUT_DIR"
+mkdir -p "$OUTPUT_DIR"
+if [ ! -d "$OUTPUT_DIR" ]; then
+    echo "[❌] Error: Failed to create output directory: $OUTPUT_DIR"
+    exit 1
 fi
 
-# Check if /dev/tty exists for interactive prompt
-if [ -c /dev/tty ]; then
-    # Ask if user wants to open the result folder
-    read -p "Press y to open the result folder for inspection: " choice
-    if [ "$choice" == "y" ]; then
-        if command -v xdg-open &> /dev/null; then
-            xdg-open "$CONDA_PREFIX/ViTest/Res"
+echo "[🔄] Running ViOTUcluster_Test with database: $DATABASE"
+# Execute ViOTUcluster_AllinOne command and output directly to terminal
+# Stderr is redirected to stdout (2>&1) so it appears in terminal and is captured by potential parent processes
+ViOTUcluster_AllinOne -r "$VI_TEST_BASE_DIR" -o "$OUTPUT_DIR" -d "$DATABASE" -a megahit --con 2>&1
+COMMAND_EXIT_CODE=$?
+
+# --- Check for success ---
+SUCCESS_MESSAGE="All basic analysis completed successfully."
+
+# Check command exit code, log file existence, and success message in log
+if [ $COMMAND_EXIT_CODE -eq 0 ] && [ -f "$LOG_FILE" ] && grep -qF "$SUCCESS_MESSAGE" "$LOG_FILE"; then
+    echo "[✅] All modules completed successfully."
+    echo "[✅] The result folder has been retained for inspection: $OUTPUT_DIR"
+    exit 0
+else
+    echo "[❌] ViOTUcluster execution failed or success criteria not met."
+    if [ $COMMAND_EXIT_CODE -ne 0 ]; then
+        echo "   Reason: Command exited with a non-zero status: $COMMAND_EXIT_CODE"
+    fi
+    if [ ! -f "$LOG_FILE" ]; then
+        echo "   Reason: Log file not found: $LOG_FILE"
+    elif ! grep -qF "$SUCCESS_MESSAGE" "$LOG_FILE"; then
+        echo "   Reason: Success message \"$SUCCESS_MESSAGE\" not found in $LOG_FILE."
+        if [ -s "$LOG_FILE" ]; then # Check if log file is not empty
+            echo "   Last 10 lines of $LOG_FILE:"
+            tail -n 10 "$LOG_FILE"
         else
-            echo "Cannot open the folder, please open it manually: $CONDA_PREFIX/ViTest/Res"
+            echo "   Log file $LOG_FILE is empty."
         fi
     fi
-else
-    # If /dev/tty is not available, just end the script
-    echo "[❌] No terminal available for interaction. Ending script."
+    echo "[ℹ️] The result folder content (if any) is at: $OUTPUT_DIR"
+    exit 1
 fi
-
-echo "[✅] The result folder has been retained for inspection: $CONDA_PREFIX/ViTest/Res"
-exit 0

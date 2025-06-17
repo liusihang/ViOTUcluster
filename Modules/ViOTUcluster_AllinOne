@@ -35,7 +35,7 @@ cleanup() {
 }
 
 log_with_timestamp() {
-  echo "$(date '+%Y-%m-%d %H:%M:%S') - $1"
+  echo "$1"
 }
 
 validate_param() {
@@ -152,7 +152,16 @@ LOG_FILE="${OUTPUT_DIR}/preprocessing_pipeline.log"
 : > "$LOG_FILE" 
 
 # Redirect all script output (stdout and stderr) to log file and terminal
-exec > >(tee -a "$LOG_FILE" | while IFS= read -r line; do echo "$(date '+%Y-%m-%d %H:%M:%S') - $line"; done) 2>&1
+exec > >(
+    tee -a "$LOG_FILE" |
+    while IFS= read -r line; do
+        if [[ "$line" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}[[:space:]][0-9]{2}:[0-9]{2}:[0-9]{2}[[:space:]]-[[:space:]] ]]; then
+            echo "$line" 
+        else
+            echo "$(date '+%Y-%m-%d %H:%M:%S') - $line" 
+        fi
+    done
+) 2>&1
 
 log_with_timestamp "Script started with command: $0 $*"
 
