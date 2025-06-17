@@ -42,11 +42,9 @@ else
     echo "Contigs merging completed."
 
     newDir="$OUTPUT_DIR/Summary/temp"
-    
-    echo "[🔄] Filtering sequences shorter than 5000bp..."
-    awk 'BEGIN {RS=">";FS="\n"} NR>1 {seq=""; for(i=2;i<=NF;i++) seq=seq $i; if(length(seq)>=5000) print ">" $1 "\n" seq}' \
-        "${newDir}/merged_sequences.fasta" > "${newDir}/merged_sequences_filtered.fasta"
-    cp "${newDir}/merged_sequences_filtered.fasta" "${newDir}/merged_sequences.fasta"
+    rm -f "${newDir}/Done" # Ensure script runs even if Done file exists from previous run
+    echo "[🔄] Filtering sequences shorter than ${MIN_LENGTH}bp"
+    python "${ScriptDir}/filter_contigs.py" "${MIN_LENGTH}" "${newDir}/merged_sequences.fasta" "$newDir"
     echo "[✅] Filtering completed."
 
     echo "[🔄] Building BLAST database and running clustering..."
