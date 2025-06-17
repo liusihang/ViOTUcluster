@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Record start time
-#start_time=$(date +%s) # Consider re-enabling if you want total runtime for this script specifically
+start_time=$(date +%s) # Consider re-enabling if you want total runtime for this script specifically
 
 # Initialize variables
 RAW_SEQ_DIR=""
@@ -26,25 +26,24 @@ cleanup() {
     return
   fi
   cleanup_flag=true
-  [ -t 1 ] && tput cnorm # Show cursor if hidden
-  if [ "$$" -eq "$(ps -o pgid= $$)" ]; then # Check if this is the process group leader
+  [ -t 1 ] && tput cnorm 
+  if [ "$$" -eq "$(ps -o pgid= $$)" ]; then 
     log_with_timestamp "Caught termination signal. Cleaning up..."
-    kill -- -$$ # Kill the entire process group
+    kill -- -$$
   fi
   exit 1 # Exit with an error code
 }
 
 log_with_timestamp() {
-  # This function now only echoes; the calling context should handle file logging if needed.
   echo "$(date '+%Y-%m-%d %H:%M:%S') - $1"
 }
 
 validate_param() {
-  local param_value="$1" # Renamed to avoid confusion with parameter name
-  local param_name="$2"  # Added parameter name for better error messages
+  local param_value="$1"
+  local param_name="$2"
   local valid_values_str="$3"
-  local IFS=' ' # Set IFS for splitting valid_values_str
-  read -r -a valid_values <<< "$valid_values_str" # Split string into array
+  local IFS=' '
+  read -r -a valid_values <<< "$valid_values_str"
   
   # Check if param_value is in valid_values array
   local found=false
@@ -78,7 +77,6 @@ while true; do
       ;;
     -o)
       OUTPUT_DIR="$2"
-      # LOG_FILE will be set within the main exec redirection block
       shift 2
       ;;
     -d)
@@ -93,7 +91,7 @@ while true; do
       THREADS="$2"
       shift 2
       ;;
-    -m|--min-length) # Added min-length option
+    -m|--min-length)
       MIN_LENGTH="$2"
       shift 2
       ;;
@@ -105,7 +103,7 @@ while true; do
       CONCENTRATION_TYPE="concentration"
       shift
       ;;
-    --reassemble) # This script doesn't use REASSEMBLE directly, but ViOTUcluster might
+    --reassemble)
       REASSEMBLE=FALSE
       shift
       ;;
@@ -150,14 +148,13 @@ if [ -z "$OUTPUT_DIR" ]; then
   exit 1
 fi
 mkdir -p "$OUTPUT_DIR"
-LOG_FILE="${OUTPUT_DIR}/preprocessing_pipeline.log" # Main log for this script
-# Initialize log file
-: > "$LOG_FILE" # Truncate/create log file
+LOG_FILE="${OUTPUT_DIR}/preprocessing_pipeline.log"
+: > "$LOG_FILE" 
 
 # Redirect all script output (stdout and stderr) to log file and terminal
 exec > >(tee -a "$LOG_FILE" | while IFS= read -r line; do echo "$(date '+%Y-%m-%d %H:%M:%S') - $line"; done) 2>&1
 
-log_with_timestamp "Script started with command: $0 $*" # Log original command line args before getopt mangling
+log_with_timestamp "Script started with command: $0 $*"
 
 if [ "$THREADS" -eq 0 ]; then
   THREADS=$(nproc)
@@ -206,25 +203,24 @@ fi
 # --- run_module Function ---
 run_module() {
   local module_name="$1"
-  local module_log_file="$2" # Changed from log_file to avoid conflict
-  local command_to_run="$3"    # Changed from command
+  local module_log_file="$2"
+  local command_to_run="$3"
 
   mkdir -p "$(dirname "$module_log_file")"
-  : > "$module_log_file" # Truncate/create module log file
+  : > "$module_log_file"
 
   local msg="Starting $module_name..."
   local border="###############################################"
-  echo "$border" # Goes to main log/stdout
+  echo "$border" 
   echo "# $msg"
   echo "$border"
-  log_with_timestamp "Starting $module_name..." # Redundant due to above, but ok
+  log_with_timestamp "Starting $module_name..."
 
   local spin='-\|/'
   local i=0
-  if [ -t 1 ]; then # Only show spinner if stdout is a TTY
-    tput civis # Hide cursor
+  if [ -t 1 ]; then 
+    tput civis 
     (
-      # Spinner subshell
       while true; do
         i=$(( (i+1) % 4 ))
         printf "\rRunning %s... %s" "$module_name" "${spin:$i:1}"
@@ -238,7 +234,6 @@ run_module() {
   module_start_time=$(date +%s)
 
   # Execute the command. Its stdout and stderr will go to the module_log_file.
-  # Also, due to the main exec redirection, they will *also* go to the main LOG_FILE and terminal.
   eval "stdbuf -oL $command_to_run" >> "$module_log_file" 2>&1
   local result=${PIPESTATUS[0]}
 
@@ -247,12 +242,12 @@ run_module() {
     wait "$spinner_pid" 2>/dev/null
   fi
   if [ -t 1 ]; then
-    tput cnorm # Restore cursor
-    printf "\r\033[K" # Clear the spinner line
+    tput cnorm
+    printf "\r\033[K" 
   fi
 
   if [ "$result" -ne 0 ]; then
-    echo "$module_name failed. Check log: $module_log_file" # To main log/stdout
+    echo "$module_name failed. Check log: $module_log_file"
     log_with_timestamp "Error: $module_name failed with exit code $result. Check log: $module_log_file"
     cleanup
   fi
@@ -261,7 +256,7 @@ run_module() {
   module_end_time=$(date +%s)
   local module_runtime=$((module_end_time - module_start_time))
 
-  echo "$module_name completed in ${module_runtime} seconds." # To main log/stdout
+  echo "$module_name completed in ${module_runtime} seconds."
   log_with_timestamp "$module_name completed in ${module_runtime} seconds."
 }
 
@@ -270,12 +265,12 @@ run_module() {
 log_with_timestamp "Checking for paired-end files in ${RAW_SEQ_DIR}..."
 found_any_r1=false
 all_r1_have_pairs=true
-shopt -s nullglob # Important: makes the loop not run if no files match *_R1.*
+shopt -s nullglob
 for FILE_R1 in "${RAW_SEQ_DIR}"/*_R1.*; do
   found_any_r1=true
   BASENAME=$(basename "$FILE_R1" | sed 's/_R1\..*//')
   PREFIX="${RAW_SEQ_DIR}/${BASENAME}"
-  R1_EXT="${FILE_R1#${PREFIX}_R1}" # Extracts .fq.gz, .fastq, etc.
+  R1_EXT="${FILE_R1#${PREFIX}_R1}"
   FILE_R2="${PREFIX}_R2${R1_EXT}"
 
   # Alternative naming _1 and _2
@@ -289,8 +284,6 @@ for FILE_R1 in "${RAW_SEQ_DIR}"/*_R1.*; do
   else
     log_with_timestamp "Error: Paired-end file for ${BASENAME} (expected R2 for $FILE_R1 or $FILE_R1_ALT) not found."
     all_r1_have_pairs=false
-    # Decide if this is fatal or just a warning for that sample
-    # exit 1 # Uncomment to make it fatal
   fi
 done
 shopt -u nullglob # Reset nullglob
@@ -299,16 +292,13 @@ if ! $found_any_r1; then
     log_with_timestamp "Warning: No files matching *_R1.* pattern found in ${RAW_SEQ_DIR}. Preprocessing might skip assembly if it expects paired reads."
 elif ! $all_r1_have_pairs; then
     log_with_timestamp "Warning: Not all _R1 files found corresponding _R2 pairs. Check logs above."
-    # Potentially exit here if all pairs are strictly required
-    # exit 1
 fi
 
 
 # --- Main Processing ---
 log_with_timestamp "Processing with $CONCENTRATION_TYPE mode, $THREADS threads, assembly by $ASSEMBLY_SOFTWARE. ViOTUcluster min-length: $MIN_LENGTH."
 
-# Export variables that might be needed by sub-scripts if they don't take them as arguments
-# export RAW_SEQ_DIR OUTPUT_DIR DATABASE SAMPLETYPE REASSEMBLE ASSEMBLY_SOFTWARE ScriptDir THREADS MIN_LENGTH
+export RAW_SEQ_DIR OUTPUT_DIR DATABASE SAMPLETYPE REASSEMBLE ASSEMBLY_SOFTWARE ScriptDir THREADS MIN_LENGTH
 
 MODULE_LOG_BASE_DIR="${OUTPUT_DIR}/Log"
 mkdir -p "${MODULE_LOG_BASE_DIR}"
@@ -318,8 +308,8 @@ run_module "Raw Sequences Preprocessing & Assembly" \
            "${ScriptDir}/Preprocess_module.sh '${RAW_SEQ_DIR}' '${ASSEMBLY_SOFTWARE}' '${OUTPUT_DIR}' '${THREADS}'"
 
 # Define directories based on Preprocess_module.sh output structure
-CONTIGS_DIR="${OUTPUT_DIR}/Contigs" # Assuming Preprocess_module.sh outputs contigs here
-CLEAN_READS_DIR="${OUTPUT_DIR}/Cleanreads" # Assuming Preprocess_module.sh outputs clean reads here
+CONTIGS_DIR="${OUTPUT_DIR}/Contigs"
+CLEAN_READS_DIR="${OUTPUT_DIR}/Cleanreads"
 
 if [ ! -d "$CONTIGS_DIR" ] || [ -z "$(ls -A "$CONTIGS_DIR")" ]; then
     log_with_timestamp "Error: Contigs directory '${CONTIGS_DIR}' is empty or does not exist after preprocessing. Cannot proceed with ViOTUcluster."
@@ -327,14 +317,13 @@ if [ ! -d "$CONTIGS_DIR" ] || [ -z "$(ls -A "$CONTIGS_DIR")" ]; then
 fi
 if [ ! -d "$CLEAN_READS_DIR" ] || [ -z "$(ls -A "$CLEAN_READS_DIR")" ]; then
     log_with_timestamp "Warning: Clean reads directory '${CLEAN_READS_DIR}' is empty or does not exist after preprocessing. ViOTUcluster might run without read mapping features."
-    # Depending on ViOTUcluster needs, this might be an error.
 fi
 
 CONTIGS_DIR="${OUTPUT_DIR}/Contigs"
 RAW_SEQ_DIR="${OUTPUT_DIR}/Cleanreads"
 INPUT_DIR=${CONTIGS_DIR}
 
-#export INPUT_DIR OUTPUT_DIR DATABASE SAMPLETYPE REASSEMBLE ScriptDir RAW_SEQ_DIR THREADS
+export INPUT_DIR OUTPUT_DIR DATABASE SAMPLETYPE REASSEMBLE ScriptDir RAW_SEQ_DIR THREADS
 
 if [ "$CONCENTRATION_TYPE" == "non-concentration" ]; then
   ViOTUcluster -i "${INPUT_DIR}" -r "${RAW_SEQ_DIR}" -o "${OUTPUT_DIR}" -d "${DATABASE}" -n "${THREADS}" --non-con -m "${MIN_LENGTH}"

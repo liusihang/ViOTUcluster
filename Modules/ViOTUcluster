@@ -112,8 +112,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# REASSEMBLE=false # This line seems redundant as it's initialized above and potentially set by an option.
-                 # If it's meant to always be false unless explicitly set, it's fine.
+REASSEMBLE=false
 
 # Ensure output directory and log file are created
 if [ -z "$OUTPUT_DIR" ];then
@@ -225,7 +224,7 @@ run_module() {
 }
 
 # Set the Group variable based on SAMPLETYPE
-SAMPLETYPE="Mix" # This seems to be hardcoded, consider if it should be an option
+SAMPLETYPE="Mix"
 case "$SAMPLETYPE" in
   DNA)
   Group="dsDNAphage, NCLDV, ssDNA, lavidaviridae"
@@ -243,25 +242,21 @@ case "$SAMPLETYPE" in
 esac
 
 # Find all .fa and .fasta files in the specified directory
-# This RawFILES seems unused later. If it's for `viral_prediction_module.sh`, ensure it's exported or passed.
 RawFILES=$(find "${INPUT_DIR}" -maxdepth 1 -type f \( -name "*.fa" -o -name "*.fasta" \))
 
 # Determine the number of threads per file based on the THREADS input
 if [ "$THREADS" -eq 0 ]; then
-  THREADS_PER_FILE=$(nproc) # nproc gives total cores, not necessarily "threads per file"
-                           # Consider if this logic is correct or if THREADS means total threads for the pipeline
+  THREADS_PER_FILE=$(nproc)
 else
   THREADS_PER_FILE="$THREADS"
 fi
 
 # Check if paired files exist and have the correct format
-# This loop only logs, doesn't seem to store the found files for later use by modules.
-# If these files are needed by `cross_validation_module.sh`, they need to be collected.
+
 found_paired_files=false
 for FILE in "${RAW_SEQ_DIR}"/*_R1.*; do
   BASENAME=$(basename "$FILE" | sed 's/_R1\..*//')
   PREFIX="${RAW_SEQ_DIR}/${BASENAME}"
-  # More robust check for R1 and R2 pairs
   R1_FOUND=""
   R2_FOUND=""
   for ext in ".fq" ".fastq" ".fq.gz" ".fastq.gz"; do
@@ -270,16 +265,16 @@ for FILE in "${RAW_SEQ_DIR}"/*_R1.*; do
       R2_FOUND="${PREFIX}_R2${ext}"
       log_with_timestamp "Found paired files: ${R1_FOUND} and ${R2_FOUND}"
       found_paired_files=true
-      break # Found a pair for this BASENAME
+      break 
     elif [ -f "${PREFIX}_1${ext}" ] && [ -f "${PREFIX}_2${ext}" ]; then
       R1_FOUND="${PREFIX}_1${ext}"
       R2_FOUND="${PREFIX}_2${ext}"
       log_with_timestamp "Found paired files: ${R1_FOUND} and ${R2_FOUND}"
       found_paired_files=true
-      break # Found a pair for this BASENAME
+      break
     fi
   done
-  if [ -z "$R1_FOUND" ] && [[ "$FILE" == *"_R1."* ]]; then # Only error if it was an _R1 file and no pair found
+  if [ -z "$R1_FOUND" ] && [[ "$FILE" == *"_R1."* ]]; then 
     log_with_timestamp "Error: Paired-end file _R2 for ${BASENAME} not found in the expected formats."
     # Decide if this is a fatal error
     # exit 1
@@ -288,7 +283,6 @@ done
 
 if ! $found_paired_files && [ -n "$(ls -A ${RAW_SEQ_DIR}/*_R1.* 2>/dev/null)" ]; then
     log_with_timestamp "Warning: No valid paired-end files were successfully identified in ${RAW_SEQ_DIR} despite _R1 files being present."
-    # Potentially exit if paired-end data is strictly required for some modes
 fi
 
 
@@ -298,7 +292,6 @@ if [ "$CONCENTRATION_TYPE" == "non-concentration" ]; then
 elif [ "$CONCENTRATION_TYPE" == "concentration" ]; then
   log_with_timestamp "[🔄] Running concentration specific steps..."
 else
-  # This case should have been caught by the initial check if CONCENTRATION_TYPE is mandatory
   log_with_timestamp "[❌] Error: Invalid concentration type: '$CONCENTRATION_TYPE'."
   exit 1
 fi
@@ -323,7 +316,6 @@ fi
 # Filter sequences (using the MIN_LENGTH variable)
 FILTERED_SEQS_DIR="${OUTPUT_DIR}/FilteredSeqs"
 mkdir -p "${FILTERED_SEQS_DIR}"
-# Before filtering, remove any existing Done file in the target output directory for filter_contigs.py
 
 log_with_timestamp "[🔄] Filtering sequences from ${INPUT_DIR} with min length ${MIN_LENGTH} to ${FILTERED_SEQS_DIR}..."
 # Pass MIN_LENGTH to the python script
@@ -340,13 +332,11 @@ log_with_timestamp "[✅] Sequence filtering completed."
 FILES=$(find "${FILTERED_SEQS_DIR}" -type f \( -name "*.fa" -o -name "*.fasta" \))
 if [ -z "$FILES" ]; then
     log_with_timestamp "[⚠️] Warning: No FASTA files found in ${FILTERED_SEQS_DIR} after filtering."
-    # Decide if this is fatal. Some modules might expect input.
 fi
 
 
-# Export parameters as environment variables (ensure MIN_LENGTH is also exported if needed by modules)
 export INPUT_DIR OUTPUT_DIR DATABASE SAMPLETYPE REASSEMBLE ScriptDir RAW_SEQ_DIR THREADS MIN_LENGTH
-export Group FILES RawFILES CONCENTRATION_TYPE THREADS_PER_FILE # THREADS is already exported
+export Group FILES RawFILES CONCENTRATION_TYPE THREADS_PER_FILE
 
 # Execute each module in sequence, logging time and output
 MODULE_LOG_DIR="${OUTPUT_DIR}/Log"
@@ -373,9 +363,8 @@ run_module "Summary" "${MODULE_LOG_DIR}/Summary.log" "${ScriptDir}/summary_modul
 
 log_with_timestamp "[✅][✅][✅]All basic analysis completed successfully. vOTU file and summary files are available in ${OUTPUT_DIR}/Summary."
 
-sleep 1 # Pause briefly
+sleep 1
 
-# trap '[ -t 1 ] && tput cnorm' EXIT # This trap might be redundant or conflict with cleanup
 
 # Function to handle interactive prompt
 interactive_prompt() {
@@ -388,7 +377,6 @@ interactive_prompt() {
     exec > "$tty_device" 2>&1
   else
     log_with_timestamp "No terminal available for interactive prompt. Logging to file."
-    # Output for the prompt will go to the main log, input will be read from current stdin
   fi
 
   local choice=""
@@ -396,17 +384,14 @@ interactive_prompt() {
       if [ -c "$tty_device" ]; then
         read -r -p "[❗] Proceed with advanced analysis? (y/n) : " choice < "$tty_device"
       else
-        # If /dev/tty is not available, prompt to current stdout and read from current stdin
-        echo "[❗] Proceed with advanced analysis? (y/n) : " # This will go to log if no tty
-        read -r choice # Reads from original stdin (could be a pipe or file)
+        echo "[❗] Proceed with advanced analysis? (y/n) : " 
+        read -r choice
       fi
 
     case "$choice" in
       [Yy]* )
         echo "Starting advanced analysis..." # This goes to tty if available, else log
-        # Restore original stdout/stderr for the module runs
         exec 1>&3 2>&4 
-        # Close the saved descriptors
         exec 3>&- 4>&-
         run_module "DRAM" "${MODULE_LOG_DIR}/DRAM.log" "${ScriptDir}/run_dram_analysis.sh ${OUTPUT_DIR}/Summary/vOTU/vOTU.fasta ${OUTPUT_DIR}/Summary/DRAMRes"
         run_module "iPhop" "${MODULE_LOG_DIR}/iPhop.log" "${ScriptDir}/run_iphop_analysis.sh ${OUTPUT_DIR}/Summary/vOTU/vOTU.fasta ${OUTPUT_DIR}/Summary/iPhopRes"
@@ -425,7 +410,6 @@ interactive_prompt() {
   # Ensure original stdout/stderr are restored if loop was broken without running modules
   exec 1>&3 2>&4 
   exec 3>&- 4>&-
-  # Logging continues as per global exec redirection set earlier
 }
 
 
@@ -434,7 +418,6 @@ if [ -t 0 ] && [ -z "$SLURM_JOB_ID" ] && [ -z "$PBS_JOBID" ] && [ -z "$LSB_JOBID
   interactive_prompt
 else
   log_with_timestamp "Non-interactive environment detected (stdin not a TTY or in SLURM/PBS/LSF job). Executing advanced analysis automatically."
-  # No need to redirect output here as global exec is still in effect
   run_module "DRAM" "${MODULE_LOG_DIR}/DRAM.log" "${ScriptDir}/run_dram_analysis.sh ${OUTPUT_DIR}/Summary/vOTU/vOTU.fasta ${OUTPUT_DIR}/Summary/DRAMRes"
   run_module "iPhop" "${MODULE_LOG_DIR}/iPhop.log" "${ScriptDir}/run_iphop_analysis.sh ${OUTPUT_DIR}/Summary/vOTU/vOTU.fasta ${OUTPUT_DIR}/Summary/iPhopRes"
 
@@ -445,7 +428,7 @@ fi
 end_time=$(date +%s)
 total_runtime=$((end_time - start_time))
 log_with_timestamp "Total runtime: ${total_runtime} seconds"
-echo "Total runtime: ${total_runtime} seconds." # Also to stdout
+echo "Total runtime: ${total_runtime} seconds."
 
 # Final explicit cursor restoration, just in case
 [ -t 1 ] && tput cnorm
