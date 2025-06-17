@@ -130,7 +130,7 @@ ViOTUcluster comes with an **all-in-one setup script** that pulls three pre-pack
 
    **Note:** The setup process involves downloading approximately **30 GB** of database files, so the installation time depends heavily on your **network speed**. A stable, high-speed internet connection is recommended to prevent installation failures.
 
-5. **Set Up DRAM and iPhop Environments**
+5. **Set Up DRAM and iPhop Environments（Optional for advanced analysis）**
 
    #### Install DRAM Database
 
@@ -207,13 +207,13 @@ To run the pipeline, use the following command structure:
 1. **Create and activate the vRhyme environment**
 
     ```bash
-    ViOTUcluster -i <input_path_to_contigs> -r <input_path_raw_seqs> -o <output_path> -d <database_path> -n <threads> --non-con/--con [--reassemble]
+    ViOTUcluster -i <input_path_to_contigs> -r <input_path_raw_seqs> -o <output_path> -d <database_path> -n <threads> -m <min-sequence length> --non-con/--con [--reassemble]
     ```
 
 2. **Start with raw fastq files**
 
     ```bash
-    ViOTUcluster_AllinOne -r <input_path_raw_seqs> -o <output_path> -d <database_path> -a <assembly_software> -n <threads> --non-con/--con [--reassemble]
+    ViOTUcluster_AllinOne -r <input_path_raw_seqs> -o <output_path> -d <database_path> -a <assembly_software> -n <threads> -m <min-sequence length> --non-con/--con [--reassemble]
     ```
 
 A mini test file is available for download at  [MiniTest.zip](https://zenodo.org/records/14287325/files/MiniTest.zip?download=1). You can use this file in All-in-One mode to verify that the pipeline is successfully installed and functioning.
@@ -227,6 +227,8 @@ A mini test file is available for download at  [MiniTest.zip](https://zenodo.org
 - **`-o <output_path>`**: Defines the output directory for storing the processed results. This will include filtered sequences, prediction outcomes, binning results, and the final dereplicated viral contigs.
 
 - **`-d <database_path>`**: Points to the required database for performing viral prediction, binning, and dereplication steps.
+
+- **`-m, --min-length <length>`**: Specify the minimum length(bp) for sequence in the final vOTU file (default: 2500).
 
 - **`--non-con/--con`**: Specifies the viral prediction criteria based on the sample preparation method. Use `--non-con` for samples that were not enriched using viral-particle concentration methods, typically containing a low viral proportion. Use `--con` for samples subjected to concentration methods, which are expected to have a medium to high viral proportion.
 
