@@ -314,8 +314,8 @@ fi
 ScriptDir="${CONDA_PREFIX}/bin" # Assuming filter_contigs.py and module scripts are here
 
 # Check if filter_contigs.py exists
-if [ ! -f "${ScriptDir}/ContigsPreprocess.py" ]; then
-    log_with_timestamp "Error: ContigsPreprocess.py not found in ${ScriptDir}"
+if [ ! -f "${ScriptDir}/filter_contigs.py" ]; then
+    log_with_timestamp "Error: filter_contigs.py not found in ${ScriptDir}"
     cleanup
 fi
 
@@ -327,7 +327,7 @@ mkdir -p "${FILTERED_SEQS_DIR}"
 
 log_with_timestamp "[🔄] Filtering sequences from ${INPUT_DIR} with min length ${MIN_LENGTH} to ${FILTERED_SEQS_DIR}..."
 # Pass MIN_LENGTH to the python script
-python "${ScriptDir}/ContigsPreprocess.py" 500 "${INPUT_DIR}" "${FILTERED_SEQS_DIR}"
+python "${ScriptDir}/filter_contigs.py" 500 "${INPUT_DIR}" "${FILTERED_SEQS_DIR}"
 filter_py_result=$?
 if [ $filter_py_result -ne 0 ]; then
     log_with_timestamp "[❌] Filter_contigs failed with exit code $filter_py_result."

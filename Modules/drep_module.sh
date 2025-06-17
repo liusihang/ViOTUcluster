@@ -44,7 +44,7 @@ else
     newDir="$OUTPUT_DIR/Summary/temp"
     rm -f "${newDir}/Done" # Ensure script runs even if Done file exists from previous run
     echo "[🔄] Filtering sequences shorter than ${MIN_LENGTH}bp"
-    python "${ScriptDir}/ContigsPreprocess.py" "${MIN_LENGTH}" "${newDir}/merged_sequences.fasta" "$newDir"
+    python "${ScriptDir}/filter_contigs.py" "${MIN_LENGTH}" "${newDir}/merged_sequences.fasta" "$newDir"
     echo "[✅] Filtering completed."
 
     echo "[🔄] Building BLAST database and running clustering..."
