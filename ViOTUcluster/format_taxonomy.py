@@ -3,71 +3,128 @@ import pandas as pd
 import sys
 import os
 
+LEVELS = ['Realm', 'Kingdom', 'Phylum', 'Class', 'Order', 'Family', 'Genus', 'Species']
+FILL_SUFFIX = '__unclassified'
+
+# 兼容别名到标准层级（小写比较）
+ALIASES = {
+    'realm': 'Realm',
+    'kingdom': 'Kingdom',
+    'phylum': 'Phylum',
+    'class': 'Class',
+    'order': 'Order',
+    'family': 'Family',
+    'genus': 'Genus',
+    'species': 'Species',
+    # 容错：一些数据库会把病毒顶层写成 domain/superkingdom
+    'domain': 'Realm',
+    'superkingdom': 'Realm',
+}
+
+def parse_lineage(lineage_str: str) -> dict:
+    """
+    将谱系字符串解析为 {level: name} 字典。
+    支持两种格式：
+    - 位置式: 以 ';' 分隔，依次对应 LEVELS
+    - 键值式: 'level=name' 或 'level:name'，level 大小写不敏感
+    """
+    result = {lvl: None for lvl in LEVELS}
+    if pd.isna(lineage_str):
+        return result
+
+    s = str(lineage_str).strip()
+    if not s:
+        return result
+
+    tokens = [t.strip() for t in s.split(';') if t.strip()]
+    is_kv = any(('=' in t) or (':' in t) for t in tokens)
+
+    if is_kv:
+        for t in tokens:
+            if '=' in t:
+                k, v = t.split('=', 1)
+            elif ':' in t:
+                k, v = t.split(':', 1)
+            else:
+                continue
+            k = k.strip().lower()
+            v = v.strip()
+            if not v:
+                continue
+            if k in ALIASES:
+                result[ALIASES[k]] = v
+    else:
+        # 位置式：按 LEVELS 顺序填入
+        for i, lvl in enumerate(LEVELS):
+            if i < len(tokens):
+                val = tokens[i].strip()
+                result[lvl] = val if val else None
+
+    return result
+
+def fill_row_hierarchy(row: pd.Series) -> pd.Series:
+    """
+    按规则填补缺失层级。
+    """
+    # Realm 顶层
+    if pd.isna(row['Realm']) or row['Realm'] == '':
+        row['Realm'] = 'unclassified'
+
+    # Kingdom..Family：用上一层 + __unclassified
+    for i in range(1, LEVELS.index('Family') + 1):
+        cur = LEVELS[i]
+        prev = LEVELS[i - 1]
+        if pd.isna(row[cur]) or row[cur] == '':
+            base = row[prev] if pd.notna(row[prev]) and row[prev] != '' else 'unclassified'
+            row[cur] = f"{base}{FILL_SUFFIX}"
+
+    # Genus
+    if pd.isna(row['Genus']) or row['Genus'] == '':
+        family = row['Family'] if pd.notna(row['Family']) and row['Family'] != '' else 'unclassified'
+        row['Genus'] = f"{family}{FILL_SUFFIX}"
+
+    # Species
+    if pd.isna(row['Species']) or row['Species'] == '':
+        genus = row['Genus'] if pd.notna(row['Genus']) and row['Genus'] != '' else None
+        family = row['Family'] if pd.notna(row['Family']) and row['Family'] != '' else 'unclassified'
+        if genus:
+            row['Species'] = f"{genus}{FILL_SUFFIX}"
+        else:
+            row['Species'] = f"{family}{FILL_SUFFIX}"
+
+    return row
+
 def format_taxonomy(input_csv, output_file):
     """
-    Format taxonomy data by splitting lineage into hierarchical levels and handling missing values.
-
-    Main modifications:
-    1. Remove the 'lineage' column from the output file.
-    2. For missing taxonomy levels, fill them using the format of the previous level + "__unclassified".
-       - From Domain to Family levels: If missing, fill with the previous level + "__unclassified".
-       - For Genus and Species levels:
-         * If Genus is missing, fill with Family + "__unclassified". If Species is also missing, fill with Family + "__unclassified".
-         * If Genus exists but Species is missing, fill with Genus + "__unclassified".
-       
-    Parameters:
-    - input_csv (str): Path to the input CSV file.
-    - output_file (str): Path to save the formatted CSV file.
+    读取包含 seq_name 与 lineage 的表（输入使用制表符分隔），
+    拆分并标准化为 Realm→Species 八列；去掉原 lineage 列；导出为 TSV。
     """
     df = pd.read_csv(input_csv, sep='\t')
 
-    # Select the 'seq_name' and 'lineage' columns
-    df_phyloseq = df[['seq_name', 'lineage']].copy()
+    if 'seq_name' not in df.columns or 'lineage' not in df.columns:
+        raise ValueError("Input file must contain 'seq_name' and 'lineage' columns.")
 
-    # Define taxonomy levels from Domain to Species
-    taxonomy_levels = ['Domain', 'Phylum', 'Class', 'Order', 'Family', 'Genus', 'Species']
-    df_phyloseq[taxonomy_levels] = df_phyloseq['lineage'].str.split(';', expand=True)
+    # 逐行解析 lineage
+    parsed = df['lineage'].apply(parse_lineage)
+    tax_df = pd.DataFrame(list(parsed.values), columns=LEVELS)
 
-    # Fill missing values for Domain to Family levels (index 1 to 4)
-    for idx, row in df_phyloseq.iterrows():
-        for i in range(1, len(taxonomy_levels) - 2):  # i = 1 to 4, for Phylum, Class, Order, Family
-            current_level = taxonomy_levels[i]
-            previous_level = taxonomy_levels[i - 1]
-            if pd.isna(row[current_level]) or row[current_level] == "":
-                df_phyloseq.at[idx, current_level] = row[previous_level] + '__unclassified'
-        
-        # Special handling for Genus and Species to ensure consistent filling
-        family = df_phyloseq.at[idx, 'Family']
-        genus = row['Genus']
-        species = row['Species']
-        
-        if pd.isna(genus) or genus == "":
-            # If Genus is missing, fill with Family + '__unclassified'
-            df_phyloseq.at[idx, 'Genus'] = family + '__unclassified'
-            # If Species is also missing, fill with Family + '__unclassified'
-            if pd.isna(species) or species == "":
-                df_phyloseq.at[idx, 'Species'] = family + '__unclassified'
-        else:
-            # If Genus exists but Species is missing, fill with Genus + '__unclassified'
-            if pd.isna(species) or species == "":
-                df_phyloseq.at[idx, 'Species'] = df_phyloseq.at[idx, 'Genus'] + '__unclassified'
+    # 合并并按规则补全
+    out = pd.concat([df[['seq_name']].reset_index(drop=True), tax_df], axis=1)
+    out = out.apply(fill_row_hierarchy, axis=1)
 
-    # Remove the unnecessary 'lineage' column
-    df_phyloseq.drop(columns=['lineage'], inplace=True)
-    
-    # Rename 'seq_name' to 'OTU'
-    df_phyloseq = df_phyloseq.rename(columns={'seq_name': 'OTU'})
+    # 重命名并删除 lineage
+    out = out.rename(columns={'seq_name': 'OTU'})
+    # 如果你还需要保留其他原始列（除了 lineage），可以把它们拼回去：
+    other_cols = [c for c in df.columns if c not in ('seq_name', 'lineage')]
+    if other_cols:
+        out = pd.concat([out, df[other_cols].reset_index(drop=True)], axis=1)
 
-    # Save the formatted DataFrame to a CSV file
-    df_phyloseq.to_csv(output_file, index=False)
+    # 导出为 TSV（与输入保持一致）
+    out.to_csv(output_file, index=False, sep='\t')
     print(f"File saved as: {output_file}")
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
-        print("Usage: python script_name.py <input_csv_file> <output_file>")
+        print("Usage: python script_name.py <input_tsv_file> <output_tsv_file>")
         sys.exit(1)
-
-    input_csv_file = sys.argv[1]
-    output_file = sys.argv[2]
-
-    format_taxonomy(input_csv_file, output_file)
+    format_taxonomy(sys.argv[1], sys.argv[2])

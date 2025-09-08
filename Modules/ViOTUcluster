@@ -97,7 +97,7 @@ while [[ $# -gt 0 ]]; do
     echo "  -o <output_path>            Specify the output directory for the results."
     echo "  -d <database_path>          Specify the path to the database required for analysis."
     echo "  -n <threads>                Specify the number of threads to use (default: Use max available cores)."
-    echo "  -m, --min-length <length>   Specify the minimum length for sequence filtering (default: 500)."
+    echo "  -m, --min-length <length>   Specify the minimum length for sequence filtering (default: 2500)."
     echo "  --non-con                   Specify non-concentration processing."
     echo "  --con                       Specify concentration processing."
     echo "  --reassemble                Enable reassembly of bins."
@@ -414,7 +414,7 @@ interactive_prompt() {
 
 
 # Detect environment for advanced analysis prompt
-if [ -t 0 ] && [ -z "$SLURM_JOB_ID" ] && [ -z "$PBS_JOBID" ] && [ -z "$LSB_JOBID" ]; then # Added LSB_JOBID for LSF
+if [ -t 0 ] && [ -z "$SLURM_JOB_ID" ] && [ -z "$PBS_JOBID" ] && [ -z "$LSB_JOBID" ]; then
   interactive_prompt
 else
   log_with_timestamp "Non-interactive environment detected (stdin not a TTY or in SLURM/PBS/LSF job). Executing advanced analysis automatically."
