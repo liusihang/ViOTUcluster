@@ -16,7 +16,6 @@ ALIASES = {
     'family': 'Family',
     'genus': 'Genus',
     'species': 'Species',
-    # 容错：一些数据库会把病毒顶层写成 domain/superkingdom
     'domain': 'Realm',
     'superkingdom': 'Realm',
 }
@@ -113,8 +112,7 @@ def format_taxonomy(input_csv, output_file):
     out = out.apply(fill_row_hierarchy, axis=1)
 
     # 重命名并删除 lineage
-    out = out.rename(columns={'seq_name': 'OTU'})
-    # 如果你还需要保留其他原始列（除了 lineage），可以把它们拼回去：
+    out = out.rename(columns={'seq_name': 'OTU'})：
     other_cols = [c for c in df.columns if c not in ('seq_name', 'lineage')]
     if other_cols:
         out = pd.concat([out, df[other_cols].reset_index(drop=True)], axis=1)
