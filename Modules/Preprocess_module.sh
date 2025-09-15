@@ -12,6 +12,7 @@ INPUT_DIR=$1
 ASSEMBLY_SOFTWARE=$2
 OUTPUT_DIR=$3
 THREADS=$4
+Jobs=$5
 
 # Validate assembly software option
 if [[ "$ASSEMBLY_SOFTWARE" != "megahit" && "$ASSEMBLY_SOFTWARE" != "metaspades" ]]; then
@@ -30,6 +31,6 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-python "${ScriptDir}/ContigsPreprocess.py" -i ${INPUT_DIR} -o ${OUTPUT_DIR} -c ${THREADS} -a ${ASSEMBLY_SOFTWARE}
+python "${ScriptDir}/ContigsPreprocess.py" -i ${INPUT_DIR} -o ${OUTPUT_DIR} -c ${THREADS} -a ${ASSEMBLY_SOFTWARE} --asm_concurrency ${Jobs}
 
 echo "Processing completed. Contigs are saved in $CONTIGS_DIR."

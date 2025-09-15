@@ -9,7 +9,7 @@ BASE_CONDA_PREFIX=$(conda info --base)
 conda_sh="$BASE_CONDA_PREFIX/etc/profile.d/conda.sh"
 
 # Export necessary variables and functions
-export OUTPUT_DIR DATABASE Group CONCENTRATION_TYPE THREADS_PER_FILE FILES
+export OUTPUT_DIR DATABASE Group CONCENTRATION_TYPE THREADS_PER_FILE FILES MAX_PredictionTASKS
 
 # Run main viral prediction script
 echo "[🔄] Starting viral prediction pipeline..."
