@@ -73,9 +73,9 @@ while [[ $# -gt 0 ]]; do
       echo "  -d <database_path>                 Database path."
       echo "  -n <threads>                       Threads per heavy task (default: nproc if 0)."
       echo "  -m, --min-length <length>          Minimum contig length for filtering (default: 2500)."
-      echo "  -P, --max-prediction-tasks <N>     Global concurrency for prediction stage (default: auto ~= nproc/2)."
-      echo "  -T, --tpm-tasks <N>                Parallel samples for BAM/TPM (default: auto ~= nproc/2)."
-      echo "  -A, --assemble-jobs <N>            Parallel samples for assembly (default: auto ~= nproc/2)."
+      echo "  -P, --max-prediction-tasks <N>     Global concurrency for prediction stage (default: auto = 30)."
+      echo "  -T, --tpm-tasks <N>                Parallel samples for BAM/TPM (default: auto = 15)."
+      echo "  -A, --assemble-jobs <N>            Parallel samples for assembly (default: auto = 10)."
       echo "  --non-con | --con                  Processing mode."
       echo "  --reassemble                       Enable reassembly of bins."
       echo "  -v                                  Show version."
@@ -126,11 +126,14 @@ fi
 is_pos_int () { [[ "$1" =~ ^[0-9]+$ ]] && [ "$1" -ge 1 ]; }
 
 # ---------- Defaults for new knobs ----------
-NPROC=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 1)
-# Auto rules：若未给定或给 0，则取 max(1, nproc/2)
-if ! is_pos_int "$MAX_PredictionTASKS"; then MAX_PredictionTASKS=$(( NPROC/2 )); [ "$MAX_PredictionTASKS" -lt 1 ] && MAX_PredictionTASKS=1; fi
-if ! is_pos_int "$TPM_tasks"; then TPM_tasks=$(( NPROC/2 )); [ "$TPM_tasks" -lt 1 ] && TPM_tasks=1; fi
-if ! is_pos_int "$Assemble_jobs"; then Assemble_jobs=$(( NPROC/2 )); [ "$Assemble_jobs" -lt 1 ] && Assemble_jobs=1; fi
+if ! is_pos_int "$MAX_PredictionTASKS"; then MAX_PredictionTASKS=30; fi
+(( MAX_PredictionTASKS < 1 )) && MAX_PredictionTASKS=1
+
+if ! is_pos_int "$TPM_tasks"; then TPM_tasks=15; fi
+(( TPM_tasks < 1 )) && TPM_tasks=1
+
+if ! is_pos_int "$Assemble_jobs"; then Assemble_jobs=10; fi
+(( Assemble_jobs < 1 )) && Assemble_jobs=1
 
 # ---------- Threads per file ----------
 if [ "$THREADS" -eq 0 ]; then
@@ -140,12 +143,14 @@ else
 fi
 
 # ---------- Discovery of paired reads ----------
+shopt -s nullglob
+
 found_paired_files=false
-for FILE in "${RAW_SEQ_DIR}"/*_R1.* 2>/dev/null; do
-  [ -e "$FILE" ] || break
+for FILE in "${RAW_SEQ_DIR}"/*_R1.*; do
   BASENAME=$(basename "$FILE" | sed 's/_R1\..*//')
   PREFIX="${RAW_SEQ_DIR}/${BASENAME}"
   R1_FOUND=""; R2_FOUND=""
+
   for ext in ".fq" ".fastq" ".fq.gz" ".fastq.gz"; do
     if [ -f "${PREFIX}_R1${ext}" ] && [ -f "${PREFIX}_R2${ext}" ]; then
       R1_FOUND="${PREFIX}_R1${ext}"; R2_FOUND="${PREFIX}_R2${ext}"
@@ -157,15 +162,19 @@ for FILE in "${RAW_SEQ_DIR}"/*_R1.* 2>/dev/null; do
       found_paired_files=true; break
     fi
   done
-  if [ -z "$R1_FOUND" ] && [[ "$FILE" == *"_R1."* ]]; then
-    log_with_timestamp "Error: Paired-end file _R2 for ${BASENAME} not found in expected formats."
+
+  if [ -z "$R1_FOUND" ]; then
+    log_with_timestamp "Error: Paired-end file for ${BASENAME} not found in expected formats."
   fi
 done
-if ! $found_paired_files && ls -A "${RAW_SEQ_DIR}"/*_R1.* >/dev/null 2>&1; then
+
+shopt -u nullglob
+
+if ! $found_paired_files && compgen -G "${RAW_SEQ_DIR}/*_R1.*" >/dev/null; then
   log_with_timestamp "Warning: No valid paired-end files were successfully identified in ${RAW_SEQ_DIR} despite _R1 files being present."
 fi
 
-# ---------- Mode check ----------
+# ---------- check ----------
 if [ "$CONCENTRATION_TYPE" == "non-concentration" ]; then
   log_with_timestamp "[🔄] Running non-concentration specific steps..."
 elif [ "$CONCENTRATION_TYPE" == "concentration" ]; then

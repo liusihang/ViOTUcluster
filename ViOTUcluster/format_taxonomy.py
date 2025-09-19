@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
 import pandas as pd
 import sys
-import os
 
 LEVELS = ['Realm', 'Kingdom', 'Phylum', 'Class', 'Order', 'Family', 'Genus', 'Species']
 FILL_SUFFIX = '__unclassified'
 
-# 兼容别名到标准层级（小写比较）
 ALIASES = {
     'realm': 'Realm',
     'kingdom': 'Kingdom',
@@ -23,9 +21,6 @@ ALIASES = {
 def parse_lineage(lineage_str: str) -> dict:
     """
     将谱系字符串解析为 {level: name} 字典。
-    支持两种格式：
-    - 位置式: 以 ';' 分隔，依次对应 LEVELS
-    - 键值式: 'level=name' 或 'level:name'，level 大小写不敏感
     """
     result = {lvl: None for lvl in LEVELS}
     if pd.isna(lineage_str):
@@ -53,7 +48,6 @@ def parse_lineage(lineage_str: str) -> dict:
             if k in ALIASES:
                 result[ALIASES[k]] = v
     else:
-        # 位置式：按 LEVELS 顺序填入
         for i, lvl in enumerate(LEVELS):
             if i < len(tokens):
                 val = tokens[i].strip()
@@ -63,13 +57,15 @@ def parse_lineage(lineage_str: str) -> dict:
 
 def fill_row_hierarchy(row: pd.Series) -> pd.Series:
     """
-    按规则填补缺失层级。
+    缺失填补规则：
+    - Realm 缺失→ 'unclassified'
+    - Kingdom..Family：用上一层 + '__unclassified'
+    - Genus 缺失→ Family + '__unclassified'
+    - Species 缺失→ 若 Genus 有值，用 Genus + '__unclassified'，否则用 Family + '__unclassified'
     """
-    # Realm 顶层
     if pd.isna(row['Realm']) or row['Realm'] == '':
         row['Realm'] = 'unclassified'
 
-    # Kingdom..Family：用上一层 + __unclassified
     for i in range(1, LEVELS.index('Family') + 1):
         cur = LEVELS[i]
         prev = LEVELS[i - 1]
@@ -77,47 +73,37 @@ def fill_row_hierarchy(row: pd.Series) -> pd.Series:
             base = row[prev] if pd.notna(row[prev]) and row[prev] != '' else 'unclassified'
             row[cur] = f"{base}{FILL_SUFFIX}"
 
-    # Genus
     if pd.isna(row['Genus']) or row['Genus'] == '':
         family = row['Family'] if pd.notna(row['Family']) and row['Family'] != '' else 'unclassified'
         row['Genus'] = f"{family}{FILL_SUFFIX}"
 
-    # Species
     if pd.isna(row['Species']) or row['Species'] == '':
         genus = row['Genus'] if pd.notna(row['Genus']) and row['Genus'] != '' else None
         family = row['Family'] if pd.notna(row['Family']) and row['Family'] != '' else 'unclassified'
-        if genus:
-            row['Species'] = f"{genus}{FILL_SUFFIX}"
-        else:
-            row['Species'] = f"{family}{FILL_SUFFIX}"
+        row['Species'] = f"{genus}{FILL_SUFFIX}" if genus else f"{family}{FILL_SUFFIX}"
 
     return row
 
 def format_taxonomy(input_csv, output_file):
     """
-    读取包含 seq_name 与 lineage 的表（输入使用制表符分隔），
-    拆分并标准化为 Realm→Species 八列；去掉原 lineage 列；导出为 TSV。
+    输入：含 `seq_name` 与 `lineage` 的 TSV。
+    输出：仅包含 9 列（OTU + 8 层级）的 TSV：
+        OTU, Realm, Kingdom, Phylum, Class, Order, Family, Genus, Species。
     """
     df = pd.read_csv(input_csv, sep='\t')
 
     if 'seq_name' not in df.columns or 'lineage' not in df.columns:
         raise ValueError("Input file must contain 'seq_name' and 'lineage' columns.")
 
-    # 逐行解析 lineage
     parsed = df['lineage'].apply(parse_lineage)
     tax_df = pd.DataFrame(list(parsed.values), columns=LEVELS)
 
-    # 合并并按规则补全
     out = pd.concat([df[['seq_name']].reset_index(drop=True), tax_df], axis=1)
     out = out.apply(fill_row_hierarchy, axis=1)
 
-    # 重命名并删除 lineage
-    out = out.rename(columns={'seq_name': 'OTU'})：
-    other_cols = [c for c in df.columns if c not in ('seq_name', 'lineage')]
-    if other_cols:
-        out = pd.concat([out, df[other_cols].reset_index(drop=True)], axis=1)
+    out = out.rename(columns={'seq_name': 'OTU'})
+    out = out[['OTU'] + LEVELS]  # 强制只保留 9 列
 
-    # 导出为 TSV（与输入保持一致）
     out.to_csv(output_file, index=False, sep='\t')
     print(f"File saved as: {output_file}")
 

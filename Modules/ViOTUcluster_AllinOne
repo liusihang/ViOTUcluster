@@ -158,11 +158,16 @@ if ! [[ "$MIN_LENGTH" =~ ^[0-9]+$ ]]; then
   log_with_timestamp "Error: MIN_LENGTH must be a non-negative integer. Given: '$MIN_LENGTH'"; exit 1
 fi
 
-# Concurrency defaults (auto ~ nproc/2 if not set or invalid)
-NPROC=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 1)
-if ! is_pos_int "$MAX_PredictionTASKS"; then MAX_PredictionTASKS=$(( NPROC/2 )); [ "$MAX_PredictionTASKS" -lt 1 ] && MAX_PredictionTASKS=1; fi
-if ! is_pos_int "$TPM_tasks"; then TPM_tasks=$(( NPROC/2 )); [ "$TPM_tasks" -lt 1 ] && TPM_tasks=1; fi
-if ! is_pos_int "$Assemble_jobs"; then Assemble_jobs=$(( NPROC/2 )); [ "$Assemble_jobs" -lt 1 ] && Assemble_jobs=1; fi
+
+# ---------- Defaults for new knobs ----------
+if ! is_pos_int "$MAX_PredictionTASKS"; then MAX_PredictionTASKS=30; fi
+(( MAX_PredictionTASKS < 1 )) && MAX_PredictionTASKS=1
+
+if ! is_pos_int "$TPM_tasks"; then TPM_tasks=15; fi
+(( TPM_tasks < 1 )) && TPM_tasks=1
+
+if ! is_pos_int "$Assemble_jobs"; then Assemble_jobs=10; fi
+(( Assemble_jobs < 1 )) && Assemble_jobs=1
 
 log_with_timestamp "[⚙] Concurrency — Prediction: $MAX_PredictionTASKS, TPM: $TPM_tasks, Assembly: $Assemble_jobs"
 
@@ -273,7 +278,7 @@ mkdir -p "${MODULE_LOG_BASE_DIR}"
 
 run_module "Raw Sequences Preprocessing & Assembly" \
            "${MODULE_LOG_BASE_DIR}/Preprocess_Assembly.log" \
-           "${ScriptDir}/Preprocess_module.sh '${RAW_SEQ_DIR}' '${ASSEMBLY_SOFTWARE}' '${OUTPUT_DIR}' '${THREADS}'"
+           "${ScriptDir}/Preprocess_module.sh '${RAW_SEQ_DIR}' '${ASSEMBLY_SOFTWARE}' '${OUTPUT_DIR}' '${THREADS}' '${Assemble_jobs}'"
 
 # Path setup based on Preprocess_module.sh output
 CONTIGS_DIR="${OUTPUT_DIR}/Contigs"

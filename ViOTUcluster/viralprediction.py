@@ -10,27 +10,26 @@ import time
 import glob
 import signal
 
-# ===== 1) 环境变量检查 =====
+# ===== 1) Check =====
 required_env_vars = ['OUTPUT_DIR', 'DATABASE', 'Group', 'CONCENTRATION_TYPE', 'THREADS']
 for var in required_env_vars:
     if var not in os.environ:
         print(f"Environment variable {var} is not set.")
         sys.exit(1)
 
-# ===== 2) 读取环境变量 =====
+# ===== 2) Read Envs =====
 OUTPUT_DIR = os.environ['OUTPUT_DIR']
 DATABASE = os.environ['DATABASE']
 Group = os.environ['Group']
 CONCENTRATION_TYPE = os.environ['CONCENTRATION_TYPE']
 THREADS = int(os.environ['THREADS'])  
 
-# 全局并发上限：新增 MAX_TASKS（可选），默认 = CPU 核心数的一半
-try:
+# 全局并发上限
     MAX_TASKS = int(os.environ.get('MAX_TASKS', max(1, multiprocessing.cpu_count() // 2)))
 except ValueError:
     MAX_TASKS = max(1, multiprocessing.cpu_count() // 2)
 
-# 全局并发闸：任何外部命令启动都要先拿到令牌
+# 全局并发闸
 _TASK_SEM = threading.BoundedSemaphore(value=max(1, MAX_TASKS))
 
 # ===== 3) File list =====
