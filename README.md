@@ -25,7 +25,7 @@ Demo for using ViOTUcluster
 
 _Recorded with [asciinema](https://docs.asciinema.org)_ 
 
-
+#
 
 1. [Prerequisites](#prerequisites)
 2. [Installation](#installation)
@@ -35,6 +35,10 @@ _Recorded with [asciinema](https://docs.asciinema.org)_
 6. [Contact](#contact)
 
 ______
+## Important updates
+
+- Version 0.5.5: Added three concurrency controls options,`--max-prediction-tasks (-P)`, `--tpm-tasks (-T)`, `--assemble-jobs (-A)`, which could help to limit the over memory usage.
+
 ## Prerequisites
 
 Before installing ViOTUcluster, ensure the following tools are available on your system:
@@ -207,13 +211,13 @@ To run the pipeline, use the following command structure:
 1. **Create and activate the vRhyme environment**
 
     ```bash
-    ViOTUcluster -i <input_path_to_contigs> -r <input_path_raw_seqs> -o <output_path> -d <database_path> -n <threads> -m <min-sequence length> --non-con/--con [--reassemble]
+    ViOTUcluster -i <input_path_to_contigs> -r <input_path_raw_seqs> -o <output_path> -d <database_path> -n <threads> -m <min-sequence length> --non-con/--con [--reassemble] [--max-prediction-tasks <N>] [--tpm-tasks <N>] [--assemble-jobs <N>]
     ```
 
 2. **Start with raw fastq files**
 
     ```bash
-    ViOTUcluster_AllinOne -r <input_path_raw_seqs> -o <output_path> -d <database_path> -a <assembly_software> -n <threads> -m <min-sequence length> --non-con/--con [--reassemble]
+    ViOTUcluster_AllinOne -r <input_path_raw_seqs> -o <output_path> -d <database_path> -a <assembly_software> -n <threads> -m <min-sequence length> --non-con/--con [--reassemble] [--max-prediction-tasks <N>] [--tpm-tasks <N>] [--assemble-jobs <N>]
     ```
 
 A mini test file is available for download at  [MiniTest.zip](https://zenodo.org/records/14287325/files/MiniTest.zip?download=1). You can use this file in All-in-One mode to verify that the pipeline is successfully installed and functioning.
@@ -235,6 +239,12 @@ A mini test file is available for download at  [MiniTest.zip](https://zenodo.org
 - **`--reassemble`**: (Optional) Enables reassembly of bins after the initial binning process to enhance the accuracy and quality of the final contigs. This feature is still in beta and can significantly increase runtime.
 
 - **`-a <assembly_software>`**: (For `ViOTUcluster_AllinOne` only) Specifies the assembly software used during the raw sequence processing. Accepted values are `-a megahit` or `-a metaspades`.
+
+- **`--max-prediction-tasks, -P <N>`**: Cap total concurrent prediction jobs (e.g., viralverify/virsorter2/genomad), default 30.
+
+- **`--tpm-tasks, -T <N>`**: Cap concurrent BAM/TPM processing samples, default 15.
+
+- **`--assemble-jobs, -A <N>`**: Cap concurrent assembly samples, default 10.
 
 ### File Structure Example
 
