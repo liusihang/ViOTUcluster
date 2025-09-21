@@ -21,7 +21,7 @@ except Exception as e:
 
 setup(
     name="ViOTUcluster",
-    version="0.5.4",
+    version="0.5.5",
     packages=find_packages(),
     include_package_data=True,
     # 将两个目录下的脚本合并在一起
