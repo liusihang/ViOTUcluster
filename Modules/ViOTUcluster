@@ -10,17 +10,21 @@ OUTPUT_DIR=""
 DATABASE=""
 SAMPLETYPE=""
 REASSEMBLE=false
-VERSION="0.5.4"
+VERSION="0.5.5"
 CONCENTRATION_TYPE=""
 THREADS="0"
 LOG_FILE=""
 MIN_LENGTH="2500" # Default minimum length for sequence filtering
 
+# New concurrency knobs (CLI) — empty means "auto"
+MAX_PredictionTASKS=""
+TPM_tasks=""
+Assemble_jobs=""
+
 # Capture SIGINT (Ctrl+C) and SIGTERM signals only in the parent process
 trap 'cleanup' SIGINT SIGTERM
 
 cleanup_flag=false
-
 cleanup() {
   if [ "$cleanup_flag" = true ]; then
     return
@@ -36,7 +40,6 @@ cleanup() {
 
 # Function to add a timestamp to log entries
 log_with_timestamp() {
-  # Check if LOG_FILE is set and writable, otherwise echo to stderr
   if [ -n "$LOG_FILE" ] && [ -w "$(dirname "$LOG_FILE")" ]; then
     echo "$1" >> "$LOG_FILE"
   else
@@ -44,249 +47,134 @@ log_with_timestamp() {
   fi
 }
 
-# Use getopts to handle short options and manually handle long options
+# ---------- Parse CLI ----------
 while [[ $# -gt 0 ]]; do
   case $1 in
-  -i)
-    INPUT_DIR=$2
-    shift 2
-    ;;
-  -r)
-    RAW_SEQ_DIR=$2
-    shift 2
-    ;;
-  -o)
-    OUTPUT_DIR=$2
-    LOG_FILE="${OUTPUT_DIR}/pipeline.log" # Set LOG_FILE as soon as OUTPUT_DIR is known
-    shift 2
-    ;;
-  -d)
-    DATABASE=$2
-    shift 2
-    ;;
-  -n)
-    THREADS=$2
-    shift 2
-    ;;
-  -m|--min-length) # Added min-length option
-    MIN_LENGTH=$2
-    shift 2
-    ;;
-  -v)
-    echo "Version: $VERSION"
-    exit 0
-    ;;
-  --non-con)
-    CONCENTRATION_TYPE="non-concentration"
-    shift
-    ;;
-  --con)
-    CONCENTRATION_TYPE="concentration"
-    shift
-    ;;
-  --reassemble)
-    REASSEMBLE=true
-    shift
-    ;;
-  -h)
-    echo "Usage: $0 [options]"
-    echo ""
-    echo "Options:"
-    echo "  -i <input_path_to_search>   Specify the input directory to search for FASTA files."
-    echo "  -r <input_path_raw_seqs>    Specify the input directory to search for raw seqs files."
-    echo "  -o <output_path>            Specify the output directory for the results."
-    echo "  -d <database_path>          Specify the path to the database required for analysis."
-    echo "  -n <threads>                Specify the number of threads to use (default: Use max available cores)."
-    echo "  -m, --min-length <length>   Specify the minimum length for sequence filtering (default: 2500)."
-    echo "  --non-con                   Specify non-concentration processing."
-    echo "  --con                       Specify concentration processing."
-    echo "  --reassemble                Enable reassembly of bins."
-    echo "  -v                          Display the version of this script."
-    echo "  -h                          Display this help and exit."
-    exit 0
-    ;;
-  *)
-    echo "Unknown option: $1" >&2
-    exit 1
-    ;;
+    -i) INPUT_DIR=$2; shift 2 ;;
+    -r) RAW_SEQ_DIR=$2; shift 2 ;;
+    -o) OUTPUT_DIR=$2; LOG_FILE="${OUTPUT_DIR}/pipeline.log"; shift 2 ;;
+    -d) DATABASE=$2; shift 2 ;;
+    -n) THREADS=$2; shift 2 ;;
+    -m|--min-length) MIN_LENGTH=$2; shift 2 ;;
+    -P|--max-prediction-tasks) MAX_PredictionTASKS=$2; shift 2 ;;
+    -T|--tpm-tasks) TPM_tasks=$2; shift 2 ;;
+    -A|--assemble-jobs) Assemble_jobs=$2; shift 2 ;;
+    -v) echo "Version: $VERSION"; exit 0 ;;
+    --non-con) CONCENTRATION_TYPE="non-concentration"; shift ;;
+    --con) CONCENTRATION_TYPE="concentration"; shift ;;
+    --reassemble) REASSEMBLE=true; shift ;;
+    -h)
+      echo "Usage: $0 [options]"
+      echo ""
+      echo "Options:"
+      echo "  -i <input_path_to_search>         Input directory to search for FASTA files."
+      echo "  -r <input_path_raw_seqs>          Input directory for raw paired reads."
+      echo "  -o <output_path>                   Output directory."
+      echo "  -d <database_path>                 Database path."
+      echo "  -n <threads>                       Threads per heavy task (default: nproc if 0)."
+      echo "  -m, --min-length <length>          Minimum contig length for filtering (default: 2500)."
+      echo "  -P, --max-prediction-tasks <N>     Global concurrency for prediction stage (default: auto = 30)."
+      echo "  -T, --tpm-tasks <N>                Parallel samples for BAM/TPM (default: auto = 15)."
+      echo "  -A, --assemble-jobs <N>            Parallel samples for assembly (default: auto = 10)."
+      echo "  --non-con | --con                  Processing mode."
+      echo "  --reassemble                       Enable reassembly of bins."
+      echo "  -v                                  Show version."
+      echo "  -h                                  Show help."
+      exit 0
+      ;;
+    *) echo "Unknown option: $1" >&2; exit 1 ;;
   esac
 done
 
 REASSEMBLE=false
 
-# Ensure output directory and log file are created
-if [ -z "$OUTPUT_DIR" ];then
+# ---------- Prepare logging ----------
+if [ -z "$OUTPUT_DIR" ]; then
   echo "Error: Output directory not specified" >&2
   exit 1
 fi
-
 mkdir -p "$OUTPUT_DIR"
-# Check if LOG_FILE can be created, if not, output to stderr and continue (or exit)
-if ! touch "$LOG_FILE"; then
+if ! touch "$LOG_FILE" 2>/dev/null; then
   echo "Warning: Could not create log file at ${LOG_FILE}. Logging to stderr." >&2
-  LOG_FILE="" # Unset LOG_FILE so log_with_timestamp uses stderr
+  LOG_FILE=""
 fi
-
-
-# Log the command to the log file (if LOG_FILE is writable)
 if [ -n "$LOG_FILE" ]; then
-    echo "Run ViOTUcluster as command: $0 $*" >> "$LOG_FILE" # Use $* to get original args
+  echo "Run ViOTUcluster as command: $0 $*" >> "$LOG_FILE"
 else
-    echo "Run ViOTUcluster as command: $0 $*" >&2
+  echo "Run ViOTUcluster as command: $0 $*" >&2
 fi
 
-
-# Redirect all output to the log file and terminal, with timestamps
-# Ensure LOG_FILE is valid before attempting to tee to it.
+# Timestamped tee if possible
 if [ -n "$LOG_FILE" ] && [ -w "$LOG_FILE" ]; then
-    exec > >(tee -a "$LOG_FILE" | while IFS= read -r line; do echo "$(date '+%Y-%m-%d %H:%M:%S') - $line"; done) 2>&1
+  exec > >(tee -a "$LOG_FILE" | while IFS= read -r line; do echo "$(date '+%Y-%m-%d %H:%M:%S') - $line"; done) 2>&1
 else
-    # Fallback if LOG_FILE is not usable
-    exec > >(while IFS= read -r line; do echo "$(date '+%Y-%m-%d %H:%M:%S') - $line"; done) 2>&1
-    log_with_timestamp "Warning: Logging to log file failed. Outputting to standard streams only."
+  exec > >(while IFS= read -r line; do echo "$(date '+%Y-%m-%d %H:%M:%S') - $line"; done) 2>&1
+  log_with_timestamp "Warning: Logging to log file failed. Outputting to standard streams only."
 fi
 
-
-# Check if necessary inputs are provided
-if [ -z "$INPUT_DIR" ] || [ -z "$RAW_SEQ_DIR" ] || [ -z "$OUTPUT_DIR" ] || [ -z "$DATABASE" ] ||  [ -z "$CONCENTRATION_TYPE" ]; then
-  log_with_timestamp "Usage: $0 -i <input_path_to_search> -r <input_path_raw_seqs> -o <output_path> -d <database_path> -n <threads> [-m <min_length>] --non-con/--con [--reassemble]"
+# ---------- Validate required inputs ----------
+if [ -z "$INPUT_DIR" ] || [ -z "$RAW_SEQ_DIR" ] || [ -z "$OUTPUT_DIR" ] || [ -z "$DATABASE" ] || [ -z "$CONCENTRATION_TYPE" ]; then
+  log_with_timestamp "Usage: $0 -i <input> -r <raw> -o <out> -d <db> -n <threads> [-m <min_len>] --non-con/--con [--reassemble] [-P N] [-T N] [-A N]"
   exit 1
 fi
-
-# Validate MIN_LENGTH is a non-negative integer
 if ! [[ "$MIN_LENGTH" =~ ^[0-9]+$ ]]; then
-    log_with_timestamp "Error: MIN_LENGTH (-m or --min-length) must be a non-negative integer. Value provided: '$MIN_LENGTH'"
-    exit 1
+  log_with_timestamp "Error: MIN_LENGTH must be a non-negative integer. Given: '$MIN_LENGTH'"
+  exit 1
 fi
 
+# ---------- Helper: int validation ----------
+is_pos_int () { [[ "$1" =~ ^[0-9]+$ ]] && [ "$1" -ge 1 ]; }
 
-run_module() {
-  local module_name="$1"
-  local log_file="$2"
-  local command_to_run="$3" # Renamed to avoid conflict with 'command' builtin
+# ---------- Defaults for new knobs ----------
+if ! is_pos_int "$MAX_PredictionTASKS"; then MAX_PredictionTASKS=30; fi
+(( MAX_PredictionTASKS < 1 )) && MAX_PredictionTASKS=1
 
-  mkdir -p "$(dirname "$log_file")"
+if ! is_pos_int "$TPM_tasks"; then TPM_tasks=15; fi
+(( TPM_tasks < 1 )) && TPM_tasks=1
 
-  local msg="Starting $module_name..."
-  local border="###############################################"
-  echo "$border"
-  echo "# $msg"
-  echo "$border"
-  log_with_timestamp "Starting $module_name..."
+if ! is_pos_int "$Assemble_jobs"; then Assemble_jobs=10; fi
+(( Assemble_jobs < 1 )) && Assemble_jobs=1
 
-  local spin='-\|/'
-  local i=0
-  # Ensure spinner only runs in an interactive terminal
-  if [ -t 1 ]; then
-    tput civis # Hide cursor
-    (
-      while true; do
-        i=$(( (i+1) % 4 ))
-        printf "\rRunning %s... %s" "$module_name" "${spin:$i:1}"
-        sleep 0.1
-      done
-    ) &
-    local spinner_pid=$!
-  fi
-
-
-  local module_start_time
-  module_start_time=$(date +%s)
-
-  # Use stdbuf -oL to ensure line buffering for better real-time logging with tee
-  # Execute the command and capture its output and exit status
-  # The output is tee'd to the module-specific log file AND also goes to the main log (due to global exec redirection)
-  eval "stdbuf -oL $command_to_run" 2>>"$log_file" >> "$log_file" # Explicitly redirect module output to its own log
-  local result=$? # Capture exit status of the eval'd command
-
-  if [ -n "$spinner_pid" ] && kill -0 "$spinner_pid" 2>/dev/null; then
-    kill "$spinner_pid" 2>/dev/null
-    wait "$spinner_pid" 2>/dev/null
-  fi
-
-  if [ -t 1 ]; then
-    tput cnorm # Restore cursor
-    printf "\r\033[K" # Clear the spinner line
-  fi
-
-  if [ "$result" -ne 0 ]; then
-    echo "$module_name failed. Check log: $log_file"
-    log_with_timestamp "Error: $module_name failed with exit code $result. Check log: $log_file"
-    cleanup
-  fi
-
-  local module_end_time
-  module_end_time=$(date +%s)
-  local module_runtime=$((module_end_time - module_start_time))
-
-  echo "$module_name completed in ${module_runtime} seconds."
-  log_with_timestamp "$module_name completed in ${module_runtime} seconds."
-}
-
-# Set the Group variable based on SAMPLETYPE
-SAMPLETYPE="Mix"
-case "$SAMPLETYPE" in
-  DNA)
-  Group="dsDNAphage, NCLDV, ssDNA, lavidaviridae"
-  ;;
-  RNA)
-  Group="RNA, lavidaviridae"
-  ;;
-  Mix)
-  Group="dsDNAphage, NCLDV, RNA, ssDNA, lavidaviridae"
-  ;;
-  *)
-  log_with_timestamp "Unknown sample type: $SAMPLETYPE"
-  exit 1
-  ;;
-esac
-
-# Find all .fa and .fasta files in the specified directory
-RawFILES=$(find "${INPUT_DIR}" -maxdepth 1 -type f \( -name "*.fa" -o -name "*.fasta" \))
-
-# Determine the number of threads per file based on the THREADS input
+# ---------- Threads per file ----------
 if [ "$THREADS" -eq 0 ]; then
   THREADS_PER_FILE=$(nproc)
 else
   THREADS_PER_FILE="$THREADS"
 fi
 
-# Check if paired files exist and have the correct format
+# ---------- Discovery of paired reads ----------
+shopt -s nullglob
 
 found_paired_files=false
 for FILE in "${RAW_SEQ_DIR}"/*_R1.*; do
   BASENAME=$(basename "$FILE" | sed 's/_R1\..*//')
   PREFIX="${RAW_SEQ_DIR}/${BASENAME}"
-  R1_FOUND=""
-  R2_FOUND=""
+  R1_FOUND=""; R2_FOUND=""
+
   for ext in ".fq" ".fastq" ".fq.gz" ".fastq.gz"; do
     if [ -f "${PREFIX}_R1${ext}" ] && [ -f "${PREFIX}_R2${ext}" ]; then
-      R1_FOUND="${PREFIX}_R1${ext}"
-      R2_FOUND="${PREFIX}_R2${ext}"
+      R1_FOUND="${PREFIX}_R1${ext}"; R2_FOUND="${PREFIX}_R2${ext}"
       log_with_timestamp "Found paired files: ${R1_FOUND} and ${R2_FOUND}"
-      found_paired_files=true
-      break 
+      found_paired_files=true; break
     elif [ -f "${PREFIX}_1${ext}" ] && [ -f "${PREFIX}_2${ext}" ]; then
-      R1_FOUND="${PREFIX}_1${ext}"
-      R2_FOUND="${PREFIX}_2${ext}"
+      R1_FOUND="${PREFIX}_1${ext}"; R2_FOUND="${PREFIX}_2${ext}"
       log_with_timestamp "Found paired files: ${R1_FOUND} and ${R2_FOUND}"
-      found_paired_files=true
-      break
+      found_paired_files=true; break
     fi
   done
-  if [ -z "$R1_FOUND" ] && [[ "$FILE" == *"_R1."* ]]; then 
-    log_with_timestamp "Error: Paired-end file _R2 for ${BASENAME} not found in the expected formats."
-    # Decide if this is a fatal error
-    # exit 1
+
+  if [ -z "$R1_FOUND" ]; then
+    log_with_timestamp "Error: Paired-end file for ${BASENAME} not found in expected formats."
   fi
 done
 
-if ! $found_paired_files && [ -n "$(ls -A ${RAW_SEQ_DIR}/*_R1.* 2>/dev/null)" ]; then
-    log_with_timestamp "Warning: No valid paired-end files were successfully identified in ${RAW_SEQ_DIR} despite _R1 files being present."
+shopt -u nullglob
+
+if ! $found_paired_files && compgen -G "${RAW_SEQ_DIR}/*_R1.*" >/dev/null; then
+  log_with_timestamp "Warning: No valid paired-end files were successfully identified in ${RAW_SEQ_DIR} despite _R1 files being present."
 fi
 
-
-# Perform different processing based on CONCENTRATION_TYPE
+# ---------- check ----------
 if [ "$CONCENTRATION_TYPE" == "non-concentration" ]; then
   log_with_timestamp "[🔄] Running non-concentration specific steps..."
 elif [ "$CONCENTRATION_TYPE" == "concentration" ]; then
@@ -296,65 +184,117 @@ else
   exit 1
 fi
 
-# Output the selected processing type
-log_with_timestamp "[🔄] Processing with $CONCENTRATION_TYPE mode, $THREADS threads, and min-length $MIN_LENGTH."
+log_with_timestamp "[🔄] Processing with $CONCENTRATION_TYPE mode, $THREADS threads, min-length $MIN_LENGTH."
 
-# Get the bin folder location of the current Conda environment
+# ---------- Conda env / script dir ----------
 if [ -z "$CONDA_PREFIX" ]; then
   log_with_timestamp "Conda environment is not activated."
   cleanup
 fi
-ScriptDir="${CONDA_PREFIX}/bin" # Assuming filter_contigs.py and module scripts are here
+ScriptDir="${CONDA_PREFIX}/bin"
 
-# Check if filter_contigs.py exists
 if [ ! -f "${ScriptDir}/filter_contigs.py" ]; then
-    log_with_timestamp "Error: filter_contigs.py not found in ${ScriptDir}"
-    cleanup
+  log_with_timestamp "Error: filter_contigs.py not found in ${ScriptDir}"
+  cleanup
 fi
 
-
-# Filter sequences (using the MIN_LENGTH variable)
+# ---------- Filter contigs ----------
 FILTERED_SEQS_DIR="${OUTPUT_DIR}/FilteredSeqs"
 mkdir -p "${FILTERED_SEQS_DIR}"
-
-log_with_timestamp "[🔄] Filtering sequences from ${INPUT_DIR} with min length ${MIN_LENGTH} to ${FILTERED_SEQS_DIR}..."
-# Pass MIN_LENGTH to the python script
-python "${ScriptDir}/filter_contigs.py" 500 "${INPUT_DIR}" "${FILTERED_SEQS_DIR}"
+log_with_timestamp "[🔄] Filtering sequences from ${INPUT_DIR} (min length ${MIN_LENGTH}) → ${FILTERED_SEQS_DIR}..."
+# Fix: pass MIN_LENGTH instead of hard-coded 500
+python "${ScriptDir}/filter_contigs.py" "${MIN_LENGTH}" "${INPUT_DIR}" "${FILTERED_SEQS_DIR}"
 filter_py_result=$?
 if [ $filter_py_result -ne 0 ]; then
-    log_with_timestamp "[❌] Filter_contigs failed with exit code $filter_py_result."
-    cleanup
+  log_with_timestamp "[❌] filter_contigs.py failed with exit code $filter_py_result."
+  cleanup
 fi
-
 log_with_timestamp "[✅] Sequence filtering completed."
 
-# Update FILES to point to the newly filtered sequences
 FILES=$(find "${FILTERED_SEQS_DIR}" -type f \( -name "*.fa" -o -name "*.fasta" \))
 if [ -z "$FILES" ]; then
-    log_with_timestamp "[⚠️] Warning: No FASTA files found in ${FILTERED_SEQS_DIR} after filtering."
+  log_with_timestamp "[⚠️] Warning: No FASTA files found in ${FILTERED_SEQS_DIR} after filtering."
 fi
 
-
+# ---------- Export env for submodules ----------
 export INPUT_DIR OUTPUT_DIR DATABASE SAMPLETYPE REASSEMBLE ScriptDir RAW_SEQ_DIR THREADS MIN_LENGTH
 export Group FILES RawFILES CONCENTRATION_TYPE THREADS_PER_FILE
 
-# Execute each module in sequence, logging time and output
+# New: export concurrency envs for downstream modules
+export MAX_PredictionTASKS TPM_tasks Assemble_jobs
+export MAX_TASKS="$MAX_PredictionTASKS"
+
+# ---------- run_module helper ----------
+run_module() {
+  local module_name="$1"
+  local log_file="$2"
+  local command_to_run="$3"
+
+  mkdir -p "$(dirname "$log_file")"
+
+  local msg="Starting $module_name..."
+  local border="###############################################"
+  echo "$border"; echo "# $msg"; echo "$border"
+  log_with_timestamp "Starting $module_name..."
+
+  local spin='-\|/'; local i=0
+  if [ -t 1 ]; then
+    tput civis
+    (
+      while true; do
+        i=$(( (i+1) % 4 ))
+        printf "\rRunning %s... %s" "$module_name" "${spin:$i:1}"
+        sleep 0.1
+      done
+    ) & local spinner_pid=$!
+  fi
+
+  local module_start_time; module_start_time=$(date +%s)
+  # Run with line-buffered tee to module-specific log
+  eval "stdbuf -oL $command_to_run" 2>>"$log_file" >> "$log_file"
+  local result=$?
+
+  if [ -n "$spinner_pid" ] && kill -0 "$spinner_pid" 2>/dev/null; then
+    kill "$spinner_pid" 2>/dev/null; wait "$spinner_pid" 2>/dev/null
+  fi
+  if [ -t 1 ]; then tput cnorm; printf "\r\033[K"; fi
+
+  if [ "$result" -ne 0 ]; then
+    echo "$module_name failed. Check log: $log_file"
+    log_with_timestamp "Error: $module_name failed with exit code $result. Check log: $log_file"
+    cleanup
+  fi
+
+  local module_end_time; module_end_time=$(date +%s)
+  local module_runtime=$((module_end_time - module_start_time))
+  echo "$module_name completed in ${module_runtime} seconds."
+  log_with_timestamp "$module_name completed in ${module_runtime} seconds."
+}
+
+# ---------- Sample type → Group ----------
+SAMPLETYPE="Mix"
+case "$SAMPLETYPE" in
+  DNA) Group="dsDNAphage, NCLDV, ssDNA, lavidaviridae" ;;
+  RNA) Group="RNA, lavidaviridae" ;;
+  Mix) Group="dsDNAphage, NCLDV, RNA, ssDNA, lavidaviridae" ;;
+  *) log_with_timestamp "Unknown sample type: $SAMPLETYPE"; exit 1 ;;
+esac
+
+# ---------- Module existence checks ----------
 MODULE_LOG_DIR="${OUTPUT_DIR}/Log"
 mkdir -p "${MODULE_LOG_DIR}"
 
-# Ensure module scripts are executable and exist
 for module_script in viral_prediction_module.sh cross_validation_module.sh binning_merge_module.sh drep_module.sh summary_module.sh run_dram_analysis.sh run_iphop_analysis.sh; do
-    if [ ! -f "${ScriptDir}/${module_script}" ]; then
-        log_with_timestamp "Error: Module script ${module_script} not found in ${ScriptDir}"
-        cleanup
-    elif [ ! -x "${ScriptDir}/${module_script}" ]; then
-        log_with_timestamp "Error: Module script ${module_script} is not executable."
-        cleanup
-    fi
+  if [ ! -f "${ScriptDir}/${module_script}" ]; then
+    log_with_timestamp "Error: Module script ${module_script} not found in ${ScriptDir}"
+    cleanup
+  elif [ ! -x "${ScriptDir}/${module_script}" ]; then
+    log_with_timestamp "Error: Module script ${module_script} is not executable."
+    cleanup
+  fi
 done
 
-
-# Execute modules
+# ---------- Execute modules (env variables propagate concurrency knobs) ----------
 run_module "Viral prediction" "${MODULE_LOG_DIR}/Viral_prediction.log" "${ScriptDir}/viral_prediction_module.sh"
 run_module "Cross Validation" "${MODULE_LOG_DIR}/Cross_validation.log" "${ScriptDir}/cross_validation_module.sh --${CONCENTRATION_TYPE}"
 run_module "Binning and merge" "${MODULE_LOG_DIR}/Binning_merge.log" "${ScriptDir}/binning_merge_module.sh"
@@ -365,72 +305,44 @@ log_with_timestamp "[✅][✅][✅]All basic analysis completed successfully. vO
 
 sleep 1
 
-
-# Function to handle interactive prompt
+# ---------- Advanced analysis (interactive or auto) ----------
 interactive_prompt() {
   local tty_device="/dev/tty"
-  # Redirect output for the prompt itself to the terminal, if available
-  # Store current stdout and stderr descriptors
   exec 3>&1 4>&2
-
-  if [ -c "$tty_device" ]; then
-    exec > "$tty_device" 2>&1
-  else
-    log_with_timestamp "No terminal available for interactive prompt. Logging to file."
-  fi
-
+  if [ -c "$tty_device" ]; then exec > "$tty_device" 2>&1; else log_with_timestamp "No terminal available for interactive prompt. Logging to file."; fi
   local choice=""
   while true; do
-      if [ -c "$tty_device" ]; then
-        read -r -p "[❗] Proceed with advanced analysis? (y/n) : " choice < "$tty_device"
-      else
-        echo "[❗] Proceed with advanced analysis? (y/n) : " 
-        read -r choice
-      fi
-
+    if [ -c "$tty_device" ]; then
+      read -r -p "[❗] Proceed with advanced analysis? (y/n) : " choice < "$tty_device"
+    else
+      echo "[❗] Proceed with advanced analysis? (y/n) : "; read -r choice
+    fi
     case "$choice" in
       [Yy]* )
-        echo "Starting advanced analysis..." # This goes to tty if available, else log
-        exec 1>&3 2>&4 
-        exec 3>&- 4>&-
+        echo "Starting advanced analysis..."; exec 1>&3 2>&4; exec 3>&- 4>&-
         run_module "DRAM" "${MODULE_LOG_DIR}/DRAM.log" "${ScriptDir}/run_dram_analysis.sh ${OUTPUT_DIR}/Summary/vOTU/vOTU.fasta ${OUTPUT_DIR}/Summary/DRAMRes"
         run_module "iPhop" "${MODULE_LOG_DIR}/iPhop.log" "${ScriptDir}/run_iphop_analysis.sh ${OUTPUT_DIR}/Summary/vOTU/vOTU.fasta ${OUTPUT_DIR}/Summary/iPhopRes"
-        break
-        ;;
-      [Nn]* )
-        echo "Skipping advanced analysis." # This goes to tty if available, else log
-        break
-        ;;
-      * )
-        echo "Please answer y/n." # This goes to tty if available, else log
-        ;;
+        break ;;
+      [Nn]* ) echo "Skipping advanced analysis."; break ;;
+      * ) echo "Please answer y/n." ;;
     esac
   done
-
-  # Ensure original stdout/stderr are restored if loop was broken without running modules
-  exec 1>&3 2>&4 
-  exec 3>&- 4>&-
+  exec 1>&3 2>&4; exec 3>&- 4>&-
 }
 
-
-# Detect environment for advanced analysis prompt
 if [ -t 0 ] && [ -z "$SLURM_JOB_ID" ] && [ -z "$PBS_JOBID" ] && [ -z "$LSB_JOBID" ]; then
   interactive_prompt
 else
-  log_with_timestamp "Non-interactive environment detected (stdin not a TTY or in SLURM/PBS/LSF job). Executing advanced analysis automatically."
+  log_with_timestamp "Non-interactive environment detected. Executing advanced analysis automatically."
   run_module "DRAM" "${MODULE_LOG_DIR}/DRAM.log" "${ScriptDir}/run_dram_analysis.sh ${OUTPUT_DIR}/Summary/vOTU/vOTU.fasta ${OUTPUT_DIR}/Summary/DRAMRes"
   run_module "iPhop" "${MODULE_LOG_DIR}/iPhop.log" "${ScriptDir}/run_iphop_analysis.sh ${OUTPUT_DIR}/Summary/vOTU/vOTU.fasta ${OUTPUT_DIR}/Summary/iPhopRes"
-
   log_with_timestamp "[✅][✅]Advanced analysis completed successfully. DRAM and iPhop results are available in ${OUTPUT_DIR}/Summary."
 fi
 
-# Record time
+# ---------- Footer ----------
 end_time=$(date +%s)
 total_runtime=$((end_time - start_time))
 log_with_timestamp "Total runtime: ${total_runtime} seconds"
 echo "Total runtime: ${total_runtime} seconds."
-
-# Final explicit cursor restoration, just in case
 [ -t 1 ] && tput cnorm
-
-exit 0 # Explicitly exit with success
+exit 0

@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 
 # Export necessary variables
-export OUTPUT_DIR DATABASE CONCENTRATION_TYPE ScriptDir FILES THREADS
+export OUTPUT_DIR DATABASE CONCENTRATION_TYPE ScriptDir FILES THREADS TPM_tasks
+
+# Set default value for TPM_tasks if not already set
 
 # Uncomment to enable debug mode
 #set -x
@@ -69,6 +71,6 @@ process_file() {
 export -f process_file
 
 # Run in parallel
-parallel process_file ::: $FILES
+parallel -j ${TPM_tasks} process_file ::: $FILES
 
 echo "[✅] CrossValid analysis completed."

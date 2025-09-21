@@ -23,7 +23,6 @@ def find_fastq_pairs(input_dir):
         idx = name.rfind("_R1")
         if idx == -1:
             continue  # Skip files that do not contain '_R1'
-        # Construct the corresponding R2 filename
         r2_name = name[:idx] + "_R2" + name[idx+3:]
         r2_path = os.path.join(os.path.dirname(r1), r2_name)
         if os.path.exists(r2_path):
@@ -79,17 +78,32 @@ def main():
     parser.add_argument("-i", "--input_dir", required=True, help="Directory containing raw FASTQ files")
     parser.add_argument("-o", "--output_dir", required=True, help="Output directory for cleaned reads and assembly results")
     parser.add_argument("-c", "--cores", type=int, default=multiprocessing.cpu_count(),
-                        help="Number of CPU cores to use in parallel")
+                        help="Total CPU cores budget for this pipeline (fastp and/or assembly)")
     parser.add_argument("-a", "--assembler", choices=["megahit", "metaspades"], required=True,
                         help="Assembler to use: megahit or metaspades")
+
+    # NEW: control assembly concurrency and per-assembly threads
+    parser.add_argument("--asm_concurrency", type=int, default=1,
+                        help="Number of assembly tasks to run concurrently (default: 1)")
+    parser.add_argument("--asm_threads", type=int, default=None,
+                        help="Threads per assembly task passed to the assembler (-t). "
+                             "If not set, will use max(1, cores // asm_concurrency).")
+
     args = parser.parse_args()
 
     input_dir = args.input_dir
     output_dir = args.output_dir
-    cores_to_use = args.cores
+    cores_to_use = max(1, args.cores)
     assembler = args.assembler
+    asm_concurrency = max(1, args.asm_concurrency)
 
-    # Create output subdirectories with names matching the original script
+    # Derive per-assembly threads if not explicitly specified
+    if args.asm_threads is None:
+        asm_threads = cores_to_use
+    else:
+        asm_threads = max(1, args.asm_threads)
+
+    # Create output subdirectories
     cleaned_dir = os.path.join(output_dir, "Cleanreads")
     assembly_dir_base = os.path.join(output_dir, "Assembly")
     final_contigs_dir = os.path.join(output_dir, "Contigs")
@@ -104,19 +118,18 @@ def main():
         exit(0)
     print(f"Found {len(pairs)} paired-end read sets.")
 
-    # Limit cores to available CPU count
+    # Clamp cores_to_use to actual CPU count
     total_cores = multiprocessing.cpu_count()
     if cores_to_use > total_cores:
         cores_to_use = total_cores
-    all_cores = list(range(total_cores))
-    assigned_cores = all_cores[:cores_to_use]
-    print(f"Assigning tasks to cores: {assigned_cores}")
+
+    print(f"Pipeline core budget: {cores_to_use}")
+    print(f"Assembly concurrency: {asm_concurrency} | threads per assembly: {asm_threads}")
 
     # Prepare fastp cleaning tasks
     fastp_tasks = []
     cleaned_skip = []  # Samples already cleaned
     for sample, r1, r2 in pairs:
-        # Determine output file names while preserving the original extension
         name = os.path.basename(r1)
         ext = name[name.rfind("_R1") + 3:]  # e.g., ".fq.gz" or ".fastq"
         out_r1 = os.path.join(cleaned_dir, f"{sample}_R1{ext}")
@@ -124,18 +137,17 @@ def main():
         if os.path.exists(out_r1) and os.path.exists(out_r2):
             cleaned_skip.append(sample)
         else:
-            fastp_tasks.append((sample, r1, r2, out_r1, out_r2))  # Include sample in the tuple
+            fastp_tasks.append((sample, r1, r2, out_r1, out_r2))
 
-    # Run fastp tasks in parallel
-    cleaned_success = []  # Samples cleaned successfully
-    cleaned_fail = []     # Samples failed during cleaning
+    # Run fastp tasks in parallel (no overlap with assembly)
+    cleaned_success = []
+    cleaned_fail = []
     if fastp_tasks:
         print(f"Running fastp on {len(fastp_tasks)} sample(s) in parallel...")
         pool = Pool(processes=min(len(fastp_tasks), cores_to_use))
-        result_objs = [pool.apply_async(run_fastp, task[1:]) for task in fastp_tasks]  # Pass r1, r2, out_r1, out_r2 to run_fastp
+        result_objs = [pool.apply_async(run_fastp, task[1:]) for task in fastp_tasks]
         pool.close()
         pool.join()
-        # Collect fastp results
         for (sample, r1, r2, out_r1, out_r2), res in zip(fastp_tasks, result_objs):
             try:
                 status = res.get()
@@ -152,15 +164,17 @@ def main():
     # Consider skipped samples as already cleaned
     cleaned_success.extend(cleaned_skip)
 
-    # Run assembly tasks for each sample
-    assembly_success = []  # Samples assembled successfully
-    assembly_fail = []     # Samples that failed during assembly
-    assembly_skip = []     # Samples skipped for assembly
+    # Prepare assembly task list (skip ones not cleaned or already assembled)
+    assembly_success = []
+    assembly_fail = []
+    assembly_skip = []
+
+    assembly_tasks = []  # (sample, clean_r1, clean_r2, asm_sample_dir, contig_file)
     for sample, r1, r2 in pairs:
         if sample not in cleaned_success:
             assembly_skip.append(sample)
             continue
-        # Define cleaned read file paths
+
         name = os.path.basename(r1)
         ext = name[name.rfind("_R1") + 3:]
         clean_r1 = os.path.join(cleaned_dir, f"{sample}_R1{ext}")
@@ -169,30 +183,66 @@ def main():
             print(f"[Warning] Cleaned reads for {sample} not found, skipping assembly.")
             assembly_skip.append(sample)
             continue
-        # Create a directory for the sample's assembly output
-        asm_sample_dir = os.path.join(assembly_dir_base, sample) 
-        #os.makedirs(asm_sample_dir, exist_ok=True)#No,prevent megahit from creating a new directory
-        # Check if assembly results already exist
-        contig_file = os.path.join(asm_sample_dir,
-                                   "final.contigs.fa" if assembler.lower() == "megahit" else "contigs.fasta")
+
+        asm_sample_dir = os.path.join(assembly_dir_base, sample)
+        contig_file = os.path.join(
+            asm_sample_dir,
+            "final.contigs.fa" if assembler.lower() == "megahit" else "contigs.fasta"
+        )
+
+        # If contigs already exist and non-empty, skip running assembler but still copy to final dir
         if os.path.exists(contig_file) and os.path.getsize(contig_file) > 0:
             assembly_skip.append(sample)
+            # Copy later in a unified copying step below
         else:
+            assembly_tasks.append((sample, clean_r1, clean_r2, asm_sample_dir, contig_file))
+
+    # Run assembly tasks with controlled concurrency
+    if assembly_tasks:
+        print(f"Running {assembler} for {len(assembly_tasks)} sample(s) with concurrency={asm_concurrency}...")
+        pool = Pool(processes=min(asm_concurrency, len(assembly_tasks)))
+        result_objs = []
+        for (sample, clean_r1, clean_r2, asm_sample_dir, contig_file) in assembly_tasks:
             print(f"Running {assembler} assembly for sample {sample}...")
-            success = run_assembler(clean_r1, clean_r2, assembler, asm_sample_dir, cores_to_use)
-            if success:
+            result_objs.append(
+                pool.apply_async(run_assembler, (clean_r1, clean_r2, assembler, asm_sample_dir, asm_threads))
+            )
+        pool.close()
+        pool.join()
+
+        for (sample, clean_r1, clean_r2, asm_sample_dir, contig_file), res in zip(assembly_tasks, result_objs):
+            ok = False
+            try:
+                ok = bool(res.get())
+            except Exception as exc:
+                print(f"[Error] {assembler} process crashed for sample {sample}: {exc}")
+                ok = False
+
+            if ok:
                 assembly_success.append(sample)
             else:
                 assembly_fail.append(sample)
-                continue
-        # Copy the final contigs file to the final_contigs directory
-        if os.path.exists(contig_file):
+
+    # Copy contigs (both skipped-existing and newly assembled successes)
+    def try_copy_contigs(sample):
+        asm_sample_dir = os.path.join(assembly_dir_base, sample)
+        contig_file = os.path.join(
+            asm_sample_dir,
+            "final.contigs.fa" if assembler.lower() == "megahit" else "contigs.fasta"
+        )
+        if os.path.exists(contig_file) and os.path.getsize(contig_file) > 0:
             final_name = f"{sample}.fasta"
             final_path = os.path.join(final_contigs_dir, final_name)
             try:
                 shutil.copy(contig_file, final_path)
             except Exception as e:
                 print(f"[Error] Failed to copy contigs for sample {sample}: {e}")
+
+    # For already-assembled (skip) and successfully assembled samples
+    for s in set(assembly_skip):
+        try_copy_contigs(s)
+    for s in set(assembly_success):
+        try_copy_contigs(s)
 
     # Print pipeline summary
     print("\n=== Pipeline Summary ===")

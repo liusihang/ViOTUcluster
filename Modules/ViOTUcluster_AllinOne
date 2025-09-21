@@ -1,37 +1,41 @@
 #!/usr/bin/env bash
 
 # Record start time
-start_time=$(date +%s) # Consider re-enabling if you want total runtime for this script specifically
+start_time=$(date +%s)
 
 # Initialize variables
 RAW_SEQ_DIR=""
 OUTPUT_DIR=""
 DATABASE=""
-SAMPLETYPE="" # This variable is initialized but seems unused in this script's logic directly
+SAMPLETYPE=""
 ASSEMBLY_SOFTWARE=""
-REASSEMBLE=false # Initialized, potentially set by ViOTUcluster if it handles --reassemble
-VERSION="0.5.4" # Incremented version for this change
+REASSEMBLE=false
+VERSION="0.5.6"
 CONCENTRATION_TYPE=""
 THREADS=0
 LOG_FILE=""
-MIN_LENGTH="2500" # Default minimum length for sequence filtering, to be passed to ViOTUcluster
+MIN_LENGTH="2500"
+
+# New concurrency knobs
+MAX_PredictionTASKS=""
+TPM_tasks=""
+Assemble_jobs=""
 
 # Capture SIGINT (Ctrl+C) and SIGTERM signals
 trap 'cleanup' SIGINT SIGTERM
 
 cleanup_flag=false
-
 cleanup() {
   if [ "$cleanup_flag" = true ]; then
     return
   fi
   cleanup_flag=true
-  [ -t 1 ] && tput cnorm 
-  if [ "$$" -eq "$(ps -o pgid= $$)" ]; then 
+  [ -t 1 ] && tput cnorm
+  if [ "$$" -eq "$(ps -o pgid= $$)" ]; then
     log_with_timestamp "Caught termination signal. Cleaning up..."
     kill -- -$$
   fi
-  exit 1 # Exit with an error code
+  exit 1
 }
 
 log_with_timestamp() {
@@ -44,24 +48,24 @@ validate_param() {
   local valid_values_str="$3"
   local IFS=' '
   read -r -a valid_values <<< "$valid_values_str"
-  
-  # Check if param_value is in valid_values array
   local found=false
   for val in "${valid_values[@]}"; do
     if [[ "$param_value" == "$val" ]]; then
-      found=true
-      break
+      found=true; break
     fi
   done
-
   if ! $found; then
-    echo "$(date '+%Y-%m-%d %H:%M:%S') - [❌] Error: Invalid value '$param_value' for $param_name. Please choose from: ${valid_values[*]}." >&2
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - [❌] Error: Invalid value '$param_value' for $param_name. Choose from: ${valid_values[*]}." >&2
     exit 1
   fi
 }
 
+is_pos_int () { [[ "$1" =~ ^[0-9]+$ ]] && [ "$1" -ge 1 ]; }
+
 # --- Option Parsing ---
-TEMP_ARGS=$(getopt -o r:o:d:a:n:m:vh --long min-length:,non-con,con,reassemble -n "$0" -- "$@")
+TEMP_ARGS=$(getopt -o r:o:d:a:n:m:P:T:A:vh \
+  --long min-length:,non-con,con,reassemble,max-prediction-tasks:,tpm-tasks:,assemble-jobs: \
+  -n "$0" -- "$@")
 if [ $? -ne 0 ]; then
     echo "Terminating..." >&2
     exit 1
@@ -71,76 +75,44 @@ unset TEMP_ARGS
 
 while true; do
   case "$1" in
-    -r)
-      RAW_SEQ_DIR="$2"
-      shift 2
-      ;;
-    -o)
-      OUTPUT_DIR="$2"
-      shift 2
-      ;;
-    -d)
-      DATABASE="$2"
-      shift 2
-      ;;
-    -a)
-      ASSEMBLY_SOFTWARE="$2"
-      shift 2
-      ;;
-    -n)
-      THREADS="$2"
-      shift 2
-      ;;
-    -m|--min-length)
-      MIN_LENGTH="$2"
-      shift 2
-      ;;
-    --non-con)
-      CONCENTRATION_TYPE="non-concentration"
-      shift
-      ;;
-    --con)
-      CONCENTRATION_TYPE="concentration"
-      shift
-      ;;
-    --reassemble)
-      REASSEMBLE=FALSE
-      shift
-      ;;
-    -v)
-      echo "Version: $VERSION"
-      exit 0
-      ;;
+    -r) RAW_SEQ_DIR="$2"; shift 2 ;;
+    -o) OUTPUT_DIR="$2"; shift 2 ;;
+    -d) DATABASE="$2"; shift 2 ;;
+    -a) ASSEMBLY_SOFTWARE="$2"; shift 2 ;;
+    -n) THREADS="$2"; shift 2 ;;
+    -m|--min-length) MIN_LENGTH="$2"; shift 2 ;;
+    -P|--max-prediction-tasks) MAX_PredictionTASKS="$2"; shift 2 ;;
+    -T|--tpm-tasks) TPM_tasks="$2"; shift 2 ;;
+    -A|--assemble-jobs) Assemble_jobs="$2"; shift 2 ;;
+    --non-con) CONCENTRATION_TYPE="non-concentration"; shift ;;
+    --con) CONCENTRATION_TYPE="concentration"; shift ;;
+    --reassemble) REASSEMBLE=true; shift ;;
+    -v) echo "Version: $VERSION"; exit 0 ;;
     -h)
       echo "Usage: $0 [options]"
       echo ""
       echo "This script preprocesses raw sequences and then calls ViOTUcluster."
       echo ""
       echo "Options:"
-      echo "  -r <input_path_raw_seqs>    Specify the input directory to search for raw seqs files."
-      echo "  -o <output_path>            Specify the output directory for the results."
-      echo "  -d <database_path>          Specify the path to the database (for ViOTUcluster)."
-      echo "  -a <assembly_software>      Specify the assembly software: megahit, metaspades."
-      echo "  -n <threads>                Specify the number of threads to use (default: Use all available)."
-      echo "  -m, --min-length <length>   Specify the minimum length for sequence filtering by ViOTUcluster (default: 500)."
-      echo "  --non-con                   Specify non-concentration processing (for ViOTUcluster)."
-      echo "  --con                       Specify concentration processing (for ViOTUcluster)."
-      echo "  --reassemble                Enable reassembly of bins (passed to ViOTUcluster if supported)."
-      echo "  -v                          Display the version of this script."
-      echo "  -h                          Display this help and exit."
+      echo "  -r <raw_seq_dir>                 Input directory for raw paired reads."
+      echo "  -o <out_dir>                     Output directory."
+      echo "  -d <db_path>                     Database path."
+      echo "  -a <assembler>                   megahit | metaspades"
+      echo "  -n <threads>                     Threads per heavy task (default: nproc if 0)."
+      echo "  -m, --min-length <len>           Min contig length for ViOTUcluster (default: 2500)."
+      echo "  -P, --max-prediction-tasks <N>   Global concurrency for prediction stage (default: ~nproc/2)."
+      echo "  -T, --tpm-tasks <N>              Parallel samples for BAM/TPM (default: ~nproc/2)."
+      echo "  -A, --assemble-jobs <N>          Parallel samples for assembly (default: ~nproc/2)."
+      echo "  --non-con | --con                Processing mode for ViOTUcluster."
+      echo "  --reassemble                     Enable reassembly (forwarded if supported)."
+      echo "  -v                               Show version."
+      echo "  -h                               Show help."
       exit 0
       ;;
-    --)
-      shift
-      break
-      ;;
-    *)
-      echo "Internal error! Unexpected option: $1" >&2
-      exit 1
-      ;;
+    --) shift; break ;;
+    *) echo "Internal error! Unexpected option: $1" >&2; exit 1 ;;
   esac
 done
-
 
 # --- Parameter Validation and Setup ---
 if [ -z "$OUTPUT_DIR" ]; then
@@ -149,67 +121,72 @@ if [ -z "$OUTPUT_DIR" ]; then
 fi
 mkdir -p "$OUTPUT_DIR"
 LOG_FILE="${OUTPUT_DIR}/preprocessing_pipeline.log"
-: > "$LOG_FILE" 
+: > "$LOG_FILE"
 
-# Redirect all script output (stdout and stderr) to log file and terminal
+# Redirect stdout/stderr to log + timestamp
 exec > >(
-    tee -a "$LOG_FILE" |
-    while IFS= read -r line; do
-        if [[ "$line" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}[[:space:]][0-9]{2}:[0-9]{2}:[0-9]{2}[[:space:]]-[[:space:]] ]]; then
-            echo "$line" 
-        else
-            echo "$(date '+%Y-%m-%d %H:%M:%S') - $line" 
-        fi
-    done
+  tee -a "$LOG_FILE" |
+  while IFS= read -r line; do
+    if [[ "$line" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}[[:space:]][0-9]{2}:[0-9]{2}:[0-9]{2}[[:space:]]-[[:space:]] ]]; then
+      echo "$line"
+    else
+      echo "$(date '+%Y-%m-%d %H:%M:%S') - $line"
+    fi
+  done
 ) 2>&1
 
-log_with_timestamp "Script started with command: $0 $*"
+log_with_timestamp "Script started: $0 $*"
 
 if [ "$THREADS" -eq 0 ]; then
   THREADS=$(nproc)
   log_with_timestamp "Threads not specified, using all available: $THREADS"
 else
+  if ! is_pos_int "$THREADS"; then
+    log_with_timestamp "Error: THREADS (-n) must be a positive integer. Given: '$THREADS'"; exit 1
+  fi
   log_with_timestamp "Threads specified: $THREADS"
 fi
 
-# Mandatory parameter check
+# Mandatory params
 if [ -z "$RAW_SEQ_DIR" ] || [ -z "$DATABASE" ] || [ -z "$CONCENTRATION_TYPE" ] || [ -z "$ASSEMBLY_SOFTWARE" ]; then
-    log_with_timestamp "Usage: $0 -r <raw_seq_dir> -o <out_dir> -d <db> -a <assembler> -n <threads> [-m <min_length>] --non-con/--con [--reassemble]"
-    exit 1
+  log_with_timestamp "Usage: $0 -r <raw_seq_dir> -o <out_dir> -d <db> -a <assembler> -n <threads> [-m <min_len>] --non-con/--con [--reassemble] [-P N] [-T N] [-A N]"
+  exit 1
 fi
-
 validate_param "$ASSEMBLY_SOFTWARE" "Assembly Software" "megahit metaspades"
 validate_param "$CONCENTRATION_TYPE" "Concentration Type" "non-concentration concentration"
 if ! [[ "$MIN_LENGTH" =~ ^[0-9]+$ ]]; then
-    log_with_timestamp "Error: MIN_LENGTH (-m or --min-length) must be a non-negative integer. Value provided: '$MIN_LENGTH'"
-    exit 1
-fi
-if ! [[ "$THREADS" =~ ^[0-9]+$ ]] || [ "$THREADS" -lt 1 ]; then
-    log_with_timestamp "Error: THREADS (-n) must be a positive integer. Value provided: '$THREADS'"
-    exit 1
+  log_with_timestamp "Error: MIN_LENGTH must be a non-negative integer. Given: '$MIN_LENGTH'"; exit 1
 fi
 
-# Check for Conda environment and ScriptDir
+
+# ---------- Defaults for new knobs ----------
+if ! is_pos_int "$MAX_PredictionTASKS"; then MAX_PredictionTASKS=30; fi
+(( MAX_PredictionTASKS < 1 )) && MAX_PredictionTASKS=1
+
+if ! is_pos_int "$TPM_tasks"; then TPM_tasks=15; fi
+(( TPM_tasks < 1 )) && TPM_tasks=1
+
+if ! is_pos_int "$Assemble_jobs"; then Assemble_jobs=10; fi
+(( Assemble_jobs < 1 )) && Assemble_jobs=1
+
+log_with_timestamp "[⚙] Concurrency — Prediction: $MAX_PredictionTASKS, TPM: $TPM_tasks, Assembly: $Assemble_jobs"
+
+# Conda / ScriptDir checks
 if [ -z "$CONDA_PREFIX" ]; then
-  log_with_timestamp "Conda environment is not activated."
-  exit 1
+  log_with_timestamp "Conda environment is not activated."; exit 1
 fi
 ScriptDir="${CONDA_PREFIX}/bin"
 if [ ! -d "$ScriptDir" ]; then
-    log_with_timestamp "Error: Script directory ${ScriptDir} (from CONDA_PREFIX) does not exist."
-    exit 1
+  log_with_timestamp "Error: Script directory ${ScriptDir} does not exist."; exit 1
 fi
 if [ ! -x "${ScriptDir}/Preprocess_module.sh" ]; then
-    log_with_timestamp "Error: Preprocess_module.sh not found or not executable in ${ScriptDir}"
-    exit 1
+  log_with_timestamp "Error: Preprocess_module.sh not found or not executable in ${ScriptDir}"; exit 1
 fi
 if ! command -v ViOTUcluster &> /dev/null; then
-    log_with_timestamp "Error: ViOTUcluster command not found. Ensure it's in your PATH or ${ScriptDir}."
-    exit 1
+  log_with_timestamp "Error: ViOTUcluster command not found in PATH."; exit 1
 fi
 
-
-# --- run_module Function ---
+# --- run_module helper ---
 run_module() {
   local module_name="$1"
   local module_log_file="$2"
@@ -220,40 +197,29 @@ run_module() {
 
   local msg="Starting $module_name..."
   local border="###############################################"
-  echo "$border" 
-  echo "# $msg"
-  echo "$border"
+  echo "$border"; echo "# $msg"; echo "$border"
   log_with_timestamp "Starting $module_name..."
 
-  local spin='-\|/'
-  local i=0
-  if [ -t 1 ]; then 
-    tput civis 
+  local spin='-\|/'; local i=0
+  if [ -t 1 ]; then
+    tput civis
     (
       while true; do
         i=$(( (i+1) % 4 ))
         printf "\rRunning %s... %s" "$module_name" "${spin:$i:1}"
         sleep 0.1
       done
-    ) &
-    local spinner_pid=$!
+    ) & local spinner_pid=$!
   fi
 
-  local module_start_time
-  module_start_time=$(date +%s)
-
-  # Execute the command. Its stdout and stderr will go to the module_log_file.
+  local module_start_time; module_start_time=$(date +%s)
   eval "stdbuf -oL $command_to_run" >> "$module_log_file" 2>&1
   local result=${PIPESTATUS[0]}
 
   if [ -n "$spinner_pid" ] && kill -0 "$spinner_pid" 2>/dev/null; then
-    kill "$spinner_pid" 2>/dev/null
-    wait "$spinner_pid" 2>/dev/null
+    kill "$spinner_pid" 2>/dev/null; wait "$spinner_pid" 2>/dev/null
   fi
-  if [ -t 1 ]; then
-    tput cnorm
-    printf "\r\033[K" 
-  fi
+  if [ -t 1 ]; then tput cnorm; printf "\r\033[K"; fi
 
   if [ "$result" -ne 0 ]; then
     echo "$module_name failed. Check log: $module_log_file"
@@ -261,14 +227,11 @@ run_module() {
     cleanup
   fi
 
-  local module_end_time
-  module_end_time=$(date +%s)
+  local module_end_time; module_end_time=$(date +%s)
   local module_runtime=$((module_end_time - module_start_time))
-
   echo "$module_name completed in ${module_runtime} seconds."
   log_with_timestamp "$module_name completed in ${module_runtime} seconds."
 }
-
 
 # --- Paired-end File Check ---
 log_with_timestamp "Checking for paired-end files in ${RAW_SEQ_DIR}..."
@@ -281,61 +244,67 @@ for FILE_R1 in "${RAW_SEQ_DIR}"/*_R1.*; do
   PREFIX="${RAW_SEQ_DIR}/${BASENAME}"
   R1_EXT="${FILE_R1#${PREFIX}_R1}"
   FILE_R2="${PREFIX}_R2${R1_EXT}"
-
-  # Alternative naming _1 and _2
   FILE_R1_ALT=$(echo "$FILE_R1" | sed "s/_R1${R1_EXT}$/_1${R1_EXT}/")
   FILE_R2_ALT=$(echo "$FILE_R1_ALT" | sed "s/_1${R1_EXT}$/_2${R1_EXT}/")
 
   if [ -f "$FILE_R1" ] && [ -f "$FILE_R2" ]; then
     log_with_timestamp "Found paired files: $FILE_R1 and $FILE_R2"
   elif [ -f "$FILE_R1_ALT" ] && [ -f "$FILE_R2_ALT" ]; then
-     log_with_timestamp "Found paired files: $FILE_R1_ALT and $FILE_R2_ALT"
+    log_with_timestamp "Found paired files: $FILE_R1_ALT and $FILE_R2_ALT"
   else
     log_with_timestamp "Error: Paired-end file for ${BASENAME} (expected R2 for $FILE_R1 or $FILE_R1_ALT) not found."
     all_r1_have_pairs=false
   fi
 done
-shopt -u nullglob # Reset nullglob
-
+shopt -u nullglob
 if ! $found_any_r1; then
-    log_with_timestamp "Warning: No files matching *_R1.* pattern found in ${RAW_SEQ_DIR}. Preprocessing might skip assembly if it expects paired reads."
+  log_with_timestamp "Warning: No *_R1.* found in ${RAW_SEQ_DIR}."
 elif ! $all_r1_have_pairs; then
-    log_with_timestamp "Warning: Not all _R1 files found corresponding _R2 pairs. Check logs above."
+  log_with_timestamp "Warning: Some _R1 files have no matching _R2."
 fi
 
-
 # --- Main Processing ---
-log_with_timestamp "Processing with $CONCENTRATION_TYPE mode, $THREADS threads, assembly by $ASSEMBLY_SOFTWARE. ViOTUcluster min-length: $MIN_LENGTH."
+log_with_timestamp "Mode: $CONCENTRATION_TYPE | Threads per task: $THREADS | Assembler: $ASSEMBLY_SOFTWARE | Min length: $MIN_LENGTH"
 
+# Export shared env for downstream modules
 export RAW_SEQ_DIR OUTPUT_DIR DATABASE SAMPLETYPE REASSEMBLE ASSEMBLY_SOFTWARE ScriptDir THREADS MIN_LENGTH
+# Export concurrency envs (for Preprocess_module.sh, etc.)
+export MAX_PredictionTASKS TPM_tasks Assemble_jobs
+# Compat for Python predictors using MAX_TASKS
+export MAX_TASKS="$MAX_PredictionTASKS"
 
 MODULE_LOG_BASE_DIR="${OUTPUT_DIR}/Log"
 mkdir -p "${MODULE_LOG_BASE_DIR}"
 
 run_module "Raw Sequences Preprocessing & Assembly" \
            "${MODULE_LOG_BASE_DIR}/Preprocess_Assembly.log" \
-           "${ScriptDir}/Preprocess_module.sh '${RAW_SEQ_DIR}' '${ASSEMBLY_SOFTWARE}' '${OUTPUT_DIR}' '${THREADS}'"
+           "${ScriptDir}/Preprocess_module.sh '${RAW_SEQ_DIR}' '${ASSEMBLY_SOFTWARE}' '${OUTPUT_DIR}' '${THREADS}' '${Assemble_jobs}'"
 
-# Define directories based on Preprocess_module.sh output structure
+# Path setup based on Preprocess_module.sh output
 CONTIGS_DIR="${OUTPUT_DIR}/Contigs"
 CLEAN_READS_DIR="${OUTPUT_DIR}/Cleanreads"
 
-if [ ! -d "$CONTIGS_DIR" ] || [ -z "$(ls -A "$CONTIGS_DIR")" ]; then
-    log_with_timestamp "Error: Contigs directory '${CONTIGS_DIR}' is empty or does not exist after preprocessing. Cannot proceed with ViOTUcluster."
-    exit 1
+if [ ! -d "$CONTIGS_DIR" ] || [ -z "$(ls -A "$CONTIGS_DIR" 2>/dev/null)" ]; then
+  log_with_timestamp "Error: Contigs dir '${CONTIGS_DIR}' missing or empty after preprocessing."
+  exit 1
 fi
-if [ ! -d "$CLEAN_READS_DIR" ] || [ -z "$(ls -A "$CLEAN_READS_DIR")" ]; then
-    log_with_timestamp "Warning: Clean reads directory '${CLEAN_READS_DIR}' is empty or does not exist after preprocessing. ViOTUcluster might run without read mapping features."
+if [ ! -d "$CLEAN_READS_DIR" ] || [ -z "$(ls -A "$CLEAN_READS_DIR" 2>/dev/null)" ]; then
+  log_with_timestamp "Warning: Clean reads dir '${CLEAN_READS_DIR}' missing or empty; ViOTUcluster may skip read-mapping-based features."
 fi
 
-CONTIGS_DIR="${OUTPUT_DIR}/Contigs"
+INPUT_DIR="${CONTIGS_DIR}"
 RAW_SEQ_DIR="${OUTPUT_DIR}/Cleanreads"
-INPUT_DIR=${CONTIGS_DIR}
+export INPUT_DIR RAW_SEQ_DIR
 
-export INPUT_DIR OUTPUT_DIR DATABASE SAMPLETYPE REASSEMBLE ScriptDir RAW_SEQ_DIR THREADS
+# Build extra args for ViOTUcluster concurrency (only pass if positive)
+extra_cli=""
+is_pos_int "$MAX_PredictionTASKS" && extra_cli+=" --max-prediction-tasks ${MAX_PredictionTASKS}"
+is_pos_int "$TPM_tasks" && extra_cli+=" --tpm-tasks ${TPM_tasks}"
+is_pos_int "$Assemble_jobs" && extra_cli+=" --assemble-jobs ${Assemble_jobs}"
 
+# Call ViOTUcluster
 if [ "$CONCENTRATION_TYPE" == "non-concentration" ]; then
-  ViOTUcluster -i "${INPUT_DIR}" -r "${RAW_SEQ_DIR}" -o "${OUTPUT_DIR}" -d "${DATABASE}" -n "${THREADS}" --non-con -m "${MIN_LENGTH}"
+  ViOTUcluster -i "${INPUT_DIR}" -r "${RAW_SEQ_DIR}" -o "${OUTPUT_DIR}" -d "${DATABASE}" -n "${THREADS}" --non-con -m "${MIN_LENGTH}" ${extra_cli}
 else
-  ViOTUcluster -i "${INPUT_DIR}" -r "${RAW_SEQ_DIR}" -o "${OUTPUT_DIR}" -d "${DATABASE}" -n "${THREADS}" --con -m "${MIN_LENGTH}"
+  ViOTUcluster -i "${INPUT_DIR}" -r "${RAW_SEQ_DIR}" -o "${OUTPUT_DIR}" -d "${DATABASE}" -n "${THREADS}" --con -m "${MIN_LENGTH}" ${extra_cli}
 fi

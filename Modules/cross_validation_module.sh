@@ -70,6 +70,6 @@ export -f process_file
 
 # Run in parallel
 #echo "Starting parallel processing..."
-parallel process_file ::: $FILES
+parallel -j 16 process_file ::: $FILES
 
 echo "CrossValid analysis completed."
