@@ -222,6 +222,7 @@ export Group FILES RawFILES CONCENTRATION_TYPE THREADS_PER_FILE
 
 # New: export concurrency envs for downstream modules
 export MAX_PredictionTASKS TPM_tasks Assemble_jobs
+export MAX_TASKS="$MAX_PredictionTASKS"
 
 # ---------- run_module helper ----------
 run_module() {

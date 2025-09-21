@@ -99,7 +99,7 @@ def main():
 
     # Derive per-assembly threads if not explicitly specified
     if args.asm_threads is None:
-        asm_threads = max(1, cores_to_use // asm_concurrency)
+        asm_threads = cores_to_use
     else:
         asm_threads = max(1, args.asm_threads)
 

@@ -25,9 +25,10 @@ CONCENTRATION_TYPE = os.environ['CONCENTRATION_TYPE']
 THREADS = int(os.environ['THREADS'])  
 
 # 全局并发上限
-    MAX_TASKS = int(os.environ.get('MAX_TASKS', max(1, multiprocessing.cpu_count() // 2)))
+try:
+    MAX_TASKS = int(os.environ.get('MAX_TASKS', max(1, multiprocessing.cpu_count())))
 except ValueError:
-    MAX_TASKS = max(1, multiprocessing.cpu_count() // 2)
+    MAX_TASKS = max(1, multiprocessing.cpu_count())
 
 # 全局并发闸
 _TASK_SEM = threading.BoundedSemaphore(value=max(1, MAX_TASKS))
