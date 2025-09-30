@@ -8,6 +8,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
 import signal
 import logging
+from logging.handlers import RotatingFileHandler
 
 # Ensure necessary environment variables are set
 required_env_vars = ['DATABASE', 'THREADS', 'OUTPUT_DIR','OUTPUT']
@@ -21,23 +22,39 @@ THREADS = int(os.environ['THREADS'])
 OUTPUT_DIR = os.environ['OUTPUT_DIR']
 OUTPUT = os.environ['OUTPUT']
 DATABASE = os.environ['DATABASE']
+LOG_DIR = os.path.join(OUTPUT_DIR, 'Log')
+os.makedirs(LOG_DIR, exist_ok=True)
 
-# Setup logging
-log_dir = os.path.join(OUTPUT_DIR, 'Log')
-if not os.path.exists(log_dir):
-    os.makedirs(log_dir)
-log_file = os.path.join(log_dir, 'iPhop.log')
-logging.basicConfig(
-    filename=log_file,
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
+
+def configure_logger() -> logging.Logger:
+    logger = logging.getLogger("run_iphop")
+    if logger.handlers:
+        return logger
+    logger.setLevel(logging.INFO)
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    log_file = os.path.join(LOG_DIR, 'iPhop.log')
+    file_handler = RotatingFileHandler(log_file, maxBytes=5 * 1024 * 1024, backupCount=2)
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
+
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setFormatter(formatter)
+    logger.addHandler(console_handler)
+    return logger
+
+
+LOGGER = configure_logger()
 
 # Get the number of cores available
 all_cores = list(range(multiprocessing.cpu_count()))  # Get all core numbers of the system
 CORES_TO_USE = THREADS 
 assigned_cores = all_cores[:CORES_TO_USE]  # Assign cores to be used
 # logging.info(f"Assigning tasks to cores: {assigned_cores}")
+LOGGER.info(
+    "run_iphop initialized with THREADS=%s; log file stored under %s",
+    THREADS,
+    os.path.join(LOG_DIR, 'iPhop.log'),
+)
 
 # Function to process a single iPhop prediction
 def run_iphop_prediction(fa_file):
@@ -56,7 +73,7 @@ def run_iphop_prediction(fa_file):
             '-t', str(t_value)
         ]
         
-        print(f"Running iPhop prediction for {fa_file}")
+        LOGGER.info("Running iPhop prediction for %s", fa_file)
         process = subprocess.Popen(iphop_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
         # Bind process to assigned cores if supported
@@ -66,14 +83,17 @@ def run_iphop_prediction(fa_file):
         stdout, stderr = process.communicate()
 
         if process.returncode != 0:
-            logging.error(f"iPhop prediction failed for {fa_file} with exit code {process.returncode}")
-            logging.error(stderr.decode())
+            stderr_text = stderr.decode(errors='ignore').strip()
+            if stderr_text:
+                LOGGER.error("iPhop stderr for %s:\n%s", fa_file, stderr_text)
             raise RuntimeError(f"iPhop prediction failed for {fa_file} with exit code {process.returncode}")
 
-        print(f"iPhop prediction completed for {fa_file}")
-        logging.info(stdout.decode())
+        stdout_text = stdout.decode(errors='ignore').strip()
+        if stdout_text:
+            LOGGER.debug("iPhop stdout for %s:\n%s", fa_file, stdout_text)
+        LOGGER.info("iPhop prediction completed for %s", fa_file)
     except subprocess.CalledProcessError as e:
-        print(f"An error occurred while processing {fa_file}: {e}")
+        LOGGER.error("An error occurred while processing %s: %s", fa_file, e)
         raise
 
 # Function to monitor the completion of all iPhop tasks
@@ -87,7 +107,7 @@ def monitor_iphop_tasks(files_list):
 
             if not os.path.isfile(result_file):
                 all_tasks_completed = False
-                print(f"iPhop prediction still in progress for {fa_file}")
+                LOGGER.info("iPhop prediction still in progress for %s", fa_file)
                 break
 
         if not all_tasks_completed:
@@ -97,7 +117,7 @@ def monitor_iphop_tasks(files_list):
 def main():
     # Handle termination signals
     def signal_handler(sig, frame):
-        print("Process interrupted. Exiting gracefully...")
+        LOGGER.warning("Process interrupted (signal %s). Exiting gracefully...", sig)
         sys.exit(0)
 
     signal.signal(signal.SIGINT, signal_handler)
@@ -108,10 +128,10 @@ def main():
         files_list = [line.strip() for line in f if line.strip()]
 
     if not files_list:
-        print("No files to process.")
+        LOGGER.error("No files to process.")
         sys.exit(1)
 
-    logging.info(f"Using {CORES_TO_USE} cores for iPhop prediction.")
+    LOGGER.info("Using %s cores for iPhop prediction across %s files.", CORES_TO_USE, len(files_list))
 
     # Use ThreadPoolExecutor to process files in parallel
     with ThreadPoolExecutor(max_workers=min(THREADS, len(files_list))) as executor:
@@ -126,12 +146,12 @@ def main():
             try:
                 future.result()
             except Exception as e:
-                logging.error(f"Task generated an exception: {e}")
+                LOGGER.error("Task generated an exception: %s", e)
 
     # Monitor the completion of iPhop predictions
     # monitor_iphop_tasks(files_list)
 
-    print("All iPhop predictions have been processed.")
+    LOGGER.info("All iPhop predictions have been processed.")
 
 if __name__ == "__main__":
     main()

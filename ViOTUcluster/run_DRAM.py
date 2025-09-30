@@ -6,8 +6,9 @@ import subprocess
 import multiprocessing
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
-import glob
 import signal
+import logging
+from logging.handlers import RotatingFileHandler
 
 # Ensure necessary environment variables are set
 required_env_vars = ['THREADS', 'OUTPUT_DIR']
@@ -19,12 +20,36 @@ for var in required_env_vars:
 # Get environment variables
 THREADS = int(os.environ['THREADS'])
 OUTPUT_DIR = os.environ['OUTPUT_DIR']
+LOG_DIR = os.path.join(OUTPUT_DIR, 'Log')
+os.makedirs(LOG_DIR, exist_ok=True)
+
+
+def configure_logger() -> logging.Logger:
+    logger = logging.getLogger("run_DRAM")
+    if logger.handlers:
+        return logger
+    logger.setLevel(logging.INFO)
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    log_file = os.path.join(LOG_DIR, 'run_DRAM.log')
+    file_handler = RotatingFileHandler(log_file, maxBytes=5 * 1024 * 1024, backupCount=2)
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
+
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setFormatter(formatter)
+    logger.addHandler(console_handler)
+    return logger
+
+
+LOGGER = configure_logger()
 
 # Get the number of cores available
 all_cores = list(range(multiprocessing.cpu_count()))  # Get all core numbers of the system
 CORES_TO_USE = THREADS
 assigned_cores = all_cores[:CORES_TO_USE]  # Assign cores to be used
 #print(f"Assigning tasks to cores: {assigned_cores}")
+
+LOGGER.info("run_DRAM initialized with THREADS=%s; log file stored under %s", THREADS, os.path.join(LOG_DIR, 'run_DRAM.log'))
 
 # Function to run DRAM annotation on a single file
 def run_dram_annotation(fa_file):
@@ -40,21 +65,26 @@ def run_dram_annotation(fa_file):
             '-o', output_dir,
             '--threads', str(THREADS)
         ]
-        print(f"Running DRAM annotation for {fa_file}")
+        LOGGER.info("Running DRAM annotation for %s", fa_file)
         process = subprocess.Popen(dram_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
         # Bind process to assigned cores if supported
         if hasattr(os, 'sched_setaffinity'):
             os.sched_setaffinity(process.pid, assigned_cores)
 
-        process.wait()
+        stdout, stderr = process.communicate()
 
         if process.returncode != 0:
+            stderr_text = stderr.decode(errors='ignore').strip()
+            if stderr_text:
+                LOGGER.error("DRAM stderr for %s:\n%s", fa_file, stderr_text)
             raise RuntimeError(f"DRAM annotation failed for {fa_file} with exit code {process.returncode}")
-            sys.exit(1)
-        print(f"DRAM annotation completed for {fa_file}")
+        stdout_text = stdout.decode(errors='ignore').strip()
+        if stdout_text:
+            LOGGER.debug("DRAM stdout for %s:\n%s", fa_file, stdout_text)
+        LOGGER.info("DRAM annotation completed for %s", fa_file)
     except subprocess.CalledProcessError as e:
-        print(f"An error occurred while processing {fa_file}: {e}")
+        LOGGER.error("Subprocess error while processing %s: %s", fa_file, e)
         raise
 
 # Function to monitor the completion of all DRAM tasks
@@ -68,7 +98,7 @@ def monitor_dram_tasks(files_list):
 
             if not os.path.isfile(result_file):
                 all_tasks_completed = False
-                print(f"DRAM annotation still in progress for {fa_file}")
+                LOGGER.info("DRAM annotation still in progress for %s", fa_file)
                 break
 
         if not all_tasks_completed:
@@ -78,7 +108,7 @@ def monitor_dram_tasks(files_list):
 def main():
     # Handle termination signals
     def signal_handler(sig, frame):
-        print("Process interrupted. Exiting gracefully...")
+        LOGGER.warning("Process interrupted (signal %s). Exiting gracefully...", sig)
         sys.exit(0)
 
     signal.signal(signal.SIGINT, signal_handler)
@@ -89,10 +119,10 @@ def main():
         files_list = [line.strip() for line in f if line.strip()]
 
     if not files_list:
-        print("No files to process.")
+        LOGGER.error("No files to process.")
         sys.exit(1)
 
-    print(f"Using {CORES_TO_USE} cores for DRAM annotation.")
+    LOGGER.info("Using %s cores for DRAM annotation across %s files.", CORES_TO_USE, len(files_list))
 
     # Use ThreadPoolExecutor to process files in parallel
     with ThreadPoolExecutor(max_workers=min(THREADS, len(files_list))) as executor:
@@ -107,6 +137,6 @@ def main():
             try:
                 future.result()
             except Exception as e:
-                print(f"Task generated an exception: {e}")
+                LOGGER.error("Task generated an exception: %s", e)
 if __name__ == "__main__":
     main()

@@ -211,13 +211,13 @@ To run the pipeline, use the following command structure:
 1. **Create and activate the vRhyme environment**
 
     ```bash
-    ViOTUcluster -i <input_path_to_contigs> -r <input_path_raw_seqs> -o <output_path> -d <database_path> -n <threads> -m <min-sequence length> --non-con/--con [--reassemble] [--max-prediction-tasks <N>] [--tpm-tasks <N>] [--assemble-jobs <N>]
+    ViOTUcluster -i <input_path_to_contigs> -r <input_path_raw_seqs> -o <output_path> -d <database_path> -n <threads> -m <min-sequence length> --non-con/--con [--reassemble] [--disable-binning] [--max-prediction-tasks <N>] [--tpm-tasks <N>] [--assemble-jobs <N>]
     ```
 
 2. **Start with raw fastq files**
 
     ```bash
-    ViOTUcluster_AllinOne -r <input_path_raw_seqs> -o <output_path> -d <database_path> -a <assembly_software> -n <threads> -m <min-sequence length> --non-con/--con [--reassemble] [--max-prediction-tasks <N>] [--tpm-tasks <N>] [--assemble-jobs <N>]
+    ViOTUcluster_AllinOne -r <input_path_raw_seqs> -o <output_path> -d <database_path> -a <assembly_software> -n <threads> -m <min-sequence length> --non-con/--con [--reassemble] [--disable-binning] [--max-prediction-tasks <N>] [--tpm-tasks <N>] [--assemble-jobs <N>]
     ```
 
 A mini test file is available for download at  [MiniTest.zip](https://zenodo.org/records/14287325/files/MiniTest.zip?download=1). You can use this file in All-in-One mode to verify that the pipeline is successfully installed and functioning.
@@ -232,11 +232,13 @@ A mini test file is available for download at  [MiniTest.zip](https://zenodo.org
 
 - **`-d <database_path>`**: Points to the required database for performing viral prediction, binning, and dereplication steps.
 
-- **`-m, --min-length <length>`**: Specify the minimum length(bp) for sequence in the final vOTU file (default: 2500).
+- **`-m, --min-length <length>`**: Specify the minimum length (bp) for sequences (default: 2500). The same value is applied during initial contig filtering and again before dRep clustering to keep downstream analyses in sync with the user input.
 
 - **`--non-con/--con`**: Specifies the viral prediction criteria based on the sample preparation method. Use `--non-con` for samples that were not enriched using viral-particle concentration methods, typically containing a low viral proportion. Use `--con` for samples subjected to concentration methods, which are expected to have a medium to high viral proportion.
 
 - **`--reassemble`**: (Optional) Enables reassembly of bins after the initial binning process to enhance the accuracy and quality of the final contigs. This feature is still in beta and can significantly increase runtime.
+
+- **`--disable-binning`**: Skip the vRhyme binning stage entirely. When enabled, the pipeline copies the per-sample filtered contigs directly into the dereplication and summary steps, which is useful when bins cannot be recovered for some samples.
 
 - **`-a <assembly_software>`**: (For `ViOTUcluster_AllinOne` only) Specifies the assembly software used during the raw sequence processing. Accepted values are `-a megahit` or `-a metaspades`.
 

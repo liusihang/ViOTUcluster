@@ -10,7 +10,8 @@ OUTPUT_DIR=""
 DATABASE=""
 SAMPLETYPE=""
 REASSEMBLE=false
-VERSION="0.5.5"
+DISABLE_BINNING=false
+VERSION="0.5.6"
 CONCENTRATION_TYPE=""
 THREADS="0"
 LOG_FILE=""
@@ -40,11 +41,18 @@ cleanup() {
 
 # Function to add a timestamp to log entries
 log_with_timestamp() {
-  if [ -n "$LOG_FILE" ] && [ -w "$(dirname "$LOG_FILE")" ]; then
-    echo "$1" >> "$LOG_FILE"
-  else
-    echo "$1" >&2
-  fi
+  echo "$1"
+}
+
+timestamp_and_forward() {
+  local line
+  while IFS= read -r line; do
+    if [[ "$line" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}[[:space:]][0-9]{2}:[0-9]{2}:[0-9]{2}[[:space:]]-[[:space:]] ]]; then
+      printf '%s\n' "$line"
+    else
+      printf '%s - %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$line"
+    fi
+  done
 }
 
 # ---------- Parse CLI ----------
@@ -63,6 +71,7 @@ while [[ $# -gt 0 ]]; do
     --non-con) CONCENTRATION_TYPE="non-concentration"; shift ;;
     --con) CONCENTRATION_TYPE="concentration"; shift ;;
     --reassemble) REASSEMBLE=true; shift ;;
+    --disable-binning) DISABLE_BINNING=true; shift ;;
     -h)
       echo "Usage: $0 [options]"
       echo ""
@@ -78,6 +87,7 @@ while [[ $# -gt 0 ]]; do
       echo "  -A, --assemble-jobs <N>            Parallel samples for assembly (default: auto = 10)."
       echo "  --non-con | --con                  Processing mode."
       echo "  --reassemble                       Enable reassembly of bins."
+      echo "  --disable-binning                  Skip vRhyme binning and use contigs directly."
       echo "  -v                                  Show version."
       echo "  -h                                  Show help."
       exit 0
@@ -106,9 +116,9 @@ fi
 
 # Timestamped tee if possible
 if [ -n "$LOG_FILE" ] && [ -w "$LOG_FILE" ]; then
-  exec > >(tee -a "$LOG_FILE" | while IFS= read -r line; do echo "$(date '+%Y-%m-%d %H:%M:%S') - $line"; done) 2>&1
+  exec > >(timestamp_and_forward | tee -a "$LOG_FILE") 2>&1
 else
-  exec > >(while IFS= read -r line; do echo "$(date '+%Y-%m-%d %H:%M:%S') - $line"; done) 2>&1
+  exec > >(timestamp_and_forward) 2>&1
   log_with_timestamp "Warning: Logging to log file failed. Outputting to standard streams only."
 fi
 
@@ -185,6 +195,9 @@ else
 fi
 
 log_with_timestamp "[🔄] Processing with $CONCENTRATION_TYPE mode, $THREADS threads, min-length $MIN_LENGTH."
+if [ "$DISABLE_BINNING" = true ]; then
+  log_with_timestamp "[ℹ️] Binning stage disabled; contigs will be used directly downstream."
+fi
 
 # ---------- Conda env / script dir ----------
 if [ -z "$CONDA_PREFIX" ]; then
@@ -219,18 +232,65 @@ fi
 # ---------- Export env for submodules ----------
 export INPUT_DIR OUTPUT_DIR DATABASE SAMPLETYPE REASSEMBLE ScriptDir RAW_SEQ_DIR THREADS MIN_LENGTH
 export Group FILES RawFILES CONCENTRATION_TYPE THREADS_PER_FILE
+export DISABLE_BINNING
 
 # New: export concurrency envs for downstream modules
 export MAX_PredictionTASKS TPM_tasks Assemble_jobs
 export MAX_TASKS="$MAX_PredictionTASKS"
 
 # ---------- run_module helper ----------
+prepare_unbinned_from_contigs() {
+  local seprate_root="${OUTPUT_DIR}/SeprateFile"
+  local unbined_dir="${OUTPUT_DIR}/Summary/SeperateRes/unbined"
+  local bins_dir="${OUTPUT_DIR}/Summary/SeperateRes/bins"
+  local viralseq_dir="${OUTPUT_DIR}/Summary/SeperateRes"
+
+  if [ ! -d "$seprate_root" ]; then
+    log_with_timestamp "[❌] Expected contig directory '${seprate_root}' not found when preparing unbinned sequences."
+    return 1
+  fi
+
+  mkdir -p "$unbined_dir" "$bins_dir" "$viralseq_dir"
+  rm -f "${unbined_dir}"/*_unbined.fasta 2>/dev/null || true
+  rm -f "${bins_dir}"/*.fasta 2>/dev/null || true
+  rm -f "${viralseq_dir}"/*_viralseqs.fasta 2>/dev/null || true
+
+  shopt -s nullglob
+  local filtered_files=("${seprate_root}"/*/*_filtered.fasta)
+  shopt -u nullglob
+
+  local count=${#filtered_files[@]}
+  if [ "$count" -eq 0 ]; then
+    log_with_timestamp "[❌] No '*_filtered.fasta' files found under ${seprate_root}; cannot continue without contigs."
+    return 1
+  fi
+
+  for filtered in "${filtered_files[@]}"; do
+    local filename
+    filename=$(basename "$filtered")
+    local sample="${filename%_filtered.*}"
+    if [ -z "$sample" ]; then
+      sample="$filename"
+    fi
+
+    local unbined_dest="${unbined_dir}/${sample}_unbined.fasta"
+    cp -f "$filtered" "$unbined_dest"
+
+    local viralseq_dest="${viralseq_dir}/${sample}_viralseqs.fasta"
+    cp -f "$unbined_dest" "$viralseq_dest"
+  done
+
+  log_with_timestamp "[✅] Prepared ${count} unbinned contig files directly from filtered contigs."
+  return 0
+}
+
 run_module() {
   local module_name="$1"
   local log_file="$2"
   local command_to_run="$3"
 
   mkdir -p "$(dirname "$log_file")"
+  : > "$log_file"
 
   local msg="Starting $module_name..."
   local border="###############################################"
@@ -262,6 +322,13 @@ run_module() {
   if [ "$result" -ne 0 ]; then
     echo "$module_name failed. Check log: $log_file"
     log_with_timestamp "Error: $module_name failed with exit code $result. Check log: $log_file"
+    if [ -s "$log_file" ]; then
+      log_with_timestamp "---- Last 40 lines from $log_file ----"
+      tail -n 40 "$log_file" | while IFS= read -r tail_line; do
+        printf '[%s][tail] %s\n' "$module_name" "$tail_line"
+      done
+      log_with_timestamp "---- End of $log_file ----"
+    fi
     cleanup
   fi
 
@@ -297,7 +364,13 @@ done
 # ---------- Execute modules (env variables propagate concurrency knobs) ----------
 run_module "Viral prediction" "${MODULE_LOG_DIR}/Viral_prediction.log" "${ScriptDir}/viral_prediction_module.sh"
 run_module "Cross Validation" "${MODULE_LOG_DIR}/Cross_validation.log" "${ScriptDir}/cross_validation_module.sh --${CONCENTRATION_TYPE}"
-run_module "Binning and merge" "${MODULE_LOG_DIR}/Binning_merge.log" "${ScriptDir}/binning_merge_module.sh"
+if [ "$DISABLE_BINNING" = true ]; then
+  if ! prepare_unbinned_from_contigs; then
+    cleanup
+  fi
+else
+  run_module "Binning and merge" "${MODULE_LOG_DIR}/Binning_merge.log" "${ScriptDir}/binning_merge_module.sh"
+fi
 run_module "dRep" "${MODULE_LOG_DIR}/Drep.log" "${ScriptDir}/drep_module.sh"
 run_module "Summary" "${MODULE_LOG_DIR}/Summary.log" "${ScriptDir}/summary_module.sh"
 

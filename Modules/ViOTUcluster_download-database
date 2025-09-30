@@ -78,17 +78,29 @@ fi
 
 # Download ViralVerify database if not already downloaded
 if ! check_viralverify_db; then
+    URL="https://figshare.com/ndownloader/files/17904323?private_link=f897d463b31a35ad7bf0"
     echo "Downloading ViralVerify database..."
-    curl -L -o "$DB_DIR/nbc_hmms.hmm.gz" "https://figshare.com/ndownloader/files/17904323?private_link=f897d463b31a35ad7bf0"
-    if [ $? -ne 0 ]; then
+    if ! curl -4 -L --fail --retry 3 --retry-all-errors \
+        -A "Mozilla/5.0" \
+        -H "Referer: https://figshare.com/" \
+        -o "$DB_DIR/nbc_hmms.hmm.gz" \
+        "$URL"; then
         echo "[❌] Failed to download ViralVerify database."
+        echo "----- Diagnostic (HEAD with redirects) -----"
+        #Error info for debugging
+        curl -vI -4 -L \
+             -A "Mozilla/5.0" \
+             -H "Referer: https://figshare.com/" \
+             "$URL" || true
         exit 1
     fi
+
     echo "Unzipping ViralVerify database..."
     mkdir -p "$DB_DIR/ViralVerify"
     gunzip -c "$DB_DIR/nbc_hmms.hmm.gz" > "$DB_DIR/ViralVerify/nbc_hmms.hmm"
-    rm "$DB_DIR/nbc_hmms.hmm.gz"
+    rm -f "$DB_DIR/nbc_hmms.hmm.gz"
 fi
+
 
 # Convert ViralVerify and other HMM files to binary format
 echo "Converting to binary format..."
