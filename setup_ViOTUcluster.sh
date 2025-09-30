@@ -305,7 +305,7 @@ echo_msg "Finalizing setup..."
 conda activate "$VIOTUCLUSTER_ENV_ROOT" 2>/dev/null || { echo_msg "Warning: Final conda activate failed, environment should still be usable."; }
 
 echo_msg "[✅] ViOTUcluster Setup complete."
-echo_msg "Current version: 0.5.5"
+echo_msg "Current version: 0.5.5.1"
 
 echo_msg "Cleaning up downloaded archive files..."
 if [ -f "$VIOTUCLUSTER_UNPACKED_MARKER" ]; then
