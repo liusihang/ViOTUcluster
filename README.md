@@ -142,7 +142,7 @@ ViOTUcluster comes with an **all-in-one setup script** that pulls three pre-pack
 
    ```bash
    conda activate ViOTUcluster
-   DRAM_setup.py download "/path/to/db/DRAM"
+   DRAM-setup.py download "/path/to/db/DRAM"
    ```
 
    If you have an existing DRAM environment and want to migrate its settings, follow these steps:
