@@ -140,7 +140,7 @@ if [ -f "$TAXONOMY_CSV" ]; then
 else
   echo "[🔬] Starting taxonomy prediction..."
   genomad annotate "$OUTPUT_DIR/Summary/vOTU/vOTU.fasta" "$OUTPUT_DIR/Summary/vOTU/TaxAnnotate" $DATABASE/genomad_db -t "$THREADS"
-  python ${ScriptDir}/format_taxonomy.py "$OUTPUT_DIR/Summary/vOTU/TaxAnnotate/vOTU_annotate/vOTU_taxonomy.tsv" "$TAXONOMY_CSV"
+  python ${ScriptDir}/format_taxonomy.py "$OUTPUT_DIR/Summary/vOTU/TaxAnnotate/vOTU_annotate/vOTU_taxonomy.tsv" "$TAXONOMY_CSV" "$ABUNDANCE_CSV"
   echo "[✅] Taxonomy prediction completed successfully."
 fi
 

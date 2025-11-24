@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-import pandas as pd
 import sys
+from typing import Dict, Optional
+
+import pandas as pd
 
 LEVELS = ['Realm', 'Kingdom', 'Phylum', 'Class', 'Order', 'Family', 'Genus', 'Species']
 FILL_SUFFIX = '__unclassified'
 
-ALIASES = {
+ALIASES: Dict[str, str] = {
     'realm': 'Realm',
     'kingdom': 'Kingdom',
     'phylum': 'Phylum',
@@ -18,9 +20,10 @@ ALIASES = {
     'superkingdom': 'Realm',
 }
 
-def parse_lineage(lineage_str: str) -> dict:
+
+def parse_lineage(lineage_str: str) -> Dict[str, Optional[str]]:
     """
-    将谱系字符串解析为 {level: name} 字典。
+    Parse a lineage string into a dictionary keyed by the standard LEVELS list.
     """
     result = {lvl: None for lvl in LEVELS}
     if pd.isna(lineage_str):
@@ -30,48 +33,46 @@ def parse_lineage(lineage_str: str) -> dict:
     if not s:
         return result
 
-    tokens = [t.strip() for t in s.split(';') if t.strip()]
-    is_kv = any(('=' in t) or (':' in t) for t in tokens)
+    tokens = [token.strip() for token in s.split(';') if token.strip()]
+    is_kv = any(('=' in token) or (':' in token) for token in tokens)
 
     if is_kv:
-        for t in tokens:
-            if '=' in t:
-                k, v = t.split('=', 1)
-            elif ':' in t:
-                k, v = t.split(':', 1)
+        for token in tokens:
+            if '=' in token:
+                key, value = token.split('=', 1)
+            elif ':' in token:
+                key, value = token.split(':', 1)
             else:
                 continue
-            k = k.strip().lower()
-            v = v.strip()
-            if not v:
+            key = key.strip().lower()
+            value = value.strip()
+            if not value:
                 continue
-            if k in ALIASES:
-                result[ALIASES[k]] = v
+            if key in ALIASES:
+                result[ALIASES[key]] = value
     else:
-        for i, lvl in enumerate(LEVELS):
+        for i, level in enumerate(LEVELS):
             if i < len(tokens):
-                val = tokens[i].strip()
-                result[lvl] = val if val else None
+                value = tokens[i].strip()
+                result[level] = value if value else None
 
     return result
 
+
 def fill_row_hierarchy(row: pd.Series) -> pd.Series:
     """
-    缺失填补规则：
-    - Realm 缺失→ 'unclassified'
-    - Kingdom..Family：用上一层 + '__unclassified'
-    - Genus 缺失→ Family + '__unclassified'
-    - Species 缺失→ 若 Genus 有值，用 Genus + '__unclassified'，否则用 Family + '__unclassified'
+    Fill missing levels by propagating the closest known parent and appending
+    the default suffix, matching the previous behavior.
     """
     if pd.isna(row['Realm']) or row['Realm'] == '':
         row['Realm'] = 'unclassified'
 
     for i in range(1, LEVELS.index('Family') + 1):
-        cur = LEVELS[i]
-        prev = LEVELS[i - 1]
-        if pd.isna(row[cur]) or row[cur] == '':
-            base = row[prev] if pd.notna(row[prev]) and row[prev] != '' else 'unclassified'
-            row[cur] = f"{base}{FILL_SUFFIX}"
+        current = LEVELS[i]
+        previous = LEVELS[i - 1]
+        if pd.isna(row[current]) or row[current] == '':
+            base = row[previous] if pd.notna(row[previous]) and row[previous] != '' else 'unclassified'
+            row[current] = f"{base}{FILL_SUFFIX}"
 
     if pd.isna(row['Genus']) or row['Genus'] == '':
         family = row['Family'] if pd.notna(row['Family']) and row['Family'] != '' else 'unclassified'
@@ -84,11 +85,12 @@ def fill_row_hierarchy(row: pd.Series) -> pd.Series:
 
     return row
 
-def format_taxonomy(input_csv, output_file):
+
+def format_taxonomy(input_csv: str, output_file: str, abundance_csv: Optional[str] = None) -> None:
     """
-    输入：含 `seq_name` 与 `lineage` 的 TSV。
-    输出：仅包含 9 列（OTU + 8 层级）的 TSV：
-        OTU, Realm, Kingdom, Phylum, Class, Order, Family, Genus, Species。
+    Transform the genomad taxonomy table into OTU + 8 ranked columns and,
+    optionally, ensure that every OTU present in the abundance table exists in
+    the taxonomy file (adding Unclassified_virus placeholders when needed).
     """
     df = pd.read_csv(input_csv, sep='\t')
 
@@ -102,13 +104,40 @@ def format_taxonomy(input_csv, output_file):
     out = out.apply(fill_row_hierarchy, axis=1)
 
     out = out.rename(columns={'seq_name': 'OTU'})
-    out = out[['OTU'] + LEVELS]  # 强制只保留 9 列
+    out = out[['OTU'] + LEVELS]
+
+    if abundance_csv:
+        try:
+            abundance_df = pd.read_csv(abundance_csv)
+            abundance_ids = (
+                abundance_df.iloc[:, 0]
+                .dropna()
+                .astype(str)
+                .tolist()
+            )
+        except Exception as exc:
+            print(f"[WARN] Failed to read abundance file {abundance_csv}: {exc}", file=sys.stderr)
+            abundance_ids = []
+
+        if abundance_ids:
+            taxonomy_ids = set(out['OTU'].astype(str))
+            missing_ids = [otu_id for otu_id in abundance_ids if otu_id not in taxonomy_ids]
+
+            if missing_ids:
+                filler = pd.DataFrame({'OTU': missing_ids})
+                for level in LEVELS:
+                    filler[level] = 'Unclassified_virus'
+                out = pd.concat([out, filler], ignore_index=True)
+                print(f"[INFO] Added {len(missing_ids)} OTUs missing from taxonomy.")
 
     out.to_csv(output_file, index=False, sep='\t')
     print(f"File saved as: {output_file}")
 
+
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        print("Usage: python script_name.py <input_tsv_file> <output_tsv_file>")
+    if len(sys.argv) not in (3, 4):
+        print("Usage: python script_name.py <input_tsv_file> <output_tsv_file> [abundance_csv]")
         sys.exit(1)
-    format_taxonomy(sys.argv[1], sys.argv[2])
+
+    abundance_file = sys.argv[3] if len(sys.argv) == 4 else None
+    format_taxonomy(sys.argv[1], sys.argv[2], abundance_file)

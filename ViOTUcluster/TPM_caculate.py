@@ -2,13 +2,14 @@ import os
 import sys
 import pandas as pd
 
-def merge_tpm_files(input_folder, merged_output_file):
+def merge_tpm_files(input_folder, merged_output_file, index_name="OTU"):
     """
     Merge TPM values from multiple TSV files into a single CSV file.
 
     Parameters:
     - input_folder (str): Path to the folder containing input TSV files.
     - merged_output_file (str): Path to save the merged TPM CSV file.
+    - index_name (str): Name assigned to the index column in the output CSV.
     """
     merged_df = pd.DataFrame()
 
@@ -41,8 +42,8 @@ def merge_tpm_files(input_folder, merged_output_file):
         # Remove '_coverage' from column names if present
         merged_df.columns = merged_df.columns.str.replace('_coverage', '', regex=False)
 
-        # Set the index name to "OTU" so that the first column in the CSV is named OTU
-        merged_df.index.name = "OTU"
+        # Set the index name (default "OTU") so that the first column reflects the entity being quantified
+        merged_df.index.name = index_name
 
         # Save the merged TPM data to a CSV file
         merged_df.to_csv(merged_output_file, float_format='%.10f')
@@ -57,15 +58,17 @@ def main():
     Expects two command-line arguments:
     1. Input folder containing TSV files.
     2. Output CSV file path for the merged TPM data.
+    3. (Optional) Index column name for the output CSV (defaults to "OTU").
     """
-    if len(sys.argv) != 3:
-        print("Usage: python script.py <input_folder> <merged_output_file>")
+    if len(sys.argv) not in (3, 4):
+        print("Usage: python script.py <input_folder> <merged_output_file> [index_name]")
         sys.exit(1)
     
     input_folder = sys.argv[1]
     merged_output_file = sys.argv[2]
+    index_name = sys.argv[3] if len(sys.argv) == 4 else "OTU"
     
-    merge_tpm_files(input_folder, merged_output_file)
+    merge_tpm_files(input_folder, merged_output_file, index_name)
 
 if __name__ == "__main__":
     main()

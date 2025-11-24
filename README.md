@@ -279,6 +279,8 @@ Below is a tree list of how the file structure should be organized, assuming the
 │   │   │    ├── vOTU.Taxonomy.csv
 │   │   │    └── CheckVRes
 │   │   ├── DRAMRes(Optional)
+│   │   │    ├── DRAM_annotations.tsv
+│   │   │    └── DRAM_Gene.Abundance.csv
 │   │   └── iPhopRes(Optional)
 │   └── (IntermediateFile....)
 │
@@ -311,8 +313,10 @@ The processed data is organized under the specified `output_path/`, with the fol
     - **`vOTU.Abundance.csv`**: Abundance data of the vOTUs across samples.
     - **`vOTU.Taxonomy.csv`**: Taxonomic assignments for the vOTUs, if available.
     - **`CheckVRes`**: Summarized CheckV quality assessments for final vOTUs file.
-    - **`DRAMRes (Optional)`**: Optional results from DRAM annotation if included in the workflow.
-    - **`iPhopRes (Optional)`**: Optional results from iPhop annotation if included in the workflow.
+  - **`DRAMRes (Optional)`**: Optional functional annotations from DRAM if the advanced analysis stage is executed.
+    - **`DRAM_annotations.tsv`**: Aggregated DRAM annotations for all predicted genes.
+    - **`DRAM_Gene.Abundance.csv`**: TPM-based abundance estimates for each DRAM-predicted gene across samples.
+  - **`iPhopRes (Optional)`**: Optional results from iPhop annotation if included in the workflow.
 
 - **`output_path/IntermediateFile`**: This directory holds intermediate files generated during the processing pipeline, such as filtered sequences and any temporary data.
 
