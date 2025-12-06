@@ -16,6 +16,7 @@ CONCENTRATION_TYPE=""
 THREADS="0"
 LOG_FILE=""
 MIN_LENGTH="2500" # Default minimum length for sequence filtering
+SAMBAMBA_SAVE_INTERMEDIATE=false
 
 # New concurrency knobs (CLI) — empty means "auto"
 MAX_PredictionTASKS=""
@@ -72,6 +73,7 @@ while [[ $# -gt 0 ]]; do
     --con) CONCENTRATION_TYPE="concentration"; shift ;;
     --reassemble) REASSEMBLE=true; shift ;;
     --disable-binning) DISABLE_BINNING=true; shift ;;
+    --save-sambamba-intermediate) SAMBAMBA_SAVE_INTERMEDIATE=true; shift ;;
     -h)
       echo "Usage: $0 [options]"
       echo ""
@@ -87,6 +89,7 @@ while [[ $# -gt 0 ]]; do
       echo "  -A, --assemble-jobs <N>            Parallel samples for assembly (default: auto = 10)."
       echo "  --non-con | --con                  Processing mode."
       echo "  --reassemble                       Enable reassembly of bins."
+      echo "  --save-sambamba-intermediate      Write Sambamba view output to disk before sorting."
       echo "  --disable-binning                  Skip vRhyme binning and use contigs directly."
       echo "  -v                                  Show version."
       echo "  -h                                  Show help."
@@ -198,6 +201,9 @@ log_with_timestamp "[🔄] Processing with $CONCENTRATION_TYPE mode, $THREADS th
 if [ "$DISABLE_BINNING" = true ]; then
   log_with_timestamp "[ℹ️] Binning stage disabled; contigs will be used directly downstream."
 fi
+if [ "$SAMBAMBA_SAVE_INTERMEDIATE" = true ]; then
+  log_with_timestamp "Sambamba intermediate BAM files will be kept to reduce open file pressure."
+fi
 
 # ---------- Conda env / script dir ----------
 if [ -z "$CONDA_PREFIX" ]; then
@@ -233,6 +239,7 @@ fi
 export INPUT_DIR OUTPUT_DIR DATABASE SAMPLETYPE REASSEMBLE ScriptDir RAW_SEQ_DIR THREADS MIN_LENGTH
 export Group FILES RawFILES CONCENTRATION_TYPE THREADS_PER_FILE
 export DISABLE_BINNING
+export SAMBAMBA_SAVE_INTERMEDIATE
 
 # New: export concurrency envs for downstream modules
 export MAX_PredictionTASKS TPM_tasks Assemble_jobs

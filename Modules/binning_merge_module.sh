@@ -4,6 +4,8 @@
 set -e
 trap 'echo "[❌] An error occurred. Exiting..."; exit 1;' ERR
 
+: "${SAMBAMBA_SAVE_INTERMEDIATE:=false}"
+
 # Perform Binning analysis
 for FILE in $FILES; do
   echo "[🔄] Processing $FILE"
@@ -34,9 +36,18 @@ for FILE in $FILES; do
     bwa index -p "$OUT_DIR/Binning/assembly_index" "$OUT_DIR/${BASENAME}_filtered.fasta" >> "${OUTPUT_DIR}/Log/Binning_merge.log" 2>&1
 
     echo "[🔄] Running alignment and sorting for ${BASENAME}..."
-    bwa mem -t "${THREADS}" "$OUT_DIR/Binning/assembly_index" "$Read1" "$Read2" 2>> "${OUTPUT_DIR}/Log/Binning_merge.log" | \
-      sambamba view -S -f bam -t "${THREADS}" /dev/stdin 2>> "${OUTPUT_DIR}/Log/Binning_merge.log" | \
-      sambamba sort -t "${THREADS}" -o "$OUT_DIR/Binning/alignment.sorted.bam" /dev/stdin 2>> "${OUTPUT_DIR}/Log/Binning_merge.log"
+    if [ "$SAMBAMBA_SAVE_INTERMEDIATE" = true ]; then
+      INTERMEDIATE_BAM="$OUT_DIR/Binning/alignment.unsorted.bam"
+      echo "[💾] Storing intermediate BAM for ${BASENAME} to avoid sambamba piping limits..." >> "${OUTPUT_DIR}/Log/Binning_merge.log"
+      rm -f "$INTERMEDIATE_BAM"
+      bwa mem -t "${THREADS}" "$OUT_DIR/Binning/assembly_index" "$Read1" "$Read2" 2>> "${OUTPUT_DIR}/Log/Binning_merge.log" | \
+        sambamba view -S -f bam -t "${THREADS}" -o "$INTERMEDIATE_BAM" /dev/stdin 2>> "${OUTPUT_DIR}/Log/Binning_merge.log"
+      sambamba sort -t "${THREADS}" -o "$OUT_DIR/Binning/alignment.sorted.bam" "$INTERMEDIATE_BAM" 2>> "${OUTPUT_DIR}/Log/Binning_merge.log"
+    else
+      bwa mem -t "${THREADS}" "$OUT_DIR/Binning/assembly_index" "$Read1" "$Read2" 2>> "${OUTPUT_DIR}/Log/Binning_merge.log" | \
+        sambamba view -S -f bam -t "${THREADS}" /dev/stdin 2>> "${OUTPUT_DIR}/Log/Binning_merge.log" | \
+        sambamba sort -t "${THREADS}" -o "$OUT_DIR/Binning/alignment.sorted.bam" /dev/stdin 2>> "${OUTPUT_DIR}/Log/Binning_merge.log"
+    fi
 
     sambamba index -t "${THREADS}" "$OUT_DIR/Binning/alignment.sorted.bam" 2>> "${OUTPUT_DIR}/Log/Binning_merge.log"
   else
