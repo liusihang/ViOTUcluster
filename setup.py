@@ -20,8 +20,8 @@ except Exception as e:
     sys.exit("mamba not detected or version check failed: " + str(e))
 
 setup(
-    name="ViOTUcluster",
-    version="0.5.7",
+    name="viotucluster",
+    version="0.5.7.1",
     packages=find_packages(),
     include_package_data=True,
     scripts=glob.glob("Modules/*") + glob.glob("ViOTUcluster/*"),
