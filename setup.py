@@ -5,9 +5,9 @@ import glob
 from setuptools import setup, find_packages
 from packaging.version import Version
 
-# Check Python version, must be 3.8.x
-if sys.version_info[:2] != (3, 8):
-    sys.exit("This package requires Python 3.8.")
+# Check Python version: support 3.8 to 3.11
+if sys.version_info < (3, 8) or sys.version_info >= (3, 12):
+    sys.exit("This package requires Python >=3.8 and <3.12")
 
 try:
     output = subprocess.check_output(["mamba", "--version"], universal_newlines=True)
@@ -15,22 +15,57 @@ try:
     required_mamba_version = Version("1.5.1")
     installed_mamba_version = Version(version_str)
     if installed_mamba_version < required_mamba_version:
-        sys.exit("mamba version must be = 1.5.1")
+        sys.exit("mamba version must be >= 1.5.1")
 except Exception as e:
     sys.exit("mamba not detected or version check failed: " + str(e))
 
+# Read long description safely
+def read_long_description():
+    try:
+        with open("README.md", encoding="utf-8") as f:
+            return f.read()
+    except FileNotFoundError:
+        return "ViOTUcluster: A high-speed pipeline for viromic analysis"
+
 setup(
     name="viotucluster",
-    version="0.5.7.1",
+    version="0.5.7.2",
     packages=find_packages(),
     include_package_data=True,
-    scripts=glob.glob("Modules/*") + glob.glob("ViOTUcluster/*"),
+    # Exclude the old Bash entry points to avoid conflict with new Python entry_points
+    scripts=[f for f in glob.glob("Modules/*") if not f.endswith("ViOTUcluster") and not f.endswith("ViOTUcluster_AllinOne")],
+    entry_points={
+        'console_scripts': [
+            'ViOTUcluster=ViOTUcluster.viotucluster_cli:main',
+            'ViOTUcluster_AllinOne=ViOTUcluster.viotucluster_allinone_cli:main',
+        ],
+    },
     license="GPL-2.0",
     license_files=["LICENSE"],
-    python_requires=">=3.8, <3.9",
+    python_requires=">=3.8, <3.12",
+    install_requires=[
+        "biopython>=1.79",
+        "pandas>=1.3.0",
+        "packaging",
+    ],
     author="Sihang Liu",
-    description="ViOTUcluster: A high-speed, all-in-one solution that streamlines the entire virome analysis workflow",
-    long_description=open("README.md", encoding="utf-8").read(),
-    long_description_content_type="text/markdown", 
+    author_email="liusihang@tongji.edu.cn",
+    description="ViOTUcluster: A high-speed, all-in-one solution for viromic analysis",
+    long_description=read_long_description(),
+    long_description_content_type="text/markdown",
     package_data={'': ['Modules/*', 'ViOTUcluster/*']},
+    url="https://github.com/liusihang/ViOTUcluster",
+    classifiers=[
+        "Development Status :: 4 - Beta",
+        "Intended Audience :: Science/Research",
+        "License :: OSI Approved :: GNU General Public License v2 (GPLv2)",
+        "Operating System :: POSIX :: Linux",
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Topic :: Scientific/Engineering :: Bio-Informatics",
+    ],
+    keywords="viromics, metagenomics, viral genomics, bioinformatics, vOTU",
 )

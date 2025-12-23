@@ -24,13 +24,13 @@ Group = os.environ['Group']
 CONCENTRATION_TYPE = os.environ['CONCENTRATION_TYPE']
 THREADS = int(os.environ['THREADS'])  
 
-# 全局并发上限
+# Global concurrency limit (from environment or auto-detect)
 try:
     MAX_TASKS = int(os.environ.get('MAX_TASKS', max(1, multiprocessing.cpu_count())))
 except ValueError:
     MAX_TASKS = max(1, multiprocessing.cpu_count())
 
-# 全局并发闸
+# Global concurrency semaphore
 _TASK_SEM = threading.BoundedSemaphore(value=max(1, MAX_TASKS))
 
 # ===== 3) File list =====
@@ -56,10 +56,10 @@ print(f"Per-task threads passed to tools (THREADS): {THREADS}")
 def run_command(cmd, cores=None):
     """Run an external command and bind it to specified cores (if supported),
        with a global concurrency gate (_TASK_SEM)."""
-    _TASK_SEM.acquire()  # 全局并发闸
+    _TASK_SEM.acquire()  # Acquire global concurrency semaphore
     try:
         process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        # 子进程亲和性
+        # Set subprocess CPU affinity if supported
         if hasattr(os, 'sched_setaffinity') and cores:
             try:
                 os.sched_setaffinity(process.pid, cores)
@@ -72,7 +72,7 @@ def run_command(cmd, cores=None):
             )
         return stdout.decode(errors='ignore')
     finally:
-        _TASK_SEM.release()  # 释放并发令牌
+        _TASK_SEM.release()  # Release concurrency token
 
 def process_file(file_path):
     basename = os.path.basename(file_path).replace('.fasta', '').replace('.fa', '')
@@ -197,7 +197,7 @@ def main():
     print(f"Global concurrency cap (MAX_TASKS): {MAX_TASKS}")
     print(f"Total files to process: {len(files_list)}")
 
-    # 外层线程池：以文件为粒度的提交并发，限到 MAX_TASKS
+    # Outer thread pool: submit tasks per-file with concurrency capped at MAX_TASKS
     outer_workers = max(1, min(len(files_list), MAX_TASKS))
     with ThreadPoolExecutor(max_workers=outer_workers) as executor:
         futures = [executor.submit(process_file, fp) for fp in files_list]

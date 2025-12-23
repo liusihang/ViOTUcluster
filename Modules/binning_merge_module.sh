@@ -125,9 +125,9 @@ for FILE in $FILES; do
     echo "[🔄] Organizing vRhyme output for $BASENAME..."
     for vRhymeFILE in "$VRHYME_DIR/vRhyme_best_bins_fasta/"*.fasta; do
       NEW_NAME=$(basename "$vRhymeFILE" | sed "s/^vRhyme_/${BASENAME}_/")
-      NEW_PATH="$OUT_DIR/Binning/Summary/Finialfasta/Bestbins/$NEW_NAME"
+      NEW_PATH="$OUT_DIR/Binning/Summary/FinalFasta/Bestbins/$NEW_NAME"
       
-      mkdir -p "${OUT_DIR}/Binning/Summary/Finialfasta/Bestbins"
+      mkdir -p "${OUT_DIR}/Binning/Summary/FinalFasta/Bestbins"
       
       cp "$vRhymeFILE" "$NEW_PATH"
       cp "$NEW_PATH" "${OUTPUT_DIR}/Summary/SeperateRes/bins"

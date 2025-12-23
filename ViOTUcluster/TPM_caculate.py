@@ -24,14 +24,14 @@ def merge_tpm_files(input_folder, merged_output_file, index_name="OTU"):
                 print(f"Error reading {file_name}: {e}")
                 continue
 
-            # Check if 'TPM' column exists, or使用第二列数据
+            # Check if 'TPM' column exists, or use the second column data
             tpm_series = tpm_df.iloc[:, 0]
 
             # Rename the series using the file name (without extension)
             column_name = os.path.splitext(file_name)[0]
             tpm_series.name = column_name
 
-            # 合并数据，按 OTU 名进行对齐
+            # Merge data by aligning on OTU names
             merged_df = pd.concat([merged_df, tpm_series], axis=1)
 
     # If merged DataFrame is not empty, process and save it

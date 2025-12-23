@@ -64,24 +64,25 @@ else
       echo "[✅] BWA index already completed. Skipping..."
   fi
 
-  # Process each file in FILES
-  for FILE in $FILES; do
+  # Function to process a single sample for BAM generation and coverage calculation
+  process_sample_bam() {
+    local FILE=$1
     echo "[🔄] Processing $FILE"
     
-    BASENAME=$(basename "$FILE" .fa)
+    local BASENAME=$(basename "$FILE" .fa)
     BASENAME=${BASENAME%.fasta}
     
     if [ -f "$OUTPUT_DIR/Summary/SeperateRes/Coverage/${BASENAME}_coverage.tsv" ]; then
       echo "[⏭️] Skipping $BASENAME as coverage file already exists."
-      continue
+      return 0
     fi
     
-    Read1=$(find "${RAW_SEQ_DIR}" -type f -name "${BASENAME}_R1*" | head -n 1)
-    Read2=$(find "${RAW_SEQ_DIR}" -type f -name "${BASENAME}_R2*" | head -n 1)
+    local Read1=$(find "${RAW_SEQ_DIR}" -type f -name "${BASENAME}_R1*" | head -n 1)
+    local Read2=$(find "${RAW_SEQ_DIR}" -type f -name "${BASENAME}_R2*" | head -n 1)
     
     if [ -z "$Read1" ] || [ -z "$Read2" ]; then
       echo "[❌] Error: Read1 or Read2 files not found for $BASENAME."
-      exit 1
+      return 1
     fi
 
     # Check and generate sorted BAM file with index
@@ -91,17 +92,16 @@ else
           sambamba view -S -f bam -t "${THREADS}" /dev/stdin | \
           sambamba sort -t "${THREADS}" -o "$OUTPUT_DIR/Summary/Viralcontigs/TPMTemp/${BASENAME}_sorted_gene.bam" /dev/stdin
 
-        
         if [ $? -ne 0 ]; then
           echo "[❌] Error: Failed to complete alignment pipeline for $BASENAME."
-          exit 1
+          return 1
         fi
 
         sambamba index -t "${THREADS}" "$OUTPUT_DIR/Summary/Viralcontigs/TPMTemp/${BASENAME}_sorted_gene.bam"
         
         if [ $? -ne 0 ]; then
           echo "[❌] Error: Failed to generate BAM index for $BASENAME."
-          exit 1
+          return 1
         fi
     else
         echo "[✅] Alignment already completed for ${BASENAME}. Skipping..."
@@ -109,14 +109,23 @@ else
 
     # Create directory for coverage calculation
     mkdir -p "$OUTPUT_DIR/Summary/SeperateRes/Coverage"
-    #checkm coverage -x fasta -m 10 -t "${THREADS}" --quiet "$OUTPUT_DIR/Summary/Viralcontigs/TPMTemp/binsf" "$OUTPUT_DIR/Summary/Viralcontigs/Temp/${BASENAME}_coverage.tsv" "$OUTPUT_DIR/Summary/Viralcontigs/TPMTemp/${BASENAME}_sorted_gene.bam"
     coverm contig --methods tpm --bam-files "$OUTPUT_DIR/Summary/Viralcontigs/TPMTemp/${BASENAME}_sorted_gene.bam" -t "${THREADS}" -o "$OUTPUT_DIR/Summary/SeperateRes/Coverage/${BASENAME}_coverage.tsv"
     if [ $? -ne 0 ]; then
       echo "[❌] Error: Failed to calculate coverage for $BASENAME."
-      exit 1
+      return 1
     fi
-    #rm -r "$OUTPUT_DIR/Summary/Viralcontigs/TPMTemp/binsf"
-  done
+    
+    echo "[✅] BAM processing completed for ${BASENAME}."
+    return 0
+  }
+  
+  export -f process_sample_bam
+  export OUTPUT_DIR RAW_SEQ_DIR THREADS
+  
+  # Run BAM processing in parallel using TPM_tasks as concurrency limit
+  TPM_tasks=${TPM_tasks:-4}
+  echo "[🔄] Processing ${#FILES[@]} samples with parallel (max ${TPM_tasks} concurrent jobs)..."
+  parallel -j ${TPM_tasks} process_sample_bam ::: $FILES
 
   # Run TPM calculation
   python ${ScriptDir}/TPM_caculate.py "$OUTPUT_DIR/Summary/SeperateRes/Coverage" "$ABUNDANCE_CSV"
