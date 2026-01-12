@@ -168,7 +168,7 @@ For more information, visit: https://github.com/liusihang/ViOTUcluster
         '--gene-contigs-dir',
         dest='gene_contigs_dir',
         default=None,
-        help='Override contigs directory for gene catalog (default: output/Summary/SeperateRes)'
+        help='Override contigs directory for gene catalog (default: input/FilteredSeqs)'
     )
     gene.add_argument(
         '--gene-mmseqs-min-id',

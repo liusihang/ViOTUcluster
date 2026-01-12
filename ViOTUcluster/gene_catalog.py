@@ -51,15 +51,6 @@ def _discover_contigs(output_dir: str, contigs_dir: Optional[str]) -> List[str]:
     if contigs_dir:
         return _find_fasta_files(contigs_dir)
 
-    summary_dir = os.path.join(output_dir, "Summary", "SeperateRes")
-    if os.path.isdir(summary_dir):
-        viralseqs = sorted(
-            glob.glob(os.path.join(summary_dir, "*_viralseqs.fasta"))
-            + glob.glob(os.path.join(summary_dir, "*_viralseqs.fa"))
-        )
-        if viralseqs:
-            return viralseqs
-
     filtered_dir = os.path.join(output_dir, "FilteredSeqs")
     if os.path.isdir(filtered_dir):
         filtered = _find_fasta_files(filtered_dir)

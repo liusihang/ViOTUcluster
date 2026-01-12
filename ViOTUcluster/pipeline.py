@@ -119,6 +119,9 @@ class ViOTUclusterPipeline:
         self.gene_catalog_input_dir = (
             os.path.abspath(gene_catalog_input_dir) if gene_catalog_input_dir else None
         )
+        if not self.gene_catalog_input_dir and self.input_dir:
+            # Default to assembled contigs when none explicitly provided
+            self.gene_catalog_input_dir = self.input_dir
         self.gene_mmseqs_min_id = gene_mmseqs_min_id
         self.gene_mmseqs_cov = gene_mmseqs_cov
         
@@ -127,8 +130,11 @@ class ViOTUclusterPipeline:
         self.log_file = os.path.join(self.output_dir, "pipeline.log")
         self.filtered_seqs_dir = os.path.join(self.output_dir, "FilteredSeqs")
         
-        # Get script directory (where Shell modules are located)
-        self.script_dir = self._find_script_dir()
+        # Get script directory (where Shell modules are located).
+        # Gene catalog–only runs do not need the Shell modules, so defer lookup.
+        self.script_dir: Optional[str] = None
+        if not self.gene_catalog_only:
+            self.script_dir = self._find_script_dir()
         
         # Track start time
         self.start_time = None
@@ -160,6 +166,10 @@ class ViOTUclusterPipeline:
     
     def _setup_environment(self) -> Dict[str, str]:
         """Setup environment variables for Shell modules."""
+        if not self.script_dir:
+            # Resolve lazily in case __init__ skipped it (e.g., for gene catalog only).
+            self.script_dir = self._find_script_dir()
+
         env = os.environ.copy()
         
         env.update({
@@ -493,12 +503,19 @@ class ViOTUclusterPipeline:
         """Run gene catalog workflow on ViOTUcluster outputs."""
         from .gene_catalog import run_gene_catalog
 
+        contigs_source = self.gene_catalog_input_dir
+        if not contigs_source:
+            if (not self.gene_catalog_only) and os.path.isdir(self.filtered_seqs_dir):
+                contigs_source = self.filtered_seqs_dir
+            else:
+                contigs_source = self.input_dir
+
         return self._run_python_step(
             "Gene catalog",
             run_gene_catalog,
             output_dir=self.output_dir,
             raw_seq_dir=self.raw_seq_dir,
-            contigs_dir=self.gene_catalog_input_dir,
+            contigs_dir=contigs_source,
             max_parallel=self.tpm_tasks,
             salmon_threads=self.threads,
             mmseqs_min_id=self.gene_mmseqs_min_id,
