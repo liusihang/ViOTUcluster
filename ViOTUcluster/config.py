@@ -29,6 +29,10 @@ DEFAULT_MAX_PREDICTION_TASKS = 30  # Max concurrent prediction jobs
 DEFAULT_TPM_TASKS = 15             # Max concurrent BAM/TPM processing samples
 DEFAULT_ASSEMBLE_JOBS = 10         # Max concurrent assembly samples
 
+# Gene catalog defaults
+DEFAULT_GENE_MMSEQS_MIN_ID = 0.9
+DEFAULT_GENE_MMSEQS_COV = 0.8
+
 # =============================================================================
 # Database Subdirectory Names
 # =============================================================================

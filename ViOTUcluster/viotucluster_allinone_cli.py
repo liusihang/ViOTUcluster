@@ -20,6 +20,8 @@ from ViOTUcluster.config import (
     DEFAULT_MAX_PREDICTION_TASKS,
     DEFAULT_TPM_TASKS,
     DEFAULT_ASSEMBLE_JOBS,
+    DEFAULT_GENE_MMSEQS_MIN_ID,
+    DEFAULT_GENE_MMSEQS_COV,
 )
 
 
@@ -146,6 +148,32 @@ For more information, visit: https://github.com/liusihang/ViOTUcluster
         default=DEFAULT_ASSEMBLE_JOBS,
         help=f'Max concurrent assembly samples (default: {DEFAULT_ASSEMBLE_JOBS})'
     )
+
+    # Gene catalog options
+    gene = parser.add_argument_group('Gene Catalog (Optional)')
+    gene.add_argument(
+        '--gene-catalog',
+        action='store_true',
+        help='Run gene catalog workflow on ViOTUcluster outputs'
+    )
+    gene.add_argument(
+        '--gene-contigs-dir',
+        dest='gene_contigs_dir',
+        default=None,
+        help='Override contigs directory for gene catalog (default: output/Summary/SeperateRes)'
+    )
+    gene.add_argument(
+        '--gene-mmseqs-min-id',
+        type=float,
+        default=DEFAULT_GENE_MMSEQS_MIN_ID,
+        help=f'mmseqs2 min sequence identity (default: {DEFAULT_GENE_MMSEQS_MIN_ID})'
+    )
+    gene.add_argument(
+        '--gene-mmseqs-cov',
+        type=float,
+        default=DEFAULT_GENE_MMSEQS_COV,
+        help=f'mmseqs2 coverage threshold (default: {DEFAULT_GENE_MMSEQS_COV})'
+    )
     
     # Version
     parser.add_argument(
@@ -180,6 +208,11 @@ def validate_args(args: argparse.Namespace) -> bool:
     
     if args.threads < 0:
         errors.append(f"threads must be non-negative, got: {args.threads}")
+
+    if not (0 < args.gene_mmseqs_min_id <= 1):
+        errors.append(f"gene-mmseqs-min-id must be in (0, 1], got: {args.gene_mmseqs_min_id}")
+    if not (0 < args.gene_mmseqs_cov <= 1):
+        errors.append(f"gene-mmseqs-cov must be in (0, 1], got: {args.gene_mmseqs_cov}")
     
     if errors:
         print("Error: Invalid arguments", file=sys.stderr)
@@ -296,6 +329,10 @@ def main(argv=None) -> int:
         max_prediction_tasks=args.max_prediction_tasks,
         tpm_tasks=args.tpm_tasks,
         assemble_jobs=args.assemble_jobs,
+        run_gene_catalog=args.gene_catalog,
+        gene_catalog_input_dir=args.gene_contigs_dir,
+        gene_mmseqs_min_id=args.gene_mmseqs_min_id,
+        gene_mmseqs_cov=args.gene_mmseqs_cov,
     )
 
 

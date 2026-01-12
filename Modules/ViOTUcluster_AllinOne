@@ -17,6 +17,10 @@ LOG_FILE=""
 MIN_LENGTH="2500"
 DISABLE_BINNING=false
 SAMBAMBA_SAVE_INTERMEDIATE=false
+GENE_CATALOG=false
+GENE_CONTIGS_DIR=""
+GENE_MMSEQS_MIN_ID=""
+GENE_MMSEQS_COV=""
 
 # New concurrency knobs
 MAX_PredictionTASKS=""
@@ -77,7 +81,7 @@ is_pos_int () { [[ "$1" =~ ^[0-9]+$ ]] && [ "$1" -ge 1 ]; }
 
 # --- Option Parsing ---
 TEMP_ARGS=$(getopt -o r:o:d:a:n:m:P:T:A:vh \
-  --long min-length:,non-con,con,reassemble,disable-binning,max-prediction-tasks:,tpm-tasks:,assemble-jobs:,save-sambamba-intermediate \
+  --long min-length:,non-con,con,reassemble,disable-binning,max-prediction-tasks:,tpm-tasks:,assemble-jobs:,save-sambamba-intermediate,gene-catalog,gene-contigs-dir:,gene-mmseqs-min-id:,gene-mmseqs-cov: \
   -n "$0" -- "$@")
 if [ $? -ne 0 ]; then
     echo "Terminating..." >&2
@@ -97,6 +101,10 @@ while true; do
     -P|--max-prediction-tasks) MAX_PredictionTASKS="$2"; shift 2 ;;
     -T|--tpm-tasks) TPM_tasks="$2"; shift 2 ;;
     -A|--assemble-jobs) Assemble_jobs="$2"; shift 2 ;;
+    --gene-catalog) GENE_CATALOG=true; shift ;;
+    --gene-contigs-dir) GENE_CONTIGS_DIR="$2"; shift 2 ;;
+    --gene-mmseqs-min-id) GENE_MMSEQS_MIN_ID="$2"; shift 2 ;;
+    --gene-mmseqs-cov) GENE_MMSEQS_COV="$2"; shift 2 ;;
     --non-con) CONCENTRATION_TYPE="non-concentration"; shift ;;
     --con) CONCENTRATION_TYPE="concentration"; shift ;;
     --reassemble) REASSEMBLE=true; shift ;;
@@ -122,6 +130,10 @@ while true; do
       echo "  --reassemble                     Enable reassembly (forwarded if supported)."
       echo "  --disable-binning                Skip vRhyme binning; use contigs directly."
       echo "  --save-sambamba-intermediate     Keep Sambamba view output before sorting to reduce file-handle load."
+      echo "  --gene-catalog                   Run gene catalog workflow after ViOTUcluster."
+      echo "  --gene-contigs-dir <path>        Override contigs directory for gene catalog."
+      echo "  --gene-mmseqs-min-id <float>     mmseqs2 min sequence identity (default: 0.9)."
+      echo "  --gene-mmseqs-cov <float>        mmseqs2 coverage threshold (default: 0.8)."
       echo "  -v                               Show version."
       echo "  -h                               Show help."
       exit 0
@@ -323,6 +335,10 @@ is_pos_int "$TPM_tasks" && extra_cli+=" --tpm-tasks ${TPM_tasks}"
 is_pos_int "$Assemble_jobs" && extra_cli+=" --assemble-jobs ${Assemble_jobs}"
 [ "$DISABLE_BINNING" = true ] && extra_cli+=" --disable-binning"
 [ "$SAMBAMBA_SAVE_INTERMEDIATE" = true ] && extra_cli+=" --save-sambamba-intermediate"
+[ "$GENE_CATALOG" = true ] && extra_cli+=" --gene-catalog"
+[ -n "$GENE_CONTIGS_DIR" ] && extra_cli+=" --gene-contigs-dir ${GENE_CONTIGS_DIR}"
+[ -n "$GENE_MMSEQS_MIN_ID" ] && extra_cli+=" --gene-mmseqs-min-id ${GENE_MMSEQS_MIN_ID}"
+[ -n "$GENE_MMSEQS_COV" ] && extra_cli+=" --gene-mmseqs-cov ${GENE_MMSEQS_COV}"
 
 # Call ViOTUcluster
 if [ "$CONCENTRATION_TYPE" == "non-concentration" ]; then

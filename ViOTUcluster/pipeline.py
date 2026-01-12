@@ -20,6 +20,8 @@ from .config import (
     DEFAULT_MAX_PREDICTION_TASKS,
     DEFAULT_TPM_TASKS,
     DEFAULT_ASSEMBLE_JOBS,
+    DEFAULT_GENE_MMSEQS_MIN_ID,
+    DEFAULT_GENE_MMSEQS_COV,
     DB_VIRSORTER,
     DB_VIRALVERIFY,
     DB_CHECKV,
@@ -66,6 +68,11 @@ class ViOTUclusterPipeline:
         tpm_tasks: int = DEFAULT_TPM_TASKS,
         assemble_jobs: int = DEFAULT_ASSEMBLE_JOBS,
         sample_type: str = "Mix",
+        run_gene_catalog: bool = False,
+        gene_catalog_only: bool = False,
+        gene_catalog_input_dir: Optional[str] = None,
+        gene_mmseqs_min_id: float = DEFAULT_GENE_MMSEQS_MIN_ID,
+        gene_mmseqs_cov: float = DEFAULT_GENE_MMSEQS_COV,
     ):
         """
         Initialize the pipeline with configuration.
@@ -85,11 +92,16 @@ class ViOTUclusterPipeline:
             tpm_tasks: Max concurrent BAM/TPM processing samples
             assemble_jobs: Max concurrent assembly samples
             sample_type: 'DNA', 'RNA', or 'Mix'
+            run_gene_catalog: Enable gene catalog workflow
+            gene_catalog_only: Run only the gene catalog workflow (skip main pipeline)
+            gene_catalog_input_dir: Optional directory of contigs for gene catalog
+            gene_mmseqs_min_id: mmseqs2 minimum sequence identity
+            gene_mmseqs_cov: mmseqs2 coverage threshold
         """
-        self.input_dir = os.path.abspath(input_dir)
+        self.input_dir = os.path.abspath(input_dir) if input_dir else ""
         self.raw_seq_dir = os.path.abspath(raw_seq_dir)
         self.output_dir = os.path.abspath(output_dir)
-        self.database = os.path.abspath(database)
+        self.database = os.path.abspath(database) if database else ""
         self.threads = get_threads(threads)
         self.min_length = min_length
         self.concentration_type = concentration_type
@@ -101,6 +113,13 @@ class ViOTUclusterPipeline:
         self.assemble_jobs = assemble_jobs
         self.sample_type = sample_type
         self.group = get_virsorter_groups(sample_type)
+        self.run_gene_catalog = run_gene_catalog
+        self.gene_catalog_only = gene_catalog_only
+        self.gene_catalog_input_dir = (
+            os.path.abspath(gene_catalog_input_dir) if gene_catalog_input_dir else None
+        )
+        self.gene_mmseqs_min_id = gene_mmseqs_min_id
+        self.gene_mmseqs_cov = gene_mmseqs_cov
         
         # Derived paths
         self.log_dir = os.path.join(self.output_dir, "Log")
@@ -262,7 +281,27 @@ class ViOTUclusterPipeline:
         )
         
         errors = []
-        
+
+        if self.gene_catalog_only:
+            try:
+                validate_directory(self.raw_seq_dir, description="Raw sequences directory")
+            except Exception as e:
+                errors.append(str(e))
+            if self.gene_catalog_input_dir:
+                try:
+                    validate_directory(
+                        self.gene_catalog_input_dir,
+                        description="Gene catalog contigs directory",
+                    )
+                except Exception as e:
+                    errors.append(str(e))
+            if errors:
+                for err in errors:
+                    logger.error(f"[❌] {err}")
+                return False
+            logger.info("[✅] Input validation passed (gene catalog only)")
+            return True
+
         # Validate directories
         try:
             validate_directory(self.input_dir, description="Input directory")
@@ -278,6 +317,15 @@ class ViOTUclusterPipeline:
             validate_directory(self.database, description="Database directory")
         except Exception as e:
             errors.append(str(e))
+
+        if self.run_gene_catalog and self.gene_catalog_input_dir:
+            try:
+                validate_directory(
+                    self.gene_catalog_input_dir,
+                    description="Gene catalog contigs directory",
+                )
+            except Exception as e:
+                errors.append(str(e))
         
         # Validate min_length
         if self.min_length < 0:
@@ -355,6 +403,12 @@ class ViOTUclusterPipeline:
         # Step 1: Validate inputs
         if not self.validate_inputs():
             return 1
+
+        # Gene catalog only mode
+        if self.gene_catalog_only:
+            if not self._run_gene_catalog():
+                return 1
+            return 0
         
         # Step 2: Setup directories
         if not self.setup_directories():
@@ -412,6 +466,11 @@ class ViOTUclusterPipeline:
             env
         ):
             return 1
+
+        # Optional: Gene catalog
+        if self.run_gene_catalog:
+            if not self._run_gene_catalog():
+                return 1
         
         # Calculate runtime
         total_runtime = int(time.time() - self.start_time)
@@ -423,6 +482,23 @@ class ViOTUclusterPipeline:
         logger.info("=" * 60)
         
         return 0
+
+    def _run_gene_catalog(self) -> bool:
+        """Run gene catalog workflow on ViOTUcluster outputs."""
+        from .gene_catalog import run_gene_catalog
+
+        return self._run_python_step(
+            "Gene catalog",
+            run_gene_catalog,
+            output_dir=self.output_dir,
+            raw_seq_dir=self.raw_seq_dir,
+            contigs_dir=self.gene_catalog_input_dir,
+            max_parallel=self.tpm_tasks,
+            salmon_threads=self.threads,
+            mmseqs_min_id=self.gene_mmseqs_min_id,
+            mmseqs_cov=self.gene_mmseqs_cov,
+            add_sample_prefix=True,
+        )
     
     def _prepare_unbinned_from_contigs(self) -> bool:
         """Copy filtered contigs as unbinned when binning is disabled."""

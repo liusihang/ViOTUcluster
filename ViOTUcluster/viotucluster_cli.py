@@ -21,6 +21,8 @@ from ViOTUcluster.config import (
     DEFAULT_MAX_PREDICTION_TASKS,
     DEFAULT_TPM_TASKS,
     DEFAULT_ASSEMBLE_JOBS,
+    DEFAULT_GENE_MMSEQS_MIN_ID,
+    DEFAULT_GENE_MMSEQS_COV,
 )
 
 
@@ -57,12 +59,12 @@ For more information, visit: https://github.com/liusihang/ViOTUcluster
         """
     )
     
-    # Required arguments
+    # Required arguments (conditionally validated)
     required = parser.add_argument_group('Required Arguments')
     required.add_argument(
         '-i', '--input',
         dest='input_dir',
-        required=True,
+        required=False,
         help='Input directory containing assembled contig files (FASTA format)'
     )
     required.add_argument(
@@ -80,12 +82,12 @@ For more information, visit: https://github.com/liusihang/ViOTUcluster
     required.add_argument(
         '-d', '--database',
         dest='database',
-        required=True,
+        required=False,
         help='Path to the database directory'
     )
     
     # Concentration type (mutually exclusive)
-    conc_group = parser.add_mutually_exclusive_group(required=True)
+    conc_group = parser.add_mutually_exclusive_group(required=False)
     conc_group.add_argument(
         '--con',
         dest='concentration',
@@ -128,6 +130,11 @@ For more information, visit: https://github.com/liusihang/ViOTUcluster
         action='store_true',
         help='Keep Sambamba intermediate BAM files (for debugging)'
     )
+    optional.add_argument(
+        '--gene-catalog-only',
+        action='store_true',
+        help='Run only gene catalog workflow (skip main pipeline)'
+    )
     
     # Concurrency controls
     perf = parser.add_argument_group('Performance Tuning')
@@ -149,6 +156,32 @@ For more information, visit: https://github.com/liusihang/ViOTUcluster
         default=DEFAULT_ASSEMBLE_JOBS,
         help=f'Max concurrent assembly samples (default: {DEFAULT_ASSEMBLE_JOBS})'
     )
+
+    # Gene catalog options
+    gene = parser.add_argument_group('Gene Catalog (Optional)')
+    gene.add_argument(
+        '--gene-catalog',
+        action='store_true',
+        help='Run gene catalog workflow on ViOTUcluster outputs'
+    )
+    gene.add_argument(
+        '--gene-contigs-dir',
+        dest='gene_contigs_dir',
+        default=None,
+        help='Override contigs directory for gene catalog (default: output/Summary/SeperateRes)'
+    )
+    gene.add_argument(
+        '--gene-mmseqs-min-id',
+        type=float,
+        default=DEFAULT_GENE_MMSEQS_MIN_ID,
+        help=f'mmseqs2 min sequence identity (default: {DEFAULT_GENE_MMSEQS_MIN_ID})'
+    )
+    gene.add_argument(
+        '--gene-mmseqs-cov',
+        type=float,
+        default=DEFAULT_GENE_MMSEQS_COV,
+        help=f'mmseqs2 coverage threshold (default: {DEFAULT_GENE_MMSEQS_COV})'
+    )
     
     # Version
     parser.add_argument(
@@ -169,17 +202,22 @@ def validate_args(args: argparse.Namespace) -> bool:
     """
     errors = []
     
-    # Check input directory
-    if not os.path.isdir(args.input_dir):
-        errors.append(f"Input directory not found: {args.input_dir}")
+    if not args.gene_catalog_only and not (args.concentration or args.non_concentration):
+        errors.append("Specify --con or --non-con")
+
+    if not args.gene_catalog_only:
+        # Check input directory
+        if not args.input_dir or not os.path.isdir(args.input_dir):
+            errors.append(f"Input directory not found: {args.input_dir}")
     
     # Check raw sequences directory
     if not os.path.isdir(args.raw_seq_dir):
         errors.append(f"Raw sequences directory not found: {args.raw_seq_dir}")
     
     # Check database directory
-    if not os.path.isdir(args.database):
-        errors.append(f"Database directory not found: {args.database}")
+    if not args.gene_catalog_only:
+        if not args.database or not os.path.isdir(args.database):
+            errors.append(f"Database directory not found: {args.database}")
     
     # Validate numeric parameters
     if args.min_length < 0:
@@ -196,6 +234,11 @@ def validate_args(args: argparse.Namespace) -> bool:
     
     if args.assemble_jobs < 1:
         errors.append(f"assemble-jobs must be >= 1, got: {args.assemble_jobs}")
+
+    if not (0 < args.gene_mmseqs_min_id <= 1):
+        errors.append(f"gene-mmseqs-min-id must be in (0, 1], got: {args.gene_mmseqs_min_id}")
+    if not (0 < args.gene_mmseqs_cov <= 1):
+        errors.append(f"gene-mmseqs-cov must be in (0, 1], got: {args.gene_mmseqs_cov}")
     
     if errors:
         print("Error: Invalid arguments", file=sys.stderr)
@@ -250,6 +293,11 @@ def main(argv=None) -> int:
         max_prediction_tasks=args.max_prediction_tasks,
         tpm_tasks=args.tpm_tasks,
         assemble_jobs=args.assemble_jobs,
+        run_gene_catalog=args.gene_catalog,
+        gene_catalog_only=args.gene_catalog_only,
+        gene_catalog_input_dir=args.gene_contigs_dir,
+        gene_mmseqs_min_id=args.gene_mmseqs_min_id,
+        gene_mmseqs_cov=args.gene_mmseqs_cov,
     )
 
 

@@ -17,6 +17,11 @@ THREADS="0"
 LOG_FILE=""
 MIN_LENGTH="2500" # Default minimum length for sequence filtering
 SAMBAMBA_SAVE_INTERMEDIATE=false
+GENE_CATALOG=false
+GENE_CATALOG_ONLY=false
+GENE_CONTIGS_DIR=""
+GENE_MMSEQS_MIN_ID="0.9"
+GENE_MMSEQS_COV="0.8"
 
 # New concurrency knobs (CLI) — empty means "auto"
 MAX_PredictionTASKS=""
@@ -74,6 +79,11 @@ while [[ $# -gt 0 ]]; do
     --reassemble) REASSEMBLE=true; shift ;;
     --disable-binning) DISABLE_BINNING=true; shift ;;
     --save-sambamba-intermediate) SAMBAMBA_SAVE_INTERMEDIATE=true; shift ;;
+    --gene-catalog) GENE_CATALOG=true; shift ;;
+    --gene-catalog-only) GENE_CATALOG_ONLY=true; GENE_CATALOG=true; shift ;;
+    --gene-contigs-dir) GENE_CONTIGS_DIR=$2; shift 2 ;;
+    --gene-mmseqs-min-id) GENE_MMSEQS_MIN_ID=$2; shift 2 ;;
+    --gene-mmseqs-cov) GENE_MMSEQS_COV=$2; shift 2 ;;
     -h)
       echo "Usage: $0 [options]"
       echo ""
@@ -90,6 +100,11 @@ while [[ $# -gt 0 ]]; do
       echo "  --non-con | --con                  Processing mode."
       echo "  --reassemble                       Enable reassembly of bins."
       echo "  --save-sambamba-intermediate      Write Sambamba view output to disk before sorting."
+      echo "  --gene-catalog                    Run gene catalog workflow after summary."
+      echo "  --gene-catalog-only               Run only gene catalog workflow (skip main pipeline)."
+      echo "  --gene-contigs-dir <path>         Override contigs directory for gene catalog."
+      echo "  --gene-mmseqs-min-id <float>      mmseqs2 min sequence identity (default: 0.9)."
+      echo "  --gene-mmseqs-cov <float>         mmseqs2 coverage threshold (default: 0.8)."
       echo "  --disable-binning                  Skip vRhyme binning and use contigs directly."
       echo "  -v                                  Show version."
       echo "  -h                                  Show help."
@@ -126,9 +141,16 @@ else
 fi
 
 # ---------- Validate required inputs ----------
-if [ -z "$INPUT_DIR" ] || [ -z "$RAW_SEQ_DIR" ] || [ -z "$OUTPUT_DIR" ] || [ -z "$DATABASE" ] || [ -z "$CONCENTRATION_TYPE" ]; then
-  log_with_timestamp "Usage: $0 -i <input> -r <raw> -o <out> -d <db> -n <threads> [-m <min_len>] --non-con/--con [--reassemble] [-P N] [-T N] [-A N]"
-  exit 1
+if [ "$GENE_CATALOG_ONLY" = true ]; then
+  if [ -z "$RAW_SEQ_DIR" ] || [ -z "$OUTPUT_DIR" ]; then
+    log_with_timestamp "Usage: $0 -r <raw> -o <out> [--gene-catalog-only] [--gene-contigs-dir <path>] [--gene-mmseqs-min-id <float>] [--gene-mmseqs-cov <float>]"
+    exit 1
+  fi
+else
+  if [ -z "$INPUT_DIR" ] || [ -z "$RAW_SEQ_DIR" ] || [ -z "$OUTPUT_DIR" ] || [ -z "$DATABASE" ] || [ -z "$CONCENTRATION_TYPE" ]; then
+    log_with_timestamp "Usage: $0 -i <input> -r <raw> -o <out> -d <db> -n <threads> [-m <min_len>] --non-con/--con [--reassemble] [-P N] [-T N] [-A N]"
+    exit 1
+  fi
 fi
 if ! [[ "$MIN_LENGTH" =~ ^[0-9]+$ ]]; then
   log_with_timestamp "Error: MIN_LENGTH must be a non-negative integer. Given: '$MIN_LENGTH'"
@@ -153,6 +175,20 @@ if [ "$THREADS" -eq 0 ]; then
   THREADS_PER_FILE=$(nproc)
 else
   THREADS_PER_FILE="$THREADS"
+fi
+
+if [ "$GENE_CATALOG_ONLY" = true ]; then
+  log_with_timestamp "[*] Gene catalog only mode enabled."
+  gene_args=( -o "$OUTPUT_DIR" -r "$RAW_SEQ_DIR" --max-parallel "$TPM_tasks" --salmon-threads "$THREADS_PER_FILE" --mmseqs-min-id "$GENE_MMSEQS_MIN_ID" --mmseqs-cov "$GENE_MMSEQS_COV" )
+  if [ -n "$GENE_CONTIGS_DIR" ]; then
+    gene_args+=( --contigs-dir "$GENE_CONTIGS_DIR" )
+  fi
+  if ! python -m ViOTUcluster.gene_catalog "${gene_args[@]}"; then
+    log_with_timestamp "Error: Gene catalog workflow failed."
+    exit 1
+  fi
+  log_with_timestamp "[*] Gene catalog completed."
+  exit 0
 fi
 
 # ---------- Discovery of paired reads ----------
@@ -188,16 +224,18 @@ if ! $found_paired_files && compgen -G "${RAW_SEQ_DIR}/*_R1.*" >/dev/null; then
 fi
 
 # ---------- check ----------
-if [ "$CONCENTRATION_TYPE" == "non-concentration" ]; then
-  log_with_timestamp "[🔄] Running non-concentration specific steps..."
-elif [ "$CONCENTRATION_TYPE" == "concentration" ]; then
-  log_with_timestamp "[🔄] Running concentration specific steps..."
-else
-  log_with_timestamp "[❌] Error: Invalid concentration type: '$CONCENTRATION_TYPE'."
-  exit 1
-fi
+if [ "$GENE_CATALOG_ONLY" != true ]; then
+  if [ "$CONCENTRATION_TYPE" == "non-concentration" ]; then
+    log_with_timestamp "[🔄] Running non-concentration specific steps..."
+  elif [ "$CONCENTRATION_TYPE" == "concentration" ]; then
+    log_with_timestamp "[🔄] Running concentration specific steps..."
+  else
+    log_with_timestamp "[❌] Error: Invalid concentration type: '$CONCENTRATION_TYPE'."
+    exit 1
+  fi
 
-log_with_timestamp "[🔄] Processing with $CONCENTRATION_TYPE mode, $THREADS threads, min-length $MIN_LENGTH."
+  log_with_timestamp "[🔄] Processing with $CONCENTRATION_TYPE mode, $THREADS threads, min-length $MIN_LENGTH."
+fi
 if [ "$DISABLE_BINNING" = true ]; then
   log_with_timestamp "[ℹ️] Binning stage disabled; contigs will be used directly downstream."
 fi
@@ -384,6 +422,19 @@ run_module "Summary" "${MODULE_LOG_DIR}/Summary.log" "${ScriptDir}/summary_modul
 log_with_timestamp "[✅][✅][✅]All basic analysis completed successfully. vOTU file and summary files are available in ${OUTPUT_DIR}/Summary."
 
 sleep 1
+
+if [ "$GENE_CATALOG" = true ]; then
+  log_with_timestamp "[*] Starting gene catalog workflow..."
+  gene_args=( -o "$OUTPUT_DIR" -r "$RAW_SEQ_DIR" --max-parallel "$TPM_tasks" --salmon-threads "$THREADS_PER_FILE" --mmseqs-min-id "$GENE_MMSEQS_MIN_ID" --mmseqs-cov "$GENE_MMSEQS_COV" )
+  if [ -n "$GENE_CONTIGS_DIR" ]; then
+    gene_args+=( --contigs-dir "$GENE_CONTIGS_DIR" )
+  fi
+  if ! python -m ViOTUcluster.gene_catalog "${gene_args[@]}"; then
+    log_with_timestamp "Error: Gene catalog workflow failed."
+    cleanup
+  fi
+  log_with_timestamp "[*] Gene catalog completed."
+fi
 
 # ---------- Advanced analysis (interactive or auto) ----------
 interactive_prompt() {
