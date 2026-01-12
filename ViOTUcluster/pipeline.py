@@ -11,6 +11,7 @@ import sys
 import subprocess
 import logging
 import time
+import json
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, Dict, Any
@@ -406,6 +407,8 @@ class ViOTUclusterPipeline:
 
         # Gene catalog only mode
         if self.gene_catalog_only:
+            os.makedirs(self.log_dir, exist_ok=True)
+            self._persist_run_config()
             if not self._run_gene_catalog():
                 return 1
             return 0
@@ -413,6 +416,9 @@ class ViOTUclusterPipeline:
         # Step 2: Setup directories
         if not self.setup_directories():
             return 1
+
+        # Persist run configuration
+        self._persist_run_config()
         
         # Step 3: Filter contigs
         if not self.run_filter_contigs():
@@ -499,6 +505,43 @@ class ViOTUclusterPipeline:
             mmseqs_cov=self.gene_mmseqs_cov,
             add_sample_prefix=True,
         )
+
+    def _persist_run_config(self) -> None:
+        """Write a snapshot of the current run configuration for provenance."""
+        cfg = {
+            "input_dir": self.input_dir,
+            "raw_seq_dir": self.raw_seq_dir,
+            "output_dir": self.output_dir,
+            "database": self.database,
+            "threads": self.threads,
+            "min_length": self.min_length,
+            "concentration_type": self.concentration_type,
+            "reassemble": self.reassemble,
+            "disable_binning": self.disable_binning,
+            "save_sambamba_intermediate": self.save_sambamba_intermediate,
+            "max_prediction_tasks": self.max_prediction_tasks,
+            "tpm_tasks": self.tpm_tasks,
+            "assemble_jobs": self.assemble_jobs,
+            "sample_type": self.sample_type,
+            "group": self.group,
+            "run_gene_catalog": self.run_gene_catalog,
+            "gene_catalog_only": self.gene_catalog_only,
+            "gene_catalog_input_dir": self.gene_catalog_input_dir,
+            "gene_mmseqs_min_id": self.gene_mmseqs_min_id,
+            "gene_mmseqs_cov": self.gene_mmseqs_cov,
+            "timestamp": datetime.now().isoformat(),
+        }
+
+        os.makedirs(self.log_dir, exist_ok=True)
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        snapshot_path = os.path.join(self.log_dir, f"config_{ts}.json")
+        latest_path = os.path.join(self.log_dir, "config_latest.json")
+
+        with open(snapshot_path, "w", encoding="utf-8") as f:
+            json.dump(cfg, f, indent=2, ensure_ascii=False)
+        with open(latest_path, "w", encoding="utf-8") as f:
+            json.dump(cfg, f, indent=2, ensure_ascii=False)
+        logger.info(f"[📝] Run configuration saved to {snapshot_path}")
     
     def _prepare_unbinned_from_contigs(self) -> bool:
         """Copy filtered contigs as unbinned when binning is disabled."""

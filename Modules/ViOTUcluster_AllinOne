@@ -18,6 +18,7 @@ MIN_LENGTH="2500"
 DISABLE_BINNING=false
 SAMBAMBA_SAVE_INTERMEDIATE=false
 GENE_CATALOG=false
+GENE_CATALOG_ONLY=false
 GENE_CONTIGS_DIR=""
 GENE_MMSEQS_MIN_ID=""
 GENE_MMSEQS_COV=""
@@ -81,7 +82,7 @@ is_pos_int () { [[ "$1" =~ ^[0-9]+$ ]] && [ "$1" -ge 1 ]; }
 
 # --- Option Parsing ---
 TEMP_ARGS=$(getopt -o r:o:d:a:n:m:P:T:A:vh \
-  --long min-length:,non-con,con,reassemble,disable-binning,max-prediction-tasks:,tpm-tasks:,assemble-jobs:,save-sambamba-intermediate,gene-catalog,gene-contigs-dir:,gene-mmseqs-min-id:,gene-mmseqs-cov: \
+  --long min-length:,non-con,con,reassemble,disable-binning,max-prediction-tasks:,tpm-tasks:,assemble-jobs:,save-sambamba-intermediate,gene-catalog,gene-catalog-only,gene-contigs-dir:,gene-mmseqs-min-id:,gene-mmseqs-cov: \
   -n "$0" -- "$@")
 if [ $? -ne 0 ]; then
     echo "Terminating..." >&2
@@ -102,6 +103,7 @@ while true; do
     -T|--tpm-tasks) TPM_tasks="$2"; shift 2 ;;
     -A|--assemble-jobs) Assemble_jobs="$2"; shift 2 ;;
     --gene-catalog) GENE_CATALOG=true; shift ;;
+    --gene-catalog-only) GENE_CATALOG_ONLY=true; GENE_CATALOG=true; shift ;;
     --gene-contigs-dir) GENE_CONTIGS_DIR="$2"; shift 2 ;;
     --gene-mmseqs-min-id) GENE_MMSEQS_MIN_ID="$2"; shift 2 ;;
     --gene-mmseqs-cov) GENE_MMSEQS_COV="$2"; shift 2 ;;
@@ -131,6 +133,7 @@ while true; do
       echo "  --disable-binning                Skip vRhyme binning; use contigs directly."
       echo "  --save-sambamba-intermediate     Keep Sambamba view output before sorting to reduce file-handle load."
       echo "  --gene-catalog                   Run gene catalog workflow after ViOTUcluster."
+      echo "  --gene-catalog-only              Run only gene catalog (skip main pipeline); still runs preprocessing + assembly."
       echo "  --gene-contigs-dir <path>        Override contigs directory for gene catalog."
       echo "  --gene-mmseqs-min-id <float>     mmseqs2 min sequence identity (default: 0.9)."
       echo "  --gene-mmseqs-cov <float>        mmseqs2 coverage threshold (default: 0.8)."
@@ -170,16 +173,22 @@ else
 fi
 
 # Mandatory params
-if [ -z "$RAW_SEQ_DIR" ] || [ -z "$DATABASE" ] || [ -z "$CONCENTRATION_TYPE" ] || [ -z "$ASSEMBLY_SOFTWARE" ]; then
-  log_with_timestamp "Usage: $0 -r <raw_seq_dir> -o <out_dir> -d <db> -a <assembler> -n <threads> [-m <min_len>] --non-con/--con [--reassemble] [-P N] [-T N] [-A N]"
-  exit 1
+if [ "$GENE_CATALOG_ONLY" = true ]; then
+  if [ -z "$RAW_SEQ_DIR" ] || [ -z "$DATABASE" ] || [ -z "$ASSEMBLY_SOFTWARE" ]; then
+    log_with_timestamp "Usage: $0 -r <raw_seq_dir> -o <out_dir> -d <db> -a <assembler> --gene-catalog-only [other options]"
+    exit 1
+  fi
+else
+  if [ -z "$RAW_SEQ_DIR" ] || [ -z "$DATABASE" ] || [ -z "$CONCENTRATION_TYPE" ] || [ -z "$ASSEMBLY_SOFTWARE" ]; then
+    log_with_timestamp "Usage: $0 -r <raw_seq_dir> -o <out_dir> -d <db> -a <assembler> -n <threads> [-m <min_len>] --non-con/--con [--reassemble] [-P N] [-T N] [-A N]"
+    exit 1
+  fi
+  validate_param "$CONCENTRATION_TYPE" "Concentration Type" "non-concentration concentration"
 fi
 validate_param "$ASSEMBLY_SOFTWARE" "Assembly Software" "megahit metaspades"
-validate_param "$CONCENTRATION_TYPE" "Concentration Type" "non-concentration concentration"
 if ! [[ "$MIN_LENGTH" =~ ^[0-9]+$ ]]; then
   log_with_timestamp "Error: MIN_LENGTH must be a non-negative integer. Given: '$MIN_LENGTH'"; exit 1
 fi
-
 
 # ---------- Defaults for new knobs ----------
 if ! is_pos_int "$MAX_PredictionTASKS"; then MAX_PredictionTASKS=30; fi
@@ -293,7 +302,11 @@ elif ! $all_r1_have_pairs; then
 fi
 
 # --- Main Processing ---
-log_with_timestamp "Mode: $CONCENTRATION_TYPE | Threads per task: $THREADS | Assembler: $ASSEMBLY_SOFTWARE | Min length: $MIN_LENGTH"
+if [ "$GENE_CATALOG_ONLY" = true ]; then
+  log_with_timestamp "Mode: gene-catalog-only | Threads per task: $THREADS | Assembler: $ASSEMBLY_SOFTWARE | Min length: $MIN_LENGTH"
+else
+  log_with_timestamp "Mode: $CONCENTRATION_TYPE | Threads per task: $THREADS | Assembler: $ASSEMBLY_SOFTWARE | Min length: $MIN_LENGTH"
+fi
 if [ "$SAMBAMBA_SAVE_INTERMEDIATE" = true ]; then
   log_with_timestamp "Sambamba intermediate BAM files will be kept to reduce open file pressure."
 fi
@@ -336,12 +349,15 @@ is_pos_int "$Assemble_jobs" && extra_cli+=" --assemble-jobs ${Assemble_jobs}"
 [ "$DISABLE_BINNING" = true ] && extra_cli+=" --disable-binning"
 [ "$SAMBAMBA_SAVE_INTERMEDIATE" = true ] && extra_cli+=" --save-sambamba-intermediate"
 [ "$GENE_CATALOG" = true ] && extra_cli+=" --gene-catalog"
+[ "$GENE_CATALOG_ONLY" = true ] && extra_cli+=" --gene-catalog-only"
 [ -n "$GENE_CONTIGS_DIR" ] && extra_cli+=" --gene-contigs-dir ${GENE_CONTIGS_DIR}"
 [ -n "$GENE_MMSEQS_MIN_ID" ] && extra_cli+=" --gene-mmseqs-min-id ${GENE_MMSEQS_MIN_ID}"
 [ -n "$GENE_MMSEQS_COV" ] && extra_cli+=" --gene-mmseqs-cov ${GENE_MMSEQS_COV}"
 
 # Call ViOTUcluster
-if [ "$CONCENTRATION_TYPE" == "non-concentration" ]; then
+if [ "$GENE_CATALOG_ONLY" = true ]; then
+  ViOTUcluster -i "${INPUT_DIR}" -r "${RAW_SEQ_DIR}" -o "${OUTPUT_DIR}" -d "${DATABASE}" -n "${THREADS}" -m "${MIN_LENGTH}" ${extra_cli}
+elif [ "$CONCENTRATION_TYPE" == "non-concentration" ]; then
   ViOTUcluster -i "${INPUT_DIR}" -r "${RAW_SEQ_DIR}" -o "${OUTPUT_DIR}" -d "${DATABASE}" -n "${THREADS}" --non-con -m "${MIN_LENGTH}" ${extra_cli}
 else
   ViOTUcluster -i "${INPUT_DIR}" -r "${RAW_SEQ_DIR}" -o "${OUTPUT_DIR}" -d "${DATABASE}" -n "${THREADS}" --con -m "${MIN_LENGTH}" ${extra_cli}

@@ -84,7 +84,7 @@ For more information, visit: https://github.com/liusihang/ViOTUcluster
     )
     
     # Concentration type (mutually exclusive)
-    conc_group = parser.add_mutually_exclusive_group(required=True)
+    conc_group = parser.add_mutually_exclusive_group(required=False)
     conc_group.add_argument(
         '--con',
         dest='concentration',
@@ -157,6 +157,11 @@ For more information, visit: https://github.com/liusihang/ViOTUcluster
         help='Run gene catalog workflow on ViOTUcluster outputs'
     )
     gene.add_argument(
+        '--gene-catalog-only',
+        action='store_true',
+        help='Run only gene catalog workflow (skip main vOTU pipeline)'
+    )
+    gene.add_argument(
         '--gene-contigs-dir',
         dest='gene_contigs_dir',
         default=None,
@@ -193,6 +198,10 @@ def validate_args(args: argparse.Namespace) -> bool:
         True if valid, False otherwise
     """
     errors = []
+    
+    # Check concentration flags (only required when not gene-catalog-only)
+    if not args.gene_catalog_only and not (args.concentration or args.non_concentration):
+        errors.append("Specify --con or --non-con")
     
     # Check raw sequences directory
     if not os.path.isdir(args.raw_seq_dir):
@@ -329,7 +338,8 @@ def main(argv=None) -> int:
         max_prediction_tasks=args.max_prediction_tasks,
         tpm_tasks=args.tpm_tasks,
         assemble_jobs=args.assemble_jobs,
-        run_gene_catalog=args.gene_catalog,
+        run_gene_catalog=args.gene_catalog or args.gene_catalog_only,
+        gene_catalog_only=args.gene_catalog_only,
         gene_catalog_input_dir=args.gene_contigs_dir,
         gene_mmseqs_min_id=args.gene_mmseqs_min_id,
         gene_mmseqs_cov=args.gene_mmseqs_cov,
