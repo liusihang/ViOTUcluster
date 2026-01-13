@@ -179,7 +179,6 @@ def _run_salmon(
             index_dir,
             "-p",
             str(threads),
-            "--quiet",
         ]
         subprocess.run(cmd_index, check=True)
 
@@ -201,7 +200,6 @@ def _run_salmon(
             "--validateMappings",
             "-o",
             quant_dir,
-            "--quiet",
         ]
         subprocess.run(cmd_quant, check=True)
 
