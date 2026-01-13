@@ -2,7 +2,7 @@
 """
 Gene catalog workflow:
   - Prodigal gene prediction per sample
-  - Filter complete genes
+  - Filter genes (exclude partial=11)
   - Salmon quantification per sample
   - Merge TPM / counts
   - mmseqs2 clustering on protein sequences
@@ -87,26 +87,33 @@ def _find_read_pair(raw_seq_dir: str, sample_name: str) -> Optional[Tuple[str, s
     return None
 
 
-def _parse_complete_gene_ids(gff_path: str) -> List[str]:
-    complete_ids: List[str] = []
-    with open(gff_path, "r", encoding="utf-8") as handle:
-        for line in handle:
-            if line.startswith("#"):
-                continue
-            parts = line.rstrip().split("\t")
-            if len(parts) < 9:
-                continue
-            attributes = parts[8]
+def _parse_gene_ids_from_faa(faa_path: str) -> List[str]:
+    """
+    Collect gene IDs from the protein FASTA headers, excluding partial=11.
+
+    Prodigal headers typically look like:
+      >contig_1_1 # 132 # 293 # -1 # ID=1_1;partial=01;...
+    """
+    gene_ids: List[str] = []
+    with open(faa_path, "r", encoding="utf-8") as handle:
+        for header, _seq in SimpleFastaParser(handle):
+            header = header.strip()
+            # Attribute block is after the last '#'
+            attr_block = ""
+            if "#" in header:
+                attr_block = header.split("#")[-1].strip()
             attr_dict = {}
-            for item in attributes.split(";"):
-                if "=" in item:
-                    key, value = item.split("=", 1)
-                    attr_dict[key] = value
-            if attr_dict.get("partial") == "00":
-                gene_id = attr_dict.get("ID") or attr_dict.get("Name")
-                if gene_id:
-                    complete_ids.append(gene_id)
-    return complete_ids
+            if attr_block:
+                for item in attr_block.split(";"):
+                    if "=" in item:
+                        key, value = item.split("=", 1)
+                        attr_dict[key.strip()] = value.strip()
+            if attr_dict.get("partial") == "11":
+                continue
+            gene_id = header.split()[0]
+            if gene_id:
+                gene_ids.append(gene_id)
+    return gene_ids
 
 
 def _filter_fasta_by_ids(input_fasta: str, output_fasta: str, target_ids: Iterable[str]) -> int:
@@ -326,17 +333,17 @@ def _process_sample(
         return f"{sample_name}: skipped (paired reads not found)"
 
     gff_path, fna_path, faa_path = _run_prodigal(contig_fasta, gene_pred_dir)
-    complete_ids = _parse_complete_gene_ids(gff_path)
-    if not complete_ids:
-        return f"{sample_name}: skipped (no complete genes)"
+    gene_ids = _parse_gene_ids_from_faa(faa_path)
+    if not gene_ids:
+        return f"{sample_name}: skipped (no genes after filtering partial=11)"
 
     complete_fna = os.path.join(abundance_dir, "complete_genes.fna")
     complete_faa = os.path.join(abundance_dir, "complete_genes.faa")
 
     if not os.path.exists(complete_fna):
-        _filter_fasta_by_ids(fna_path, complete_fna, complete_ids)
+        _filter_fasta_by_ids(fna_path, complete_fna, gene_ids)
     if not os.path.exists(complete_faa):
-        _filter_fasta_by_ids(faa_path, complete_faa, complete_ids)
+        _filter_fasta_by_ids(faa_path, complete_faa, gene_ids)
 
     _run_salmon(complete_fna, read_pair[0], read_pair[1], salmon_threads, abundance_dir)
     return f"{sample_name}: done"
