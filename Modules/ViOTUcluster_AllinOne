@@ -10,12 +10,13 @@ DATABASE=""
 SAMPLETYPE=""
 ASSEMBLY_SOFTWARE=""
 REASSEMBLE=false
-VERSION="0.5.7.1"
+VERSION="0.5.7.2"
 CONCENTRATION_TYPE=""
 THREADS=0
 LOG_FILE=""
 MIN_LENGTH="2500"
 DISABLE_BINNING=false
+SAMBAMBA_SAVE_INTERMEDIATE=false
 
 # New concurrency knobs
 MAX_PredictionTASKS=""
@@ -76,7 +77,7 @@ is_pos_int () { [[ "$1" =~ ^[0-9]+$ ]] && [ "$1" -ge 1 ]; }
 
 # --- Option Parsing ---
 TEMP_ARGS=$(getopt -o r:o:d:a:n:m:P:T:A:vh \
-  --long min-length:,non-con,con,reassemble,disable-binning,max-prediction-tasks:,tpm-tasks:,assemble-jobs: \
+  --long min-length:,non-con,con,reassemble,disable-binning,max-prediction-tasks:,tpm-tasks:,assemble-jobs:,save-sambamba-intermediate \
   -n "$0" -- "$@")
 if [ $? -ne 0 ]; then
     echo "Terminating..." >&2
@@ -100,6 +101,7 @@ while true; do
     --con) CONCENTRATION_TYPE="concentration"; shift ;;
     --reassemble) REASSEMBLE=true; shift ;;
     --disable-binning) DISABLE_BINNING=true; shift ;;
+    --save-sambamba-intermediate) SAMBAMBA_SAVE_INTERMEDIATE=true; shift ;;
     -v) echo "Version: $VERSION"; exit 0 ;;
     -h)
       echo "Usage: $0 [options]"
@@ -119,6 +121,7 @@ while true; do
       echo "  --non-con | --con                Processing mode for ViOTUcluster."
       echo "  --reassemble                     Enable reassembly (forwarded if supported)."
       echo "  --disable-binning                Skip vRhyme binning; use contigs directly."
+      echo "  --save-sambamba-intermediate     Keep Sambamba view output before sorting to reduce file-handle load."
       echo "  -v                               Show version."
       echo "  -h                               Show help."
       exit 0
@@ -279,6 +282,9 @@ fi
 
 # --- Main Processing ---
 log_with_timestamp "Mode: $CONCENTRATION_TYPE | Threads per task: $THREADS | Assembler: $ASSEMBLY_SOFTWARE | Min length: $MIN_LENGTH"
+if [ "$SAMBAMBA_SAVE_INTERMEDIATE" = true ]; then
+  log_with_timestamp "Sambamba intermediate BAM files will be kept to reduce open file pressure."
+fi
 
 # Export shared env for downstream modules
 export RAW_SEQ_DIR OUTPUT_DIR DATABASE SAMPLETYPE REASSEMBLE ASSEMBLY_SOFTWARE ScriptDir THREADS MIN_LENGTH
@@ -316,6 +322,7 @@ is_pos_int "$MAX_PredictionTASKS" && extra_cli+=" --max-prediction-tasks ${MAX_P
 is_pos_int "$TPM_tasks" && extra_cli+=" --tpm-tasks ${TPM_tasks}"
 is_pos_int "$Assemble_jobs" && extra_cli+=" --assemble-jobs ${Assemble_jobs}"
 [ "$DISABLE_BINNING" = true ] && extra_cli+=" --disable-binning"
+[ "$SAMBAMBA_SAVE_INTERMEDIATE" = true ] && extra_cli+=" --save-sambamba-intermediate"
 
 # Call ViOTUcluster
 if [ "$CONCENTRATION_TYPE" == "non-concentration" ]; then
