@@ -20,6 +20,7 @@ from ViOTUcluster.config import (
     DEFAULT_MAX_PREDICTION_TASKS,
     DEFAULT_TPM_TASKS,
     DEFAULT_ASSEMBLE_JOBS,
+    DEFAULT_MODULE_TIMEOUT_SECONDS,
 )
 
 
@@ -146,6 +147,12 @@ For more information, visit: https://github.com/liusihang/ViOTUcluster
         default=DEFAULT_ASSEMBLE_JOBS,
         help=f'Max concurrent assembly samples (default: {DEFAULT_ASSEMBLE_JOBS})'
     )
+    perf.add_argument(
+        '--module-timeout-hours',
+        type=int,
+        default=DEFAULT_MODULE_TIMEOUT_SECONDS // 3600,
+        help='Abort a pipeline stage if it runs longer than this many hours (0 disables timeout)'
+    )
     
     # Version
     parser.add_argument(
@@ -180,6 +187,11 @@ def validate_args(args: argparse.Namespace) -> bool:
     
     if args.threads < 0:
         errors.append(f"threads must be non-negative, got: {args.threads}")
+
+    if args.module_timeout_hours < 0:
+        errors.append(
+            f"module-timeout-hours must be non-negative, got: {args.module_timeout_hours}"
+        )
     
     if errors:
         print("Error: Invalid arguments", file=sys.stderr)
@@ -188,6 +200,20 @@ def validate_args(args: argparse.Namespace) -> bool:
         return False
     
     return True
+
+
+def preprocessing_outputs_ready(output_dir: str) -> bool:
+    """Return True only when preprocessing produced at least one FASTA contig file."""
+    contigs_dir = os.path.join(output_dir, "Contigs")
+    if not os.path.isdir(contigs_dir):
+        return False
+
+    for entry in os.listdir(contigs_dir):
+        if entry.lower().endswith((".fa", ".fasta", ".fna")):
+            fasta_path = os.path.join(contigs_dir, entry)
+            if os.path.isfile(fasta_path) and os.path.getsize(fasta_path) > 0:
+                return True
+    return False
 
 
 def run_preprocessing(args) -> bool:
@@ -213,7 +239,10 @@ def run_preprocessing(args) -> bool:
     ]
     
     try:
-        preprocess_main(preprocess_args)
+        exit_code = preprocess_main(preprocess_args)
+        if exit_code != 0:
+            logger.error(f"[❌] Preprocessing failed with code: {exit_code}")
+            return False
         logger.info("[✅] Preprocessing completed")
         return True
     except SystemExit as e:
@@ -270,8 +299,10 @@ def main(argv=None) -> int:
     clean_reads_dir = os.path.join(args.output_dir, "Cleanreads")
     
     # Check if preprocessing produced expected outputs
-    if not os.path.isdir(contigs_dir):
-        logger.error(f"[❌] Contigs directory not found after preprocessing: {contigs_dir}")
+    if not preprocessing_outputs_ready(args.output_dir):
+        logger.error(
+            f"[❌] Preprocessing finished without usable contigs under: {contigs_dir}"
+        )
         return 1
     
     # Determine concentration type
@@ -294,6 +325,10 @@ def main(argv=None) -> int:
         max_prediction_tasks=args.max_prediction_tasks,
         tpm_tasks=args.tpm_tasks,
         assemble_jobs=args.assemble_jobs,
+        module_timeout_seconds=(
+            None if args.module_timeout_hours == 0
+            else args.module_timeout_hours * 3600
+        ),
     )
 
 

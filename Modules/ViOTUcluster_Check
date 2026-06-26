@@ -40,10 +40,12 @@ echo "Checking dependencies..."
 
 # List of dependencies to check
 dependencies=(
+    "conda"
     "fastp"
     "megahit"
     "spades.py"
     "virsorter"
+    "viralverify"
     "genomad"
     #"pyhmmer"
     "checkv"
@@ -53,6 +55,11 @@ dependencies=(
     #"iPhop"
     "checkm"
     "bwa"
+    "sambamba"
+    "coverm"
+    "parallel"
+    "makeblastdb"
+    "blastn"
 )
 
 # Define expected versions

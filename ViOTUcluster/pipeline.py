@@ -7,6 +7,7 @@ coordinating between Python processing steps and Shell module calls.
 """
 
 import os
+import signal
 import sys
 import sysconfig
 import subprocess
@@ -21,6 +22,7 @@ from .config import (
     DEFAULT_MAX_PREDICTION_TASKS,
     DEFAULT_TPM_TASKS,
     DEFAULT_ASSEMBLE_JOBS,
+    DEFAULT_MODULE_TIMEOUT_SECONDS,
     DB_VIRSORTER,
     DB_VIRALVERIFY,
     DB_CHECKV,
@@ -37,6 +39,51 @@ logging.basicConfig(
     datefmt='%Y-%m-%d %H:%M:%S'
 )
 logger = logging.getLogger(__name__)
+
+
+def _descendant_pids(root_pid: int) -> list[int]:
+    """Return all descendant PIDs of root_pid using a portable ps snapshot."""
+    try:
+        output = subprocess.check_output(
+            ["ps", "-axo", "pid=,ppid="],
+            text=True,
+        )
+    except Exception:
+        return []
+
+    children_by_parent = {}
+    for line in output.splitlines():
+        parts = line.split()
+        if len(parts) != 2:
+            continue
+        pid, ppid = int(parts[0]), int(parts[1])
+        children_by_parent.setdefault(ppid, []).append(pid)
+
+    descendants = []
+    stack = list(children_by_parent.get(root_pid, []))
+    while stack:
+        pid = stack.pop()
+        descendants.append(pid)
+        stack.extend(children_by_parent.get(pid, []))
+    return descendants
+
+
+def _signal_pids(pids: list[int], sig: int) -> None:
+    """Best-effort signal delivery to a list of PIDs."""
+    for pid in pids:
+        try:
+            os.kill(pid, sig)
+        except OSError:
+            pass
+
+
+def _pid_exists(pid: int) -> bool:
+    """Return True when a PID is still alive."""
+    try:
+        os.kill(pid, 0)
+    except OSError:
+        return False
+    return True
 
 
 class PipelineError(Exception):
@@ -66,6 +113,7 @@ class ViOTUclusterPipeline:
         max_prediction_tasks: int = DEFAULT_MAX_PREDICTION_TASKS,
         tpm_tasks: int = DEFAULT_TPM_TASKS,
         assemble_jobs: int = DEFAULT_ASSEMBLE_JOBS,
+        module_timeout_seconds: Optional[int] = DEFAULT_MODULE_TIMEOUT_SECONDS,
         sample_type: str = "Mix",
     ):
         """
@@ -100,6 +148,7 @@ class ViOTUclusterPipeline:
         self.max_prediction_tasks = max_prediction_tasks
         self.tpm_tasks = tpm_tasks
         self.assemble_jobs = assemble_jobs
+        self.module_timeout_seconds = module_timeout_seconds
         self.sample_type = sample_type
         self.group = get_virsorter_groups(sample_type)
         
@@ -215,16 +264,49 @@ class ViOTUclusterPipeline:
         
         try:
             with open(module_log, 'w') as log_file:
-                result = subprocess.run(
+                process = subprocess.Popen(
                     cmd,
                     shell=True,
                     env=env,
                     stdout=log_file,
                     stderr=subprocess.STDOUT,
                     cwd=self.output_dir,
+                    preexec_fn=os.setsid,
                 )
-            
-            if result.returncode != 0:
+
+                try:
+                    returncode = process.wait(timeout=self.module_timeout_seconds)
+                except subprocess.TimeoutExpired:
+                    descendants = _descendant_pids(process.pid)
+                    _signal_pids(descendants, signal.SIGTERM)
+                    try:
+                        os.killpg(process.pid, signal.SIGTERM)
+                    except OSError:
+                        pass
+
+                    try:
+                        process.wait(timeout=10)
+                    except subprocess.TimeoutExpired:
+                        pass
+
+                    remaining_descendants = [pid for pid in descendants if _pid_exists(pid)]
+                    if remaining_descendants:
+                        _signal_pids(remaining_descendants, signal.SIGKILL)
+
+                    if process.poll() is None:
+                        try:
+                            os.killpg(process.pid, signal.SIGKILL)
+                        except OSError:
+                            pass
+                        process.wait()
+
+                    logger.error(
+                        f"[❌] Module {name} exceeded timeout ({self.module_timeout_seconds}s). "
+                        f"Check log: {module_log}"
+                    )
+                    return False
+
+            if returncode != 0:
                 logger.error(f"[❌] Module {name} failed. Check log: {module_log}")
                 return False
             

@@ -34,7 +34,7 @@ else
         echo "Genome list file generated at $GENOME_LIST_FILE"
 
         echo "[🔄] Starting dRep dereplication for bins..."
-        dRep dereplicate "$OUTPUT_DIR/Summary/dRepRes" -g "$GENOME_LIST_FILE" --ignoreGenomeQuality --skip_plots -pa 0.8 -sa 0.95 -nc 0.85 -comW 0 -conW 0 -strW 0 -N50W 0 -sizeW 1 -centW 0 -l 3000
+        dRep dereplicate "$OUTPUT_DIR/Summary/dRepRes" -g "$GENOME_LIST_FILE" --ignoreGenomeQuality --skip_plots -pa 0.8 -sa 0.95 -nc 0.85 -comW 0 -conW 0 -strW 0 -N50W 0 -sizeW 1 -centW 0 -l "${MIN_LENGTH}"
         echo "[✅] dRep dereplication completed."
 
         echo "Concatenating dereplicated fasta sequences..."

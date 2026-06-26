@@ -21,6 +21,7 @@ from ViOTUcluster.config import (
     DEFAULT_MAX_PREDICTION_TASKS,
     DEFAULT_TPM_TASKS,
     DEFAULT_ASSEMBLE_JOBS,
+    DEFAULT_MODULE_TIMEOUT_SECONDS,
 )
 
 
@@ -149,6 +150,12 @@ For more information, visit: https://github.com/liusihang/ViOTUcluster
         default=DEFAULT_ASSEMBLE_JOBS,
         help=f'Max concurrent assembly samples (default: {DEFAULT_ASSEMBLE_JOBS})'
     )
+    perf.add_argument(
+        '--module-timeout-hours',
+        type=int,
+        default=DEFAULT_MODULE_TIMEOUT_SECONDS // 3600,
+        help='Abort a pipeline stage if it runs longer than this many hours (0 disables timeout)'
+    )
     
     # Version
     parser.add_argument(
@@ -196,6 +203,11 @@ def validate_args(args: argparse.Namespace) -> bool:
     
     if args.assemble_jobs < 1:
         errors.append(f"assemble-jobs must be >= 1, got: {args.assemble_jobs}")
+
+    if args.module_timeout_hours < 0:
+        errors.append(
+            f"module-timeout-hours must be non-negative, got: {args.module_timeout_hours}"
+        )
     
     if errors:
         print("Error: Invalid arguments", file=sys.stderr)
@@ -250,6 +262,10 @@ def main(argv=None) -> int:
         max_prediction_tasks=args.max_prediction_tasks,
         tpm_tasks=args.tpm_tasks,
         assemble_jobs=args.assemble_jobs,
+        module_timeout_seconds=(
+            None if args.module_timeout_hours == 0
+            else args.module_timeout_hours * 3600
+        ),
     )
 
 

@@ -24,7 +24,7 @@ process_file() {
 
   # Skip the file if the filtered fasta already exists
   if [ -f "$out_dir/${BASENAME}_filtered.fasta" ]; then
-    echo "Skipping $BASENAME as quality_summary.tsv already exists."
+    echo "Skipping $BASENAME as filtered.fasta already exists."
     return 0
   fi
 

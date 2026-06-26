@@ -32,6 +32,7 @@ Shell modules own:
 - `CROSS_VALIDATION_TASKS`
 - `TPM_tasks`
 - `Assemble_jobs`
+- `module_timeout_seconds` is owned by the Python pipeline and enforced before shell modules can hang forever.
 
 ## Helper Invocation Rule
 
