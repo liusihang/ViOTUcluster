@@ -213,9 +213,7 @@ def run_preprocessing(args) -> bool:
     ]
     
     try:
-        # Run as if called from command line
-        sys.argv = ['ContigsPreprocess'] + preprocess_args
-        preprocess_main()
+        preprocess_main(preprocess_args)
         logger.info("[✅] Preprocessing completed")
         return True
     except SystemExit as e:

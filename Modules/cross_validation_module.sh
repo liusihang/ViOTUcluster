@@ -2,6 +2,7 @@
 
 # Export necessary variables
 export OUTPUT_DIR DATABASE CONCENTRATION_TYPE ScriptDir FILES THREADS
+VIOTUCLUSTER_PYTHON=${VIOTUCLUSTER_PYTHON:-python}
 
 # Uncomment to enable debug mode
 #set -x
@@ -30,13 +31,13 @@ process_file() {
   # Perform cross-validation for virus contigs
   echo -e "\n\n\n# Performing cross-validation for virus contigs!!!\n\n\n"
   echo "Running CrossValid..."
-  if ! python "${ScriptDir}/CrossValid.py" "$genomad_dir" "$viralverify_dir" "$virsorter_dir" "$BASENAME" "$out_dir" "$CONCENTRATION_TYPE"; then
+  if ! "$VIOTUCLUSTER_PYTHON" -m ViOTUcluster.CrossValid "$genomad_dir" "$viralverify_dir" "$virsorter_dir" "$BASENAME" "$out_dir" "$CONCENTRATION_TYPE"; then
     echo "Error during cross-validation for $BASENAME. Exiting..."
     return 1
   fi
 
   # Extract sequences from raw results."
-  if ! python "${ScriptDir}/FilterRawResSeqs.py" "$FILE" "$BASENAME" "$out_dir"; then
+  if ! "$VIOTUCLUSTER_PYTHON" -m ViOTUcluster.FilterRawResSeqs "$FILE" "$BASENAME" "$out_dir"; then
     echo "[❌] Error during sequence extraction for $BASENAME. Exiting..."
     return 1
   fi
@@ -54,7 +55,7 @@ process_file() {
 
   # Run check_removal.py to remove low-quality sequences based on the quality report
   #echo "Running check_removal.py..."
-  if ! python "${ScriptDir}/check_removal.py" "$out_dir/${BASENAME}_CheckRes/quality_summary.tsv" "$out_dir/${BASENAME}_filtered.fasta"; then
+  if ! "$VIOTUCLUSTER_PYTHON" -m ViOTUcluster.check_removal "$out_dir/${BASENAME}_CheckRes/quality_summary.tsv" "$out_dir/${BASENAME}_filtered.fasta"; then
     echo " [❌]Error during check removal for $BASENAME. Exiting..."
     return 1
   fi
@@ -70,6 +71,7 @@ export -f process_file
 
 # Run in parallel
 #echo "Starting parallel processing..."
-parallel -j 16 process_file ::: $FILES
+CROSS_VALIDATION_TASKS=${CROSS_VALIDATION_TASKS:-16}
+parallel -j ${CROSS_VALIDATION_TASKS} process_file ::: $FILES
 
 echo "CrossValid analysis completed."

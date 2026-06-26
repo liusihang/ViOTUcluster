@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-#source activate DRAM
+set -euo pipefail
 
 # Check command-line arguments
 if [ "$#" -ne 2 ]; then
@@ -34,6 +34,7 @@ fi
 # Create output directories if they don't exist
 mkdir -p "$OUTPUT_DIR"
 mkdir -p "$OUTPUT_DIR/split_files"
+VIOTUCLUSTER_PYTHON=${VIOTUCLUSTER_PYTHON:-python}
 
 echo -e "\n\n\n# Performing DRAM analysis!!!\n\n\n"
 pwd
@@ -60,29 +61,7 @@ cd "$OUTPUT_DIR/split_files" || exit
 ls *.fna > DRAM
 
 # Run the Python script for DRAM annotation
-python "${ScriptDir}/run_DRAM.py"
-
-all_tasks_completed=false
-
-# Monitor task completion
-while [ "$all_tasks_completed" == "false" ]; do
-    sleep 30
-    all_tasks_completed=true
-
-    # Iterate over all directories ending with _DRAMAnnot
-    for dir in *_DRAMAnnot; do
-        if [ ! -f "$dir/annotations.tsv" ]; then
-            echo "DRAM annotation still in progress in $dir."
-            all_tasks_completed=false
-            break
-        fi
-    done
-
-    # If not completed, wait another 30 seconds
-    if [ "$all_tasks_completed" == "false" ]; then
-        sleep 30
-    fi
-done
+"$VIOTUCLUSTER_PYTHON" -m ViOTUcluster.run_DRAM
 
 echo "All DRAM annotations completed."
 
@@ -191,7 +170,7 @@ if [ -n "$GENE_FNA" ] && [ -s "$GENE_FNA" ]; then
             done
 
             if [ -d "$GENE_COVERAGE_DIR" ] && [ "$(ls -1 "$GENE_COVERAGE_DIR"/*.tsv 2>/dev/null | wc -l)" -gt 0 ]; then
-                python ${ScriptDir}/TPM_caculate.py "$GENE_COVERAGE_DIR" "$GENE_ABUNDANCE_CSV" Gene
+                "$VIOTUCLUSTER_PYTHON" -m ViOTUcluster.TPM_caculate "$GENE_COVERAGE_DIR" "$GENE_ABUNDANCE_CSV" Gene
                 if [ $? -ne 0 ]; then
                     echo "Error: Failed to merge gene TPM tables."
                     exit 1

@@ -10,6 +10,8 @@ import signal
 import logging
 from logging.handlers import RotatingFileHandler
 
+from .task_utils import ensure_futures_succeeded
+
 # Ensure necessary environment variables are set
 required_env_vars = ['THREADS', 'OUTPUT_DIR']
 for var in required_env_vars:
@@ -109,7 +111,7 @@ def main():
     # Handle termination signals
     def signal_handler(sig, frame):
         LOGGER.warning("Process interrupted (signal %s). Exiting gracefully...", sig)
-        sys.exit(0)
+        sys.exit(1)
 
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
@@ -132,11 +134,6 @@ def main():
             future = executor.submit(run_dram_annotation, fa_file)
             futures.append(future)
 
-        # Wait for all tasks to complete
-        for future in as_completed(futures):
-            try:
-                future.result()
-            except Exception as e:
-                LOGGER.error("Task generated an exception: %s", e)
+        ensure_futures_succeeded(futures, "DRAM annotation stage")
 if __name__ == "__main__":
     main()

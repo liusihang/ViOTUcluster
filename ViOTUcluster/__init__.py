@@ -15,6 +15,7 @@ __all__ = [
     'config',
     'validation',
     'pipeline',
+    'task_utils',
     'filter_contigs',
     'viotucluster_cli',
 ]

@@ -211,18 +211,14 @@ if [ -z "$CONDA_PREFIX" ]; then
   cleanup
 fi
 ScriptDir="${CONDA_PREFIX}/bin"
-
-if [ ! -f "${ScriptDir}/filter_contigs.py" ]; then
-  log_with_timestamp "Error: filter_contigs.py not found in ${ScriptDir}"
-  cleanup
-fi
+VIOTUCLUSTER_PYTHON=${VIOTUCLUSTER_PYTHON:-python}
 
 # ---------- Filter contigs ----------
 FILTERED_SEQS_DIR="${OUTPUT_DIR}/FilteredSeqs"
 mkdir -p "${FILTERED_SEQS_DIR}"
 log_with_timestamp "[🔄] Filtering sequences from ${INPUT_DIR} (min length ${MIN_LENGTH}) → ${FILTERED_SEQS_DIR}..."
 # Fix: pass MIN_LENGTH instead of hard-coded 500
-python "${ScriptDir}/filter_contigs.py" "${MIN_LENGTH}" "${INPUT_DIR}" "${FILTERED_SEQS_DIR}"
+"$VIOTUCLUSTER_PYTHON" -m ViOTUcluster.filter_contigs "${MIN_LENGTH}" "${INPUT_DIR}" "${FILTERED_SEQS_DIR}"
 filter_py_result=$?
 if [ $filter_py_result -ne 0 ]; then
   log_with_timestamp "[❌] filter_contigs.py failed with exit code $filter_py_result."

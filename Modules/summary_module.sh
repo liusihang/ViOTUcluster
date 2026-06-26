@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+VIOTUCLUSTER_PYTHON=${VIOTUCLUSTER_PYTHON:-python}
 # Merge all
 echo "[🔄] Merging final sequences..."
 
@@ -19,7 +20,7 @@ else
 
   # Rename DrepViralcontigs.fasta file
   echo "[🔄] Renaming sequences..."
-  python "${ScriptDir}/Rename.py" -i "$DREP_VIRAL_FASTA"
+  "$VIOTUCLUSTER_PYTHON" -m ViOTUcluster.Rename -i "$DREP_VIRAL_FASTA"
 
   # Merge DrepViralcontigs.fasta and DrepBins.fasta into vOTU.fasta
   echo "[🔄] Merging FASTA files..."
@@ -128,7 +129,7 @@ else
   parallel -j ${TPM_tasks} process_sample_bam ::: $FILES
 
   # Run TPM calculation
-  python ${ScriptDir}/TPM_caculate.py "$OUTPUT_DIR/Summary/SeperateRes/Coverage" "$ABUNDANCE_CSV"
+  "$VIOTUCLUSTER_PYTHON" -m ViOTUcluster.TPM_caculate "$OUTPUT_DIR/Summary/SeperateRes/Coverage" "$ABUNDANCE_CSV"
   if [ $? -ne 0 ]; then
     echo "[❌] Error: Failed to run TPM calculation."
     exit 1
@@ -149,7 +150,7 @@ if [ -f "$TAXONOMY_CSV" ]; then
 else
   echo "[🔬] Starting taxonomy prediction..."
   genomad annotate "$OUTPUT_DIR/Summary/vOTU/vOTU.fasta" "$OUTPUT_DIR/Summary/vOTU/TaxAnnotate" $DATABASE/genomad_db -t "$THREADS"
-  python ${ScriptDir}/format_taxonomy.py "$OUTPUT_DIR/Summary/vOTU/TaxAnnotate/vOTU_annotate/vOTU_taxonomy.tsv" "$TAXONOMY_CSV" "$ABUNDANCE_CSV"
+  "$VIOTUCLUSTER_PYTHON" -m ViOTUcluster.format_taxonomy "$OUTPUT_DIR/Summary/vOTU/TaxAnnotate/vOTU_annotate/vOTU_taxonomy.tsv" "$TAXONOMY_CSV" "$ABUNDANCE_CSV"
   echo "[✅] Taxonomy prediction completed successfully."
 fi
 

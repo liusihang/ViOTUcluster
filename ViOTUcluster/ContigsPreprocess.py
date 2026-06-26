@@ -7,6 +7,12 @@ import subprocess
 import multiprocessing
 from multiprocessing import Pool
 
+def resolve_assembly_threads(cores_to_use, asm_concurrency, asm_threads):
+    """Resolve threads per assembly task from the overall core budget."""
+    if asm_threads is None:
+        return max(1, cores_to_use // max(1, asm_concurrency))
+    return max(1, asm_threads)
+
 def find_fastq_pairs(input_dir):
     """
     Recursively search for all *_R1* FASTQ files in the input directory
@@ -73,7 +79,7 @@ def run_assembler(clean_r1, clean_r2, assembler, out_dir, threads):
         print(f"[Error] Unexpected exception running {assembler}: {ex}")
         return False
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(description="Parallel fastp cleaning and assembly pipeline.")
     parser.add_argument("-i", "--input_dir", required=True, help="Directory containing raw FASTQ files")
     parser.add_argument("-o", "--output_dir", required=True, help="Output directory for cleaned reads and assembly results")
@@ -89,7 +95,7 @@ def main():
                         help="Threads per assembly task passed to the assembler (-t). "
                              "If not set, will use max(1, cores // asm_concurrency).")
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     input_dir = args.input_dir
     output_dir = args.output_dir
@@ -98,10 +104,7 @@ def main():
     asm_concurrency = max(1, args.asm_concurrency)
 
     # Derive per-assembly threads if not explicitly specified
-    if args.asm_threads is None:
-        asm_threads = cores_to_use
-    else:
-        asm_threads = max(1, args.asm_threads)
+    asm_threads = resolve_assembly_threads(cores_to_use, asm_concurrency, args.asm_threads)
 
     # Create output subdirectories
     cleaned_dir = os.path.join(output_dir, "Cleanreads")

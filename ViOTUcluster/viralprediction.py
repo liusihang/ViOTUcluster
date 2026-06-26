@@ -10,6 +10,8 @@ import time
 import glob
 import signal
 
+from .task_utils import ensure_futures_succeeded
+
 # ===== 1) Check =====
 required_env_vars = ['OUTPUT_DIR', 'DATABASE', 'Group', 'CONCENTRATION_TYPE', 'THREADS']
 for var in required_env_vars:
@@ -155,12 +157,7 @@ def process_file(file_path):
         else:
             print(f"Genomad prediction already completed for {file_path}, skipping...")
 
-        #Wait for all tasks to complete and handle exceptions
-        for future in as_completed(tasks):
-            try:
-                future.result()
-            except Exception as e:
-                print(f"An error occurred while processing {file_path}: {e}")
+        ensure_futures_succeeded(tasks, f"viral prediction for {file_path}")
 
     print(f"All predictions completed for {file_path}")
 
@@ -188,7 +185,7 @@ def check_virsorter_completion():
 def main():
     def signal_handler(sig, frame):
         print("Process interrupted. Exiting gracefully...")
-        sys.exit(0)
+        sys.exit(1)
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
@@ -201,11 +198,7 @@ def main():
     outer_workers = max(1, min(len(files_list), MAX_TASKS))
     with ThreadPoolExecutor(max_workers=outer_workers) as executor:
         futures = [executor.submit(process_file, fp) for fp in files_list]
-        for future in as_completed(futures):
-            try:
-                future.result()
-            except Exception as e:
-                print(f"Task generated an exception: {e}")
+        ensure_futures_succeeded(futures, "viral prediction stage")
 
     # check_virsorter_completion()
     # print("All files have been processed.")

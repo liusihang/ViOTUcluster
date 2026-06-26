@@ -8,6 +8,7 @@ coordinating between Python processing steps and Shell module calls.
 
 import os
 import sys
+import sysconfig
 import subprocess
 import logging
 import time
@@ -115,24 +116,29 @@ class ViOTUclusterPipeline:
         
     def _find_script_dir(self) -> str:
         """Find the directory containing Shell modules."""
-        # Try relative to this file
         this_dir = Path(__file__).parent
-        
-        # Check if Modules directory exists at expected locations
-        possible_paths = [
-            this_dir.parent / "Modules",  # Development layout
+
+        possible_paths = []
+        if "ScriptDir" in os.environ:
+            possible_paths.append(Path(os.environ["ScriptDir"]))
+
+        scripts_path = sysconfig.get_path("scripts")
+        if scripts_path:
+            possible_paths.append(Path(scripts_path))
+
+        possible_paths.extend([
+            this_dir.parent / "Modules",  # Source tree layout
             this_dir / "Modules",
-            Path(sys.prefix) / "Modules",  # Installed layout
-        ]
-        
+            Path(sys.executable).resolve().parent,  # Installed console-script layout
+            Path(sys.prefix) / "bin",
+            Path(sys.prefix) / "Scripts",
+            Path(sys.prefix) / "Modules",
+        ])
+
         for path in possible_paths:
             if path.exists() and (path / "viral_prediction_module.sh").exists():
                 return str(path)
-        
-        # Fallback: use environment variable if set
-        if "ScriptDir" in os.environ:
-            return os.environ["ScriptDir"]
-        
+
         raise PipelineError(
             "Cannot find Shell modules directory. "
             "Ensure ViOTUcluster is properly installed."
@@ -141,6 +147,7 @@ class ViOTUclusterPipeline:
     def _setup_environment(self) -> Dict[str, str]:
         """Setup environment variables for Shell modules."""
         env = os.environ.copy()
+        cross_validation_tasks = str(max(1, min(self.max_prediction_tasks, self.threads)))
         
         env.update({
             "INPUT_DIR": self.input_dir,
@@ -148,15 +155,18 @@ class ViOTUclusterPipeline:
             "OUTPUT_DIR": self.output_dir,
             "DATABASE": self.database,
             "THREADS": str(self.threads),
+            "THREADS_PER_FILE": str(self.threads),
             "MIN_LENGTH": str(self.min_length),
             "CONCENTRATION_TYPE": self.concentration_type,
             "Group": self.group,
             "ScriptDir": self.script_dir,
+            "VIOTUCLUSTER_PYTHON": sys.executable,
             "REASSEMBLE": str(self.reassemble).lower(),
             "DISABLE_BINNING": str(self.disable_binning).lower(),
             "SAMBAMBA_SAVE_INTERMEDIATE": str(self.save_sambamba_intermediate).lower(),
             "MAX_PredictionTASKS": str(self.max_prediction_tasks),
             "MAX_TASKS": str(self.max_prediction_tasks),
+            "CROSS_VALIDATION_TASKS": cross_validation_tasks,
             "TPM_tasks": str(self.tpm_tasks),
             "Assemble_jobs": str(self.assemble_jobs),
         })
@@ -278,6 +288,11 @@ class ViOTUclusterPipeline:
             validate_directory(self.database, description="Database directory")
         except Exception as e:
             errors.append(str(e))
+
+        try:
+            validate_database_structure(self.database)
+        except Exception as e:
+            errors.append(str(e))
         
         # Validate min_length
         if self.min_length < 0:
@@ -387,8 +402,8 @@ class ViOTUclusterPipeline:
         # Step 6: Binning (or skip)
         if self.disable_binning:
             logger.info("[ℹ️] Binning disabled, preparing unbinned contigs")
-            # Copy filtered contigs to unbined directory
-            self._prepare_unbinned_from_contigs()
+            if not self._prepare_unbinned_from_contigs():
+                return 1
         else:
             if not self._run_module(
                 "Binning and Merge",
@@ -425,21 +440,41 @@ class ViOTUclusterPipeline:
         return 0
     
     def _prepare_unbinned_from_contigs(self) -> bool:
-        """Copy filtered contigs as unbinned when binning is disabled."""
+        """Copy post-cross-validation viral contigs as unbinned when binning is disabled."""
         import shutil
         
         unbined_dir = os.path.join(
             self.output_dir, "Summary", "SeperateRes", "unbined"
         )
         os.makedirs(unbined_dir, exist_ok=True)
-        
-        files = self._find_fasta_files(self.filtered_seqs_dir)
-        for f in files:
-            basename = os.path.basename(f).replace('.fasta', '').replace('.fa', '')
-            dest = os.path.join(unbined_dir, f"{basename}_unbined.fasta")
-            shutil.copy(f, dest)
-        
-        logger.info(f"[✅] Copied {len(files)} files as unbinned contigs")
+
+        staged_files = []
+        separate_dir = Path(self.output_dir) / "SeprateFile"
+        for pattern in ("*/*_filtered.fasta", "*/*_filtered.fa", "*/*_filtered.fna"):
+            staged_files.extend(sorted(separate_dir.glob(pattern)))
+
+        if not staged_files:
+            logger.error(
+                "[❌] No post-cross-validation filtered FASTA files were found under %s",
+                separate_dir,
+            )
+            return False
+
+        copied = 0
+        for source in staged_files:
+            basename = source.name
+            for suffix in ("_filtered.fasta", "_filtered.fa", "_filtered.fna"):
+                if basename.endswith(suffix):
+                    sample_name = basename[: -len(suffix)]
+                    break
+            else:
+                continue
+
+            dest = os.path.join(unbined_dir, f"{sample_name}_unbined.fasta")
+            shutil.copy(source, dest)
+            copied += 1
+
+        logger.info(f"[✅] Copied {copied} post-cross-validation files as unbinned contigs")
         return True
 
 

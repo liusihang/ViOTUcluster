@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-#source activate iphop_env
+set -euo pipefail
 
 #echo "Conda environment activated: $(conda info --envs)"
 
@@ -16,6 +16,7 @@ fi
 
 # Create output directories if they don't exist
 mkdir -p "$OUTPUT/split_files" "$OUTPUT/iPhop_results"
+VIOTUCLUSTER_PYTHON=${VIOTUCLUSTER_PYTHON:-python}
 
 echo -e "\n\n\n# Performing Host Prediction Analysis!!!\n\n\n"
 pwd
@@ -43,45 +44,7 @@ ls *.fna > iPhop
 
 # Run the Python script for iPhop prediction
 export OUTPUT
-python "${ScriptDir}/run_iphop.py"
-
-# Define a function to check memory usage
-check_memory_usage() {
-    # Get total and used memory in KB
-    total_memory=$(free -k | awk '/^Mem:/ {print $2}')
-    used_memory=$(free -k | awk '/^Mem:/ {print $3}')
-    
-    # Calculate memory usage percentage
-    memory_usage=$(awk -v used="$used_memory" -v total="$total_memory" 'BEGIN { print (used / total) * 100 }')
-
-    # Check if memory usage exceeds 99.5%
-    if awk 'BEGIN {exit ARGV[1] <= 99.5}' "$memory_usage"; then
-        return 1  # Memory usage exceeds 99.5%
-    else
-        return 0  # Memory usage below 99.5%
-    fi
-}
-
-# Monitor task completion
-all_tasks_completed=false
-while [ "$all_tasks_completed" == "false" ]; do
-    sleep 30
-    all_tasks_completed=true
-
-    # Check if Host_prediction_to_genus_m90.csv exists in all _iPhopResult directories
-    for dir in *_iPhopResult; do
-        if [ ! -f "$dir/Host_prediction_to_genus_m90.csv" ]; then
-            echo "Host prediction still in progress in $dir."
-            all_tasks_completed=false
-            break
-        fi
-    done
-
-    # If not completed, wait another 30 seconds
-    if [ "$all_tasks_completed" == "false" ]; then
-        sleep 30
-    fi
-done
+"$VIOTUCLUSTER_PYTHON" -m ViOTUcluster.run_iphop
 
 echo "All tasks completed successfully."
 
