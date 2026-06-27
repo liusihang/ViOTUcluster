@@ -2,6 +2,17 @@
 
 # Function to check if a command is installed and retrieve its version
 check_command() {
+    if [ "$1" = "viralverify" ] && ! command -v "$1" >/dev/null 2>&1; then
+        local script_dir
+        local sidecar_candidate
+        script_dir="$(cd "$(dirname "$0")" && pwd)"
+        sidecar_candidate="${script_dir}/../../viralverify/bin/viralverify"
+        if [ -x "$sidecar_candidate" ]; then
+            echo -e "[✅] viralverify is available via sidecar env: $sidecar_candidate"
+            return 0
+        fi
+    fi
+
     command -v "$1" >/dev/null 2>&1
     if [ $? -eq 0 ]; then
         version=""
@@ -33,6 +44,26 @@ check_command() {
         echo -e "[❌] $1 is NOT installed."
         return 1
     fi
+}
+
+get_installed_version() {
+    case "$1" in
+        "checkv")
+            checkv 2>&1 | grep -oP 'CheckV v\d+\.\d+\.\d+' | sed 's/CheckV v//'
+            ;;
+        "dRep")
+            dRep -h 2>&1 | grep -oP '\d+\.\d+\.\d+'
+            ;;
+        "bwa")
+            bwa 2>&1 | grep -oP '\d+\.\d+\.\d+'
+            ;;
+        "virsorter")
+            virsorter -h 2>&1 | grep -oP '\d+\.\d+\.\d+\.\d+'
+            ;;
+        *)
+            "$1" --version 2>&1 | head -n 1 | grep -oP '\d+\.\d+\.\d+'
+            ;;
+    esac
 }
 
 # Check the installation of all required dependencies
@@ -81,25 +112,7 @@ missing_dependencies=()
 for dep in "${dependencies[@]}"; do
     if check_command "$dep"; then
         if [[ -n "${expected_versions[$dep]}" ]]; then
-            installed_version=$(
-                case "$dep" in
-                    "checkv")
-                        echo "$(checkv 2>&1 | grep -oP 'CheckV v\d+\.\d+\.\d+' | sed 's/CheckV v//')"
-                        ;;
-                    "dRep")
-                        echo "$(dRep -h 2>&1 | grep -oP '\d+\.\d+\.\d+')"
-                        ;;
-                    "bwa")
-                        echo "$(bwa 2>&1 | grep -oP '\d+\.\d+\.\d+')"
-                        ;;
-                    "virsorter")
-                        echo "$(virsorter -h 2>&1 | grep -oP '\d+\.\d+\.\d+\.\d+')"
-                        ;;
-                    *)
-                        echo "$($dep --version 2>&1 | grep -oP '\d+\.\d+\.\d+')"
-                        ;;
-                esac
-            )
+            installed_version="$(get_installed_version "$dep")"
 
             if [[ "$installed_version" != "${expected_versions[$dep]}" ]]; then
                 echo -e "[⚠️] $dep version mismatch: Expected ${expected_versions[$dep]}, but found $installed_version."

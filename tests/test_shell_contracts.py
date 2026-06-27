@@ -22,6 +22,10 @@ class TestShellContracts(unittest.TestCase):
         for tool_name in ("conda", "viralverify", "sambamba", "coverm", "parallel", "makeblastdb", "blastn"):
             self.assertIn(f'"{tool_name}"', content)
 
+    def test_dependency_check_has_sidecar_viralverify_fallback(self):
+        content = read_text("Modules", "ViOTUcluster_Check")
+        self.assertIn("../../viralverify/bin/viralverify", content)
+
 
 if __name__ == "__main__":
     unittest.main()

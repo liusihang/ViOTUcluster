@@ -15,7 +15,7 @@ import logging
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 
 from .config import (
     DEFAULT_MIN_LENGTH,
@@ -41,7 +41,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def _descendant_pids(root_pid: int) -> list[int]:
+def _descendant_pids(root_pid: int) -> List[int]:
     """Return all descendant PIDs of root_pid using a portable ps snapshot."""
     try:
         output = subprocess.check_output(
@@ -68,7 +68,7 @@ def _descendant_pids(root_pid: int) -> list[int]:
     return descendants
 
 
-def _signal_pids(pids: list[int], sig: int) -> None:
+def _signal_pids(pids: List[int], sig: int) -> None:
     """Best-effort signal delivery to a list of PIDs."""
     for pid in pids:
         try:
