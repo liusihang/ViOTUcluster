@@ -120,7 +120,7 @@ while true; do
       echo "  -A, --assemble-jobs <N>          Parallel samples for assembly (default: ~nproc/2)."
       echo "  --non-con | --con                Processing mode for ViOTUcluster."
       echo "  --reassemble                     Enable reassembly (forwarded if supported)."
-      echo "  --disable-binning                Skip vRhyme binning; use contigs directly."
+      echo "  --disable-binning                Skip vRhyme binning; continue with post-cross-validation viral contigs."
       echo "  --save-sambamba-intermediate     Keep Sambamba view output before sorting to reduce file-handle load."
       echo "  -v                               Show version."
       echo "  -h                               Show help."

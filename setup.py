@@ -1,23 +1,11 @@
 #!/usr/bin/env python3
 import sys
-import subprocess
 import glob
 from setuptools import setup, find_packages
-from packaging.version import Version
 
 # Check Python version: support 3.8 to 3.11
 if sys.version_info < (3, 8) or sys.version_info >= (3, 12):
     sys.exit("This package requires Python >=3.8 and <3.12")
-
-try:
-    output = subprocess.check_output(["mamba", "--version"], universal_newlines=True)
-    version_str = output.strip().split()[-1]
-    required_mamba_version = Version("1.5.1")
-    installed_mamba_version = Version(version_str)
-    if installed_mamba_version < required_mamba_version:
-        sys.exit("mamba version must be >= 1.5.1")
-except Exception as e:
-    sys.exit("mamba not detected or version check failed: " + str(e))
 
 # Read long description safely
 def read_long_description():

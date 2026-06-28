@@ -28,6 +28,7 @@ DEFAULT_THREADS = 0  # 0 = auto-detect (use all available)
 DEFAULT_MAX_PREDICTION_TASKS = 30  # Max concurrent prediction jobs
 DEFAULT_TPM_TASKS = 15             # Max concurrent BAM/TPM processing samples
 DEFAULT_ASSEMBLE_JOBS = 10         # Max concurrent assembly samples
+DEFAULT_MODULE_TIMEOUT_SECONDS = 72 * 3600  # Kill a stage if it runs longer than 72h
 
 # =============================================================================
 # Database Subdirectory Names

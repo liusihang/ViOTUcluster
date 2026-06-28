@@ -31,6 +31,7 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-python "${ScriptDir}/ContigsPreprocess.py" -i ${INPUT_DIR} -o ${OUTPUT_DIR} -c ${THREADS} -a ${ASSEMBLY_SOFTWARE} --asm_concurrency ${Jobs}
+VIOTUCLUSTER_PYTHON=${VIOTUCLUSTER_PYTHON:-python}
+"$VIOTUCLUSTER_PYTHON" -m ViOTUcluster.ContigsPreprocess -i ${INPUT_DIR} -o ${OUTPUT_DIR} -c ${THREADS} -a ${ASSEMBLY_SOFTWARE} --asm_concurrency ${Jobs}
 
 echo "Processing completed. Contigs are saved in $CONTIGS_DIR."

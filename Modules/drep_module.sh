@@ -5,6 +5,7 @@ set -e
 trap 'echo "[❌] An error occurred in the dRep module. Exiting..."; exit 1;' ERR
 
 DISABLE_BINNING=${DISABLE_BINNING:-false}
+VIOTUCLUSTER_PYTHON=${VIOTUCLUSTER_PYTHON:-python}
 
 echo "[📁] Creating required directories..."
 mkdir -p "$OUTPUT_DIR/Summary/temp"
@@ -33,11 +34,11 @@ else
         echo "Genome list file generated at $GENOME_LIST_FILE"
 
         echo "[🔄] Starting dRep dereplication for bins..."
-        dRep dereplicate "$OUTPUT_DIR/Summary/dRepRes" -g "$GENOME_LIST_FILE" --ignoreGenomeQuality --skip_plots -pa 0.8 -sa 0.95 -nc 0.85 -comW 0 -conW 0 -strW 0 -N50W 0 -sizeW 1 -centW 0 -l 3000
+        dRep dereplicate "$OUTPUT_DIR/Summary/dRepRes" -g "$GENOME_LIST_FILE" --ignoreGenomeQuality --skip_plots -pa 0.8 -sa 0.95 -nc 0.85 -comW 0 -conW 0 -strW 0 -N50W 0 -sizeW 1 -centW 0 -l "${MIN_LENGTH}"
         echo "[✅] dRep dereplication completed."
 
         echo "Concatenating dereplicated fasta sequences..."
-        python "${ScriptDir}/concat_fasta_sequences.py" "$OUTPUT_DIR/Summary/dRepRes/dereplicated_genomes" "$DREP_BINS_FASTA"
+        "$VIOTUCLUSTER_PYTHON" -m ViOTUcluster.concat_fasta_sequences "$OUTPUT_DIR/Summary/dRepRes/dereplicated_genomes" "$DREP_BINS_FASTA"
         echo "[✅] Fasta concatenation completed."
     fi
 fi
@@ -64,7 +65,7 @@ else
         newDir="$OUTPUT_DIR/Summary/temp"
         rm -f "${newDir}/Done" # Ensure script runs even if Done file exists from previous run
         echo "[🔄] Filtering sequences shorter than ${MIN_LENGTH}bp"
-        python "${ScriptDir}/filter_contigs.py" "${MIN_LENGTH}" "${newDir}/merged_sequences.fasta" "$newDir"
+        "$VIOTUCLUSTER_PYTHON" -m ViOTUcluster.filter_contigs "${MIN_LENGTH}" "${newDir}/merged_sequences.fasta" "$newDir"
         echo "[✅] Filtering completed."
 
         echo "[🔄] Building BLAST database and running clustering..."
@@ -73,9 +74,9 @@ else
         blastn -query "${newDir}/merged_sequences.fasta" -db "${newDir}/temp_db" -outfmt "6 std qlen slen" \
             -max_target_seqs 10000 -out "${newDir}/merged_sequences_blast.tsv" -num_threads "${THREADS}"
 
-        python "${ScriptDir}/anicalc.py" -i "${newDir}/merged_sequences_blast.tsv" -o "${newDir}/merged_sequences_ani.tsv"
+        "$VIOTUCLUSTER_PYTHON" -m ViOTUcluster.anicalc -i "${newDir}/merged_sequences_blast.tsv" -o "${newDir}/merged_sequences_ani.tsv"
 
-        python "${ScriptDir}/aniclust.py" --fna "${newDir}/merged_sequences.fasta" --ani "${newDir}/merged_sequences_ani.tsv" \
+        "$VIOTUCLUSTER_PYTHON" -m ViOTUcluster.aniclust --fna "${newDir}/merged_sequences.fasta" --ani "${newDir}/merged_sequences_ani.tsv" \
             --out "${newDir}/merged_sequences_clusters.tsv" --min_ani 95 --min_tcov 85 --min_qcov 0
 
         echo "[🧹] Cleaning up temporary files..."
@@ -83,7 +84,7 @@ else
         rm -f "${newDir}/merged_sequences_blast.tsv"
 
         echo "Selecting representative sequences from clusters..."
-        python "${ScriptDir}/SelectCluster.py" "${newDir}/merged_sequences.fasta" "${newDir}/merged_sequences_clusters.tsv" "$DREP_VIRAL_FASTA"
+        "$VIOTUCLUSTER_PYTHON" -m ViOTUcluster.SelectCluster "${newDir}/merged_sequences.fasta" "${newDir}/merged_sequences_clusters.tsv" "$DREP_VIRAL_FASTA"
         echo "[✅] dRep and clustering for unbined contigs completed."
     fi
 fi

@@ -5,6 +5,7 @@ set -e
 trap 'echo "[❌] An error occurred. Exiting..."; exit 1;' ERR
 
 : "${SAMBAMBA_SAVE_INTERMEDIATE:=false}"
+VIOTUCLUSTER_PYTHON=${VIOTUCLUSTER_PYTHON:-python}
 
 # Perform Binning analysis
 for FILE in $FILES; do
@@ -88,7 +89,7 @@ for FILE in $FILES; do
     mkdir -p "$OUT_DIR/Binning/reads_for_reassembly"
 
     bwa index -p "$OUT_DIR/Binning/all_bins_index" "$ALL_BINS_FA"
-    bwa mem -t "${THREADS}" "$OUT_DIR/Binning/all_bins_index" "$Read1" "$Read2" | python "${ScriptDir}/filter_reads_for_bin_reassembly.py" "$VRHYME_DIR/vRhyme_best_bins_fasta" "$OUT_DIR/Binning/reads_for_reassembly" "$STRICT_MAX" "$PERMISSIVE_MAX"
+    bwa mem -t "${THREADS}" "$OUT_DIR/Binning/all_bins_index" "$Read1" "$Read2" | "$VIOTUCLUSTER_PYTHON" -m ViOTUcluster.filter_reads_for_bin_reassembly "$VRHYME_DIR/vRhyme_best_bins_fasta" "$OUT_DIR/Binning/reads_for_reassembly" "$STRICT_MAX" "$PERMISSIVE_MAX"
 
     for FASTQ_FILE in "$OUT_DIR/Binning/reads_for_reassembly/"*_1.fastq; do
       BIN_BASENAME=$(basename "$FASTQ_FILE" _1.fastq)
@@ -107,7 +108,7 @@ for FILE in $FILES; do
     done
 
     mkdir -p "$OUT_DIR/Binning/Summary"
-    python "${ScriptDir}/concat_fasta_sequences.py" "$EXTRACTED_DIR" "$OUT_DIR/Binning/Summary/tempsummary.fasta"
+    "$VIOTUCLUSTER_PYTHON" -m ViOTUcluster.concat_fasta_sequences "$EXTRACTED_DIR" "$OUT_DIR/Binning/Summary/tempsummary.fasta"
   fi
 
   # Create bins directory
@@ -135,11 +136,11 @@ for FILE in $FILES; do
 
     # Merge bins and unbined sequences
     echo "[🔄] Merging bins and generating unbined sequences..."
-    python "${ScriptDir}/Mergebins.py" -i "$VRHYME_DIR/vRhyme_best_bins_fasta" -o "${OUTPUT_DIR}/Summary/SeperateRes/bins/${BASENAME}_bins.fasta"
+    "$VIOTUCLUSTER_PYTHON" -m ViOTUcluster.Mergebins -i "$VRHYME_DIR/vRhyme_best_bins_fasta" -o "${OUTPUT_DIR}/Summary/SeperateRes/bins/${BASENAME}_bins.fasta"
 
     # Generate unbined sequences
     mkdir -p "$OUTPUT_DIR/Summary/SeperateRes/unbined"
-    python "${ScriptDir}/unbined.py" -i "$VRHYME_DIR/vRhyme_best_bins_fasta" -r "$OUT_DIR/${BASENAME}_filtered.fasta" -o "$UNBINNED_FASTA"
+    "$VIOTUCLUSTER_PYTHON" -m ViOTUcluster.unbined -i "$VRHYME_DIR/vRhyme_best_bins_fasta" -r "$OUT_DIR/${BASENAME}_filtered.fasta" -o "$UNBINNED_FASTA"
 
     # Combine bins and unbined sequences
     cat "${OUTPUT_DIR}/Summary/SeperateRes/bins/${BASENAME}_bins.fasta" "${OUTPUT_DIR}/Summary/SeperateRes/unbined/${BASENAME}_unbined.fasta" > "${OUTPUT_DIR}/Summary/SeperateRes/${BASENAME}_viralseqs.fasta"

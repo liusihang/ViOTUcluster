@@ -5,9 +5,33 @@ import shutil
 import argparse
 import subprocess
 import multiprocessing
+import sys
 from multiprocessing import Pool
 
-def find_fastq_pairs(input_dir):
+def resolve_assembly_threads(cores_to_use, asm_concurrency, asm_threads):
+    """Resolve threads per assembly task from the overall core budget."""
+    if asm_threads is None:
+        return max(1, cores_to_use // max(1, asm_concurrency))
+    return max(1, asm_threads)
+
+
+def determine_exit_code(cleaned_fail, assembly_fail, output_dir):
+    """Return non-zero when preprocessing did not produce a trustworthy contig set."""
+    contigs_dir = os.path.join(output_dir, "Contigs")
+    has_contigs = False
+    if os.path.isdir(contigs_dir):
+        for entry in os.listdir(contigs_dir):
+            if entry.lower().endswith((".fa", ".fasta", ".fna")):
+                fasta_path = os.path.join(contigs_dir, entry)
+                if os.path.isfile(fasta_path) and os.path.getsize(fasta_path) > 0:
+                    has_contigs = True
+                    break
+
+    if cleaned_fail or assembly_fail or not has_contigs:
+        return 1
+    return 0
+
+def scan_fastq_pairs(input_dir):
     """
     Recursively search for all *_R1* FASTQ files in the input directory
     and find their corresponding *_R2* files.
@@ -18,6 +42,7 @@ def find_fastq_pairs(input_dir):
         r1_files.extend(glob.glob(os.path.join(input_dir, "**", pattern), recursive=True))
     r1_files = sorted(r1_files)
     pairs = []
+    orphan_r1_files = []
     for r1 in r1_files:
         name = os.path.basename(r1)
         idx = name.rfind("_R1")
@@ -29,7 +54,15 @@ def find_fastq_pairs(input_dir):
             sample = name[:idx]  # Extract sample name (portion before _R1)
             pairs.append((sample, r1, r2_path))
         else:
-            print(f"[Warning] Found R1 file but no matching R2: {r1}")
+            orphan_r1_files.append(r1)
+    return pairs, orphan_r1_files
+
+
+def find_fastq_pairs(input_dir):
+    """Backward-compatible wrapper that returns only complete pairs."""
+    pairs, orphan_r1_files = scan_fastq_pairs(input_dir)
+    for r1 in orphan_r1_files:
+        print(f"[Warning] Found R1 file but no matching R2: {r1}")
     return pairs
 
 def run_fastp(r1_path, r2_path, out_r1, out_r2):
@@ -73,7 +106,7 @@ def run_assembler(clean_r1, clean_r2, assembler, out_dir, threads):
         print(f"[Error] Unexpected exception running {assembler}: {ex}")
         return False
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(description="Parallel fastp cleaning and assembly pipeline.")
     parser.add_argument("-i", "--input_dir", required=True, help="Directory containing raw FASTQ files")
     parser.add_argument("-o", "--output_dir", required=True, help="Output directory for cleaned reads and assembly results")
@@ -89,7 +122,7 @@ def main():
                         help="Threads per assembly task passed to the assembler (-t). "
                              "If not set, will use max(1, cores // asm_concurrency).")
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     input_dir = args.input_dir
     output_dir = args.output_dir
@@ -98,10 +131,7 @@ def main():
     asm_concurrency = max(1, args.asm_concurrency)
 
     # Derive per-assembly threads if not explicitly specified
-    if args.asm_threads is None:
-        asm_threads = cores_to_use
-    else:
-        asm_threads = max(1, args.asm_threads)
+    asm_threads = resolve_assembly_threads(cores_to_use, asm_concurrency, args.asm_threads)
 
     # Create output subdirectories
     cleaned_dir = os.path.join(output_dir, "Cleanreads")
@@ -112,10 +142,15 @@ def main():
     os.makedirs(final_contigs_dir, exist_ok=True)
 
     # Find paired FASTQ files
-    pairs = find_fastq_pairs(input_dir)
+    pairs, orphan_r1_files = scan_fastq_pairs(input_dir)
+    for r1 in orphan_r1_files:
+        print(f"[Warning] Found R1 file but no matching R2: {r1}")
+    if orphan_r1_files:
+        print("Incomplete paired-end inputs detected. Please provide matching R2 files.")
+        return 1
     if not pairs:
         print("No FASTQ pairs found in input directory.")
-        exit(0)
+        return 1
     print(f"Found {len(pairs)} paired-end read sets.")
 
     # Clamp cores_to_use to actual CPU count
@@ -260,6 +295,7 @@ def main():
     if assembly_fail:
         print(f"Assembly failed for {len(assembly_fail)} sample(s): {', '.join(assembly_fail)}")
     print("Final contigs are available in:", final_contigs_dir)
+    return determine_exit_code(cleaned_fail, assembly_fail, output_dir)
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

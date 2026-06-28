@@ -9,56 +9,105 @@ import threading
 import time
 import glob
 import signal
+import shutil
+import shlex
+from pathlib import Path
 
-# ===== 1) Check =====
-required_env_vars = ['OUTPUT_DIR', 'DATABASE', 'Group', 'CONCENTRATION_TYPE', 'THREADS']
-for var in required_env_vars:
-    if var not in os.environ:
-        print(f"Environment variable {var} is not set.")
+from .task_utils import ensure_futures_succeeded
+
+OUTPUT_DIR = None
+DATABASE = None
+Group = None
+CONCENTRATION_TYPE = None
+THREADS = 0
+MAX_TASKS = 1
+FILES = None
+files_list = []
+CORES_TO_USE = 0
+assigned_cores = []
+_TASK_SEM = threading.BoundedSemaphore(value=1)
+
+
+def initialize_runtime(environ=None):
+    """Load runtime configuration from environment only when the module actually runs."""
+    global OUTPUT_DIR, DATABASE, Group, CONCENTRATION_TYPE, THREADS
+    global MAX_TASKS, FILES, files_list, CORES_TO_USE, assigned_cores, _TASK_SEM
+
+    env = environ or os.environ
+    required_env_vars = ['OUTPUT_DIR', 'DATABASE', 'Group', 'CONCENTRATION_TYPE', 'THREADS']
+    for var in required_env_vars:
+        if var not in env:
+            print(f"Environment variable {var} is not set.")
+            sys.exit(1)
+
+    OUTPUT_DIR = env['OUTPUT_DIR']
+    DATABASE = env['DATABASE']
+    Group = env['Group']
+    CONCENTRATION_TYPE = env['CONCENTRATION_TYPE']
+    THREADS = int(env['THREADS'])
+
+    try:
+        MAX_TASKS = int(env.get('MAX_TASKS', max(1, multiprocessing.cpu_count())))
+    except ValueError:
+        MAX_TASKS = max(1, multiprocessing.cpu_count())
+
+    _TASK_SEM = threading.BoundedSemaphore(value=max(1, MAX_TASKS))
+
+    FILES = env.get('FILES')
+    if FILES:
+        files_list = FILES.strip().split()
+    else:
+        files_list = glob.glob(os.path.join(OUTPUT_DIR, 'FilteredSeqs', '*.fa')) + \
+                     glob.glob(os.path.join(OUTPUT_DIR, 'FilteredSeqs', '*.fasta'))
+
+    if not files_list:
+        print("No files to process.")
         sys.exit(1)
 
-# ===== 2) Read Envs =====
-OUTPUT_DIR = os.environ['OUTPUT_DIR']
-DATABASE = os.environ['DATABASE']
-Group = os.environ['Group']
-CONCENTRATION_TYPE = os.environ['CONCENTRATION_TYPE']
-THREADS = int(os.environ['THREADS'])  
+    CORES_TO_USE = THREADS
+    all_cores = list(range(multiprocessing.cpu_count()))
+    assigned_cores = all_cores[:CORES_TO_USE]
 
-# Global concurrency limit (from environment or auto-detect)
-try:
-    MAX_TASKS = int(os.environ.get('MAX_TASKS', max(1, multiprocessing.cpu_count())))
-except ValueError:
-    MAX_TASKS = max(1, multiprocessing.cpu_count())
 
-# Global concurrency semaphore
-_TASK_SEM = threading.BoundedSemaphore(value=max(1, MAX_TASKS))
+def resolve_viralverify_command():
+    """Resolve a working viralverify entrypoint."""
+    explicit = os.environ.get("VIRALVERIFY_COMMAND")
+    if explicit:
+        return shlex.split(explicit)
 
-# ===== 3) File list =====
-FILES = os.environ.get('FILES')
-if FILES:
-    files_list = FILES.strip().split()
-else:
-    files_list = glob.glob(os.path.join(OUTPUT_DIR, 'FilteredSeqs', '*.fa')) + \
-                 glob.glob(os.path.join(OUTPUT_DIR, 'FilteredSeqs', '*.fasta'))
+    python_path = Path(sys.executable).resolve()
+    envs_dir = python_path.parents[2]
+    sidecar = envs_dir / "viralverify" / "bin" / "viralverify"
+    if sidecar.is_file():
+        return [str(sidecar)]
 
-if not files_list:
-    print("No files to process.")
-    sys.exit(1)
+    on_path = shutil.which("viralverify")
+    if on_path:
+        return [on_path]
 
-# ===== 4) Multi-processing setup =====
-CORES_TO_USE = THREADS
-all_cores = list(range(multiprocessing.cpu_count()))
-assigned_cores = all_cores[:CORES_TO_USE]
-print(f"Assigning tasks to cores: {assigned_cores}")
-print(f"Global max concurrent tasks (MAX_TASKS): {MAX_TASKS}")
-print(f"Per-task threads passed to tools (THREADS): {THREADS}")
+    return ["viralverify"]
 
-def run_command(cmd, cores=None):
+
+def build_viralverify_env(base_env=None):
+    """Ensure viralverify can import repo-provided compatibility shims."""
+    env = dict(base_env or os.environ)
+    compat_dir = str(Path(__file__).resolve().parent / "compat")
+    existing = env.get("PYTHONPATH")
+    env["PYTHONPATH"] = compat_dir if not existing else f"{compat_dir}:{existing}"
+    return env
+
+
+def run_command(cmd, cores=None, extra_env=None):
     """Run an external command and bind it to specified cores (if supported),
        with a global concurrency gate (_TASK_SEM)."""
     _TASK_SEM.acquire()  # Acquire global concurrency semaphore
     try:
-        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=extra_env,
+        )
         # Set subprocess CPU affinity if supported
         if hasattr(os, 'sched_setaffinity') and cores:
             try:
@@ -97,12 +146,19 @@ def process_file(file_path):
         # ViralVerify
         viralverify_result = os.path.join(viralverify_dir, f'{basename}_result_table.csv')
         if not os.path.isfile(viralverify_result):
-            viralverify_cmd = [
-                'viralverify', '-f', file_path, '-o', viralverify_dir,
+            viralverify_cmd = resolve_viralverify_command() + [
+                '-f', file_path, '-o', viralverify_dir,
                 '--hmm', os.path.join(DATABASE, 'ViralVerify', 'nbc_hmms.h3m'),
                 '-t', str(THREADS)
             ]
-            tasks.append(executor.submit(run_command, viralverify_cmd, assigned_cores))
+            tasks.append(
+                executor.submit(
+                    run_command,
+                    viralverify_cmd,
+                    assigned_cores,
+                    build_viralverify_env(),
+                )
+            )
         else:
             print(f"Viralverify prediction already completed for {file_path}, skipping...")
 
@@ -155,12 +211,7 @@ def process_file(file_path):
         else:
             print(f"Genomad prediction already completed for {file_path}, skipping...")
 
-        #Wait for all tasks to complete and handle exceptions
-        for future in as_completed(tasks):
-            try:
-                future.result()
-            except Exception as e:
-                print(f"An error occurred while processing {file_path}: {e}")
+        ensure_futures_succeeded(tasks, f"viral prediction for {file_path}")
 
     print(f"All predictions completed for {file_path}")
 
@@ -186,9 +237,11 @@ def check_virsorter_completion():
             time.sleep(30)
 
 def main():
+    initialize_runtime()
+
     def signal_handler(sig, frame):
         print("Process interrupted. Exiting gracefully...")
-        sys.exit(0)
+        sys.exit(1)
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
@@ -201,11 +254,7 @@ def main():
     outer_workers = max(1, min(len(files_list), MAX_TASKS))
     with ThreadPoolExecutor(max_workers=outer_workers) as executor:
         futures = [executor.submit(process_file, fp) for fp in files_list]
-        for future in as_completed(futures):
-            try:
-                future.result()
-            except Exception as e:
-                print(f"Task generated an exception: {e}")
+        ensure_futures_succeeded(futures, "viral prediction stage")
 
     # check_virsorter_completion()
     # print("All files have been processed.")

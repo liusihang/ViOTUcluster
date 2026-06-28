@@ -112,6 +112,7 @@ ViOTUcluster comes with an **all-in-one setup script** that pulls three pre-pack
 
    ```bash
    Checking dependencies...
+   [✅] conda is installed.
    [✅] fastp is installed.
    [✅] megahit is installed.
    [✅] spades.py is installed.
@@ -122,8 +123,15 @@ ViOTUcluster comes with an **all-in-one setup script** that pulls three pre-pack
    [✅] dRep is installed.
    [✅] checkm is installed.
    [✅] bwa is installed.
+   [✅] sambamba is installed.
+   [✅] coverm is installed.
+   [✅] parallel is installed.
+   [✅] makeblastdb is installed.
+   [✅] blastn is installed.
    All dependencies are installed.
    ```
+
+   **Note:** `ViOTUcluster_Check` validates the runtime commands that the pipeline will call directly. In some deployments, `viralverify` may come from a sibling `viralverify` Conda environment rather than the active `ViOTUcluster` environment, so make sure the command is reachable from the shell where you launch the pipeline.
 
 4. **Set Up Databases**
 
@@ -187,6 +195,21 @@ ViOTUcluster comes with an **all-in-one setup script** that pulls three pre-pack
    ```
    This command will automatically utilize all available threads to execute the entire ViOTUcluster workflow on the provided mini FASTQ samples. Be sure to replace /path/to/db with the path to your database directory.
 
+   If you want a lighter smoke test while debugging orchestration or environment issues, you can also run the All-in-One entrypoint with reduced concurrency and disabled binning:
+
+   ```bash
+   conda activate ViOTUcluster
+   ViOTUcluster_AllinOne \
+     -r /path/to/MiniTest \
+     -o /path/to/smoke_output \
+     -d /path/to/db \
+     -a megahit \
+     --con \
+     --disable-binning \
+     -n 4 -P 1 -T 1 -A 1 \
+     --module-timeout-hours 1
+   ```
+
 ### Updating ViOTUcluster from an Older Version
 
 To update an existing ViOTUcluster installation to the latest version, use pip:
@@ -209,16 +232,16 @@ If you run into any difficulties while setting up these environments, feel free 
 
 To run the pipeline, use the following command structure:
 
-1. **Create and activate the vRhyme environment**
+1. **Run from assembled contigs plus raw reads**
 
     ```bash
-    ViOTUcluster -i <input_path_to_contigs> -r <input_path_raw_seqs> -o <output_path> -d <database_path> -n <threads> -m <min-sequence length> --non-con/--con [--reassemble] [--disable-binning] [--save-sambamba-intermediate] [--max-prediction-tasks <N>] [--tpm-tasks <N>] [--assemble-jobs <N>]
+    ViOTUcluster -i <input_path_to_contigs> -r <input_path_raw_seqs> -o <output_path> -d <database_path> -n <threads> -m <min-sequence length> --non-con/--con [--reassemble] [--disable-binning] [--save-sambamba-intermediate] [--max-prediction-tasks <N>] [--tpm-tasks <N>] [--assemble-jobs <N>] [--module-timeout-hours <H>]
     ```
 
-2. **Start with raw fastq files**
+2. **Start directly from raw FASTQ files**
 
     ```bash
-    ViOTUcluster_AllinOne -r <input_path_raw_seqs> -o <output_path> -d <database_path> -a <assembly_software> -n <threads> -m <min-sequence length> --non-con/--con [--reassemble] [--disable-binning] [--save-sambamba-intermediate] [--max-prediction-tasks <N>] [--tpm-tasks <N>] [--assemble-jobs <N>]
+    ViOTUcluster_AllinOne -r <input_path_raw_seqs> -o <output_path> -d <database_path> -a <assembly_software> -n <threads> -m <min-sequence length> --non-con/--con [--reassemble] [--disable-binning] [--save-sambamba-intermediate] [--max-prediction-tasks <N>] [--tpm-tasks <N>] [--assemble-jobs <N>] [--module-timeout-hours <H>]
     ```
 
 A mini test file is available for download at  [MiniTest.zip](https://zenodo.org/records/14287325/files/MiniTest.zip?download=1). You can use this file in All-in-One mode to verify that the pipeline is successfully installed and functioning.
@@ -227,7 +250,7 @@ A mini test file is available for download at  [MiniTest.zip](https://zenodo.org
 
 - **`-i <input_path_to_contigs>`**: Specifies the directory containing the assembled contig files in FASTA format (e.g., `example1.fasta`). Each contig file should have corresponding raw sequencing FASTQ files in the raw sequence directory, sharing the same prefix.
 
-- **`-r <input_path_raw_seqs>`* *: Spe cifies the directory with raw sequencing data in FASTQ format. The FASTQ files must have the same prefix as the corresponding contigs file. For example, if the contigs file is `example1.fasta`, the FASTQ files should be named `example1_R1.fq` and `example1_R2.fq`. The paired-end metagenomic reads should end with `.fq`, `.fq.gz`, `.fastq`, or `.fastq.gz`.
+- **`-r <input_path_raw_seqs>`**: Specifies the directory with raw sequencing data in FASTQ format. The FASTQ files must have the same prefix as the corresponding contigs file. For example, if the contigs file is `example1.fasta`, the FASTQ files should be named `example1_R1.fq` and `example1_R2.fq`. The paired-end metagenomic reads should end with `.fq`, `.fq.gz`, `.fastq`, or `.fastq.gz`.
 
 - **`-o <output_path>`**: Defines the output directory for storing the processed results. This will include filtered sequences, prediction outcomes, binning results, and the final dereplicated viral contigs.
 
@@ -235,11 +258,14 @@ A mini test file is available for download at  [MiniTest.zip](https://zenodo.org
 
 - **`-m, --min-length <length>`**: Specify the minimum length (bp) for sequences (default: 2500). The same value is applied during initial contig filtering and again before dRep clustering to keep downstream analyses in sync with the user input.
 
+- **`-n, --threads <N>`**: Sets the per-task thread budget passed to heavy external tools. Combine this with `-P`, `-T`, and `-A` to control total host utilization.
+
 - **`--non-con/--con`**: Specifies the viral prediction criteria based on the sample preparation method. Use `--non-con` for samples that were not enriched using viral-particle concentration methods, typically containing a low viral proportion. Use `--con` for samples subjected to concentration methods, which are expected to have a medium to high viral proportion.
 
 - **`--reassemble`**: (Optional) Enables reassembly of bins after the initial binning process to enhance the accuracy and quality of the final contigs. This feature is still in beta and can significantly increase runtime.
 
-- **`--disable-binning`**: Skip the vRhyme binning stage entirely. When enabled, the pipeline copies the per-sample filtered contigs directly into the dereplication and summary steps, which is useful when bins cannot be recovered for some samples.
+- **`--disable-binning`**: Skip the vRhyme binning stage entirely. When enabled, the pipeline stages the post-cross-validation per-sample viral contigs into the unbinned dereplication and summary flow, which is useful when bins cannot be recovered for some samples.
+- **`--module-timeout-hours <hours>`**: Abort a top-level pipeline stage if it runs longer than the configured number of hours. Use `0` to disable the timeout entirely.
 - **`--save-sambamba-intermediate`**: Keep Sambamba view BAMs before sorting. This reduces open-file pressure during heavy runs and keeps intermediate BAMs on disk for debugging at the cost of additional storage.
 
 - **`-a <assembly_software>`**: (For `ViOTUcluster_AllinOne` only) Specifies the assembly software used during the raw sequence processing. Accepted values are `-a megahit` or `-a metaspades`.
@@ -249,6 +275,8 @@ A mini test file is available for download at  [MiniTest.zip](https://zenodo.org
 - **`--tpm-tasks, -T <N>`**: Cap concurrent BAM/TPM processing samples, default 15.
 
 - **`--assemble-jobs, -A <N>`**: Cap concurrent assembly samples, default 10.
+
+- **`ViOTUcluster_Check`**: Use this before long runs to confirm the command-line tools that the pipeline expects are visible from your current shell.
 
 ### File Structure Example
 
