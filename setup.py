@@ -34,6 +34,7 @@ setup(
     install_requires=[
         "biopython>=1.79",
         "pandas>=1.3.0",
+        "numpy",
         "packaging",
     ],
     author="Sihang Liu",

@@ -45,7 +45,7 @@ ______
 Before installing ViOTUcluster, ensure the following tools are available on your system:
 
 - [Miniconda](https://docs.conda.io/en/latest/miniconda.html) or [Anaconda](https://www.anaconda.com/products/distribution)
-- [mamba](https://github.com/mamba-org/mamba) (recommended for faster package management)
+- [mamba](https://github.com/mamba-org/mamba) (recommended, but optional, for faster package solving)
 - [Git](https://git-scm.com/downloads)
 
 ## Installation
@@ -56,55 +56,61 @@ ViOTUcluster has been tested on Ubuntu and CentOS and should be compatible with 
 
 Follow these steps to install ViOTUcluster for the first time:
 
-ViOTUcluster comes with an **all-in-one setup script** that pulls three pre-packed Conda environments (ViOTUcluster / vRhyme / DRAM + iPhop) and unpacks them in one shot.
+ViOTUcluster now ships with checked-in Conda environment manifests instead of pre-packed tarball environments.
 
-| Option                                            | What it does                                                                                               |
-| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `--china`                                         | Switch download source from Zenodo to China SciDB mirrors (faster in mainland CN).                         |
-| `-p PATH`                                         | Install the whole stack *outside* your base Conda directory (default is `<conda-root>/envs/ViOTUcluster`). |
-| `-h`, `--help`                                    | Show full option list.                                                                                     |
+The supported default layout is:
 
----
+- one main Conda environment for the standard `ViOTUcluster` / `ViOTUcluster_AllinOne` workflow,
+- optional satellite environments for advanced analyses that are not safely co-installable with the default stack.
 
-1.  **Download and Setup ViOTUcluster**
+The main reason for this split is `iPhop`: its current Conda package still pins an older Python/TensorFlow stack that conflicts with the current `geNomad` runtime requirements.
 
-    ViOTUcluster simplifies the installation of itself and its core dependencies (like vRhyme, DRAM, and iPhop) by providing a setup script that downloads pre-packaged Conda environments.
+1. **Clone the repository**
 
-    The setup script can be run directly using `wget` and `bash`.
+   ```bash
+   git clone https://github.com/liusihang/ViOTUcluster.git
+   cd ViOTUcluster
+   ```
 
-    **Default Installation (Recommended for most users, downloads from Zenodo):**
-    This command will download the setup script and execute it, which will then download the environment packages from Zenodo.
-    ```bash
-    wget -qO- https://raw.githubusercontent.com/liusihang/ViOTUcluster/master/setup_ViOTUcluster.sh | bash
-    ```
+2. **Create the main Conda environment**
 
-    **Alternative for Users in Mainland China (Downloads from China SciDB):**
-    If you are in mainland China or experience slow downloads from Zenodo, you can instruct the script to use download mirrors hosted on China SciDB.
-    ```bash
-    wget -qO- https://raw.githubusercontent.com/liusihang/ViOTUcluster/master/setup_ViOTUcluster.sh | bash -s -- --china
-    ```
-    
-    **For users who lack write access to the Conda base directory or who prefer to install to a custom location:**
-    ```bash
-    wget -qO- https://raw.githubusercontent.com/liusihang/ViOTUcluster/master/setup_ViOTUcluster.sh | bash -s -- -p /PATH/YOU/WANT
-    ```
+   Recommended direct path:
 
-    You can combine flags, for example:
+   ```bash
+   conda env create -f environment.yml
+   conda activate ViOTUcluster
+   ```
 
-    ```bash
-    wget -qO- https://raw.githubusercontent.com/liusihang/ViOTUcluster/master/setup_ViOTUcluster.sh | bash -s -- --china -p /PATH/YOU/WANT
-    ```
-    **Note:** When you install to a custom prefix, activate the environment with the full path, e.g.
-    ```bash
-    conda activate /YOUR/CUSTOM/PATH/ViOTUcluster
-    ```
+   If you prefer a custom prefix:
+
+   ```bash
+   conda env create -p /PATH/YOU/WANT/ViOTUcluster -f environment.yml
+   conda activate /PATH/YOU/WANT/ViOTUcluster
+   ```
+
+   The checked-in helper script wraps the same contract and can also create optional satellite environments:
+
+   ```bash
+   ./setup_ViOTUcluster.sh --with-dram --with-iphop
+   ```
+
+   Optional helper flags:
+
+   | Option | What it does |
+   | --- | --- |
+   | `-p PATH` | Install the main environment at `PATH/ViOTUcluster`. |
+   | `--with-dram` | Create the optional DRAM satellite environment under `<main-env>/envs/DRAM`. |
+   | `--with-iphop` | Create the optional iPhop satellite environment under `<main-env>/envs/iPhop`. |
+   | `--all-optional` | Create both optional satellite environments. |
+   | `--china` | Print a reminder to configure Conda mirrors before solving. |
+   | `-h`, `--help` | Show the full option list. |
+
 3. **Verify Installation of All Dependencies**
 
    To confirm that all required dependencies are correctly installed, run:
 
    ```bash
    conda activate ViOTUcluster
-   pip install --upgrade ViOTUcluster #Important，to keep all script up-to-date.
    ViOTUcluster_Check
    ```
 
@@ -115,13 +121,13 @@ ViOTUcluster comes with an **all-in-one setup script** that pulls three pre-pack
    [✅] conda is installed.
    [✅] fastp is installed.
    [✅] megahit is installed.
-   [✅] spades.py is installed.
+   [✅] metaspades.py is installed.
    [✅] virsorter is installed.
    [✅] viralverify is installed.
    [✅] genomad is installed.
    [✅] checkv is installed.
    [✅] dRep is installed.
-   [✅] checkm is installed.
+   [✅] vRhyme is installed.
    [✅] bwa is installed.
    [✅] sambamba is installed.
    [✅] coverm is installed.
@@ -131,7 +137,7 @@ ViOTUcluster comes with an **all-in-one setup script** that pulls three pre-pack
    All dependencies are installed.
    ```
 
-   **Note:** `ViOTUcluster_Check` validates the runtime commands that the pipeline will call directly. In some deployments, `viralverify` may come from a sibling `viralverify` Conda environment rather than the active `ViOTUcluster` environment, so make sure the command is reachable from the shell where you launch the pipeline.
+   **Note:** `ViOTUcluster_Check` validates the runtime commands that the pipeline will call directly. `viralverify` can still be satisfied by a sibling Conda environment in older deployments, and `vRhyme` can still be satisfied by a nested satellite environment under `<main-env>/envs/vRhyme` for backward compatibility.
 
 4. **Set Up Databases**
 
@@ -144,6 +150,17 @@ ViOTUcluster comes with an **all-in-one setup script** that pulls three pre-pack
    **Note:** The setup process involves downloading approximately **30 GB** of database files, so the installation time depends heavily on your **network speed**. A stable, high-speed internet connection is recommended to prevent installation failures.
 
 5. **Set Up DRAM and iPhop Environments（Optional for advanced analysis）**
+
+   The standard pipeline can run from the main `ViOTUcluster` environment. DRAM and iPhop stay optional.
+
+   - DRAM is optional to keep the default install smaller.
+   - iPhop is optional because its current Conda stack conflicts with the current geNomad stack, so it should remain isolated.
+
+   To create the optional environments under the expected runtime paths:
+
+   ```bash
+   ./setup_ViOTUcluster.sh --with-dram --with-iphop
+   ```
 
    #### Install DRAM Database
 
@@ -212,13 +229,16 @@ ViOTUcluster comes with an **all-in-one setup script** that pulls three pre-pack
 
 ### Updating ViOTUcluster from an Older Version
 
-To update an existing ViOTUcluster installation to the latest version, use pip:
+If you installed from this repository, update the code and then refresh the main environment from the checked-in manifest:
 
 ```bash
-pip install --upgrade ViOTUcluster
+git pull
+conda env update -f environment.yml --prune
+conda activate ViOTUcluster
+python -m pip install --no-deps --upgrade .
 ```
 
-This command will upgrade the ViOTUcluster scripts while preserving your existing environment.
+If you rely on the optional DRAM or iPhop satellite environments, rerun `./setup_ViOTUcluster.sh --with-dram` and/or `./setup_ViOTUcluster.sh --with-iphop` after pulling updates.
 
 
 ## Additional Notes

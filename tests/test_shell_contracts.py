@@ -17,6 +17,13 @@ class TestShellContracts(unittest.TestCase):
         content = read_text("Modules", "drep_module.sh")
         self.assertIn('-l "${MIN_LENGTH}"', content)
 
+    def test_binning_module_prefers_vrhyme_on_path_with_nested_env_fallback(self):
+        content = read_text("Modules", "binning_merge_module.sh")
+        self.assertIn("resolve_vrhyme_command()", content)
+        self.assertIn("command -v vRhyme", content)
+        self.assertIn('${CONDA_PREFIX}/envs/vRhyme/bin/vRhyme', content)
+        self.assertNotIn('conda run -p "$CONDA_PREFIX/envs/vRhyme" vRhyme', content)
+
     def test_dependency_check_covers_runtime_tools(self):
         content = read_text("Modules", "ViOTUcluster_Check")
         for tool_name in ("conda", "viralverify", "sambamba", "coverm", "parallel", "makeblastdb", "blastn"):
