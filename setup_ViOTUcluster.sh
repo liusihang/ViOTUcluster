@@ -123,7 +123,7 @@ create_or_update_env() {
         "$SOLVER" env update -p "$1" -f "$manifest_path" --prune
     else
         echo_msg "[🔄] Creating environment at $1 from $(basename "$manifest_path")..."
-        "$SOLVER" env create -p "$1" -f "$manifest_path"
+        "$SOLVER" env create -p "$1" -f "$manifest_path" -y
     fi
 }
 

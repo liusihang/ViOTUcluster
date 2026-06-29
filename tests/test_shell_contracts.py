@@ -17,6 +17,14 @@ class TestShellContracts(unittest.TestCase):
         content = read_text("Modules", "drep_module.sh")
         self.assertIn('-l "${MIN_LENGTH}"', content)
 
+    def test_database_download_script_validates_and_presses_virsorter_hmms(self):
+        content = read_text("Modules", "ViOTUcluster_download-database")
+        self.assertIn('db/hmm/viral/combined.hmm', content)
+        self.assertIn('rbs-prodigal-train.db', content)
+        self.assertIn('hmmpress -f "$DB_DIR/db/hmm/viral/combined.hmm"', content)
+        self.assertIn('combined.hmm.$suffix', content)
+        self.assertIn('combined.$suffix', content)
+
     def test_binning_module_prefers_vrhyme_on_path_with_nested_env_fallback(self):
         content = read_text("Modules", "binning_merge_module.sh")
         self.assertIn("resolve_vrhyme_command()", content)

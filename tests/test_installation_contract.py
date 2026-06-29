@@ -41,7 +41,17 @@ class TestInstallationContract(unittest.TestCase):
         ):
             self.assertIn(package_name, content)
 
+        for pinned_package in (
+            "virsorter=2.2.4",
+            "genomad=1.8.0",
+            "checkv=1.0.3",
+            "drep=3.5.0",
+        ):
+            self.assertIn(pinned_package, content)
+
         self.assertNotIn("iphop", content, "iPhop should stay out of the main environment")
+        self.assertNotIn("--no-deps", content, "environment.yml pip subsection must not embed pip CLI flags")
+        self.assertIn("- .", content)
 
     def test_optional_satellite_manifests_exist(self):
         dram_manifest = read_text("environments", "dram.yml")
@@ -60,6 +70,11 @@ class TestInstallationContract(unittest.TestCase):
         self.assertNotIn("ViOTUcluster.tar.gz", content)
         self.assertNotIn("vRhyme.tar.gz", content)
         self.assertNotIn("zenodo.org", content)
+
+    def test_setup_script_creates_environments_non_interactively(self):
+        content = read_text("setup_ViOTUcluster.sh")
+        self.assertIn('env create -p "$1" -f "$manifest_path" -y', content)
+        self.assertIn('env update -p "$1" -f "$manifest_path" --prune', content)
 
     def test_dependency_check_matches_revised_runtime_contract(self):
         content = read_text("Modules", "ViOTUcluster_Check")

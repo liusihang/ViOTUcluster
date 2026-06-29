@@ -15,9 +15,9 @@ dependencies:
   - spades
   - viralverify
   - virsorter=2.2.4
-  - genomad
-  - checkv
-  - drep
+  - genomad=1.8.0
+  - checkv=1.0.3
+  - drep=3.5.0
   - vrhyme
   - bwa
   - sambamba
@@ -25,5 +25,4 @@ dependencies:
   - blast
   - parallel
   - pip:
-      - --no-deps
       - .
