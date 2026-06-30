@@ -57,9 +57,10 @@ ViOTUcluster has been tested on Ubuntu and CentOS and should be compatible with 
 
 Follow these steps to install ViOTUcluster for the first time:
 
-### Preferred Installation: Bioconda + mamba
+### Preferred Installation After Bioconda Publication: Bioconda + mamba
 
-The preferred installation path is now:
+Once the Bioconda package is published and visible in your channel mirror, the
+preferred installation path is:
 
 ```bash
 mamba install -c conda-forge -c bioconda viotucluster
@@ -69,8 +70,8 @@ This installs the validated default main workflow runtime, including the Python
 CLI package and the core external tools used by `ViOTUcluster` and
 `ViOTUcluster_AllinOne`.
 
-If the Bioconda package has not been published yet in your environment or mirror,
-use the source-based fallback installation below until the package becomes
+If the Bioconda package is not yet available in your environment or mirror, use
+the source-based fallback installation below until the package becomes
 available.
 
 After installation, activate the target Conda environment and verify the
