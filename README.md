@@ -37,6 +37,7 @@ _Recorded with [asciinema](https://docs.asciinema.org)_
 ______
 ## Important updates
 
+- Version 0.6.0: Promoted the validated Conda/Bioconda installation path and hardened the default runtime/database contract for new users.
 - Version 0.5.7.2: Added the `--save-sambamba-intermediate` flag (also available in `ViOTUcluster_AllinOne`) so you can keep Sambamba view BAMs when troubleshooting heavy IO pressure.
 - Version 0.5.5: Added three concurrency controls options,`--max-prediction-tasks (-P)`, `--tpm-tasks (-T)`, `--assemble-jobs (-A)`, which could help to limit the over memory usage.
 
@@ -45,8 +46,8 @@ ______
 Before installing ViOTUcluster, ensure the following tools are available on your system:
 
 - [Miniconda](https://docs.conda.io/en/latest/miniconda.html) or [Anaconda](https://www.anaconda.com/products/distribution)
-- [mamba](https://github.com/mamba-org/mamba) (recommended, but optional, for faster package solving)
-- [Git](https://git-scm.com/downloads)
+- [mamba](https://github.com/mamba-org/mamba)
+- [Git](https://git-scm.com/downloads) (only needed for the fallback source install path)
 
 ## Installation
 
@@ -56,9 +57,36 @@ ViOTUcluster has been tested on Ubuntu and CentOS and should be compatible with 
 
 Follow these steps to install ViOTUcluster for the first time:
 
-ViOTUcluster now ships with checked-in Conda environment manifests instead of pre-packed tarball environments.
+### Preferred Installation: Bioconda + mamba
 
-The supported default layout is:
+The preferred installation path is now:
+
+```bash
+mamba install -c conda-forge -c bioconda viotucluster
+```
+
+This installs the validated default main workflow runtime, including the Python
+CLI package and the core external tools used by `ViOTUcluster` and
+`ViOTUcluster_AllinOne`.
+
+If the Bioconda package has not been published yet in your environment or mirror,
+use the source-based fallback installation below until the package becomes
+available.
+
+After installation, activate the target Conda environment and verify the
+runtime commands:
+
+```bash
+conda activate <your-environment>
+ViOTUcluster_Check
+```
+
+### Fallback Installation: Source Checkout + Conda Manifest
+
+ViOTUcluster also ships with checked-in Conda environment manifests for users
+who want a source-based install or need to patch the runtime locally.
+
+The supported source layout is:
 
 - one main Conda environment for the standard `ViOTUcluster` / `ViOTUcluster_AllinOne` workflow,
 - optional satellite environments for advanced analyses that are not safely co-installable with the default stack.
@@ -139,6 +167,11 @@ The main reason for this split is `iPhop`: its current Conda package still pins 
 
    **Note:** `ViOTUcluster_Check` validates the runtime commands that the pipeline will call directly. `viralverify` can still be satisfied by a sibling Conda environment in older deployments, and `vRhyme` can still be satisfied by a nested satellite environment under `<main-env>/envs/vRhyme` for backward compatibility.
 
+### Database Setup
+
+Both the Bioconda install path and the source install path still require the
+external databases.
+
 4. **Set Up Databases**
 
    ```bash
@@ -148,6 +181,8 @@ The main reason for this split is `iPhop`: its current Conda package still pins 
    If the specified directory (`/path/to/db`) does not already contain the required databases, the script will download and install them automatically. Replace `/path/to/db` with your preferred database directory and `num` with the number of threads to use during installation.
 
    **Note:** The setup process involves downloading approximately **30 GB** of database files, so the installation time depends heavily on your **network speed**. A stable, high-speed internet connection is recommended to prevent installation failures.
+
+### Optional Advanced Analysis Environments
 
 5. **Set Up DRAM and iPhop Environments（Optional for advanced analysis）**
 
@@ -228,6 +263,12 @@ The main reason for this split is `iPhop`: its current Conda package still pins 
    ```
 
 ### Updating ViOTUcluster from an Older Version
+
+If you installed ViOTUcluster from Bioconda, update it with:
+
+```bash
+mamba update -c conda-forge -c bioconda viotucluster
+```
 
 If you installed from this repository, update the code and then refresh the main environment from the checked-in manifest:
 

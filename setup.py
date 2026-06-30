@@ -17,7 +17,7 @@ def read_long_description():
 
 setup(
     name="viotucluster",
-    version="0.5.7.2",
+    version="0.6.0",
     packages=find_packages(),
     include_package_data=True,
     # Exclude the old Bash entry points to avoid conflict with new Python entry_points
