@@ -17,7 +17,7 @@ def read_long_description():
 
 setup(
     name="viotucluster",
-    version="0.7.1",
+    version="0.7.3",
     packages=find_packages(),
     include_package_data=True,
     exclude_package_data={

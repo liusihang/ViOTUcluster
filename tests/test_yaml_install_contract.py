@@ -81,6 +81,9 @@ class TestYamlEnvironmentContracts(unittest.TestCase):
             "imbalanced-learn",
             "seaborn",
             "conda-package-handling",
+            "hmmer",
+            "last",
+            "ncbi-genome-download",
         }
         self.assertTrue(required.issubset(conda_dependency_names(specification)))
 

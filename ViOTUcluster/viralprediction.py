@@ -174,7 +174,8 @@ def process_file(file_path):
                 'virsorter', 'run', '-w', virsorter_dir, '-i', file_path,
                 '--include-groups', Group, '-j', str(THREADS),
                 'all', '--min-score', '0.5', '--min-length', '300',
-                '--keep-original-seq', '-d', os.path.join(DATABASE, 'db')
+                '--keep-original-seq', '--use-conda-off',
+                '-d', os.path.join(DATABASE, 'db')
             ]
             tasks.append(executor.submit(run_command, virsorter_cmd, assigned_cores))
         else:

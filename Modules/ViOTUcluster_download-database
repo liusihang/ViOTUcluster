@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
 # Usage: ./setup_ViOTUcluster.sh /path/to/db 4
 
@@ -13,13 +14,12 @@ NUM_THREADS=$2
 
 # Function to check if VirSorter database is installed
 check_virsorter_db() {
-    if [ -d "$DB_DIR/db/group" ] && [ -d "$DB_DIR/db/hmm" ] && [ -d "$DB_DIR/db/rbs" ]; then
-        echo "[✅] VirSorter2 database already installed."
-        return 0
-    else
-        echo "[❌] VirSorter2 database not found. Proceeding with installation..."
-        return 1
-    fi
+    [ -d "$DB_DIR/db/group" ] && [ -d "$DB_DIR/db/rbs" ] && \
+        [ -s "$DB_DIR/db/hmm/viral/combined.hmm" ] || return 1
+    local domain
+    for domain in Archaea Bacteria Eukaryota Mixed Viruses; do
+        [ -s "$DB_DIR/db/hmm/pfam/Pfam-A-$domain.hmm" ] || return 1
+    done
 }
 
 # Function to check if CheckV database is installed
@@ -62,8 +62,18 @@ check_viralverify_db() {
 #chmod +x "$CONDA_ENV_PATH/bin/"*
 
 # Setup VirSorter database if not already installed
-if ! check_virsorter_db; then
-    virsorter setup -d "$DB_DIR/db" -j "$NUM_THREADS"
+if check_virsorter_db; then
+    echo "[✅] VirSorter2 database already installed."
+else
+    echo "[❌] VirSorter2 database not found or incomplete. Proceeding with installation..."
+    if ! virsorter setup --skip-deps-install -d "$DB_DIR/db" -j "$NUM_THREADS"; then
+        echo "[❌] VirSorter2 setup failed." >&2
+        exit 1
+    fi
+    if ! check_virsorter_db; then
+        echo "[❌] VirSorter2 setup did not produce a complete database." >&2
+        exit 1
+    fi
 fi
 
 # Download CheckV database if not already installed

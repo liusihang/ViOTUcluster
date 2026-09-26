@@ -113,9 +113,14 @@ dependencies=(
     "megahit"
     "spades.py"
     "virsorter"
+    "snakemake"
+    "prodigal"
+    "hmmconvert"
+    "hmmsearch"
+    "lastal"
+    "ncbi-genome-download"
     "viralverify"
     "genomad"
-    #"pyhmmer"
     "checkv"
     "vRhyme"
     "dRep"
@@ -156,6 +161,13 @@ for dep in "${dependencies[@]}"; do
         missing_dependencies+=("$dep")
     fi
 done
+
+if "$VIOTUCLUSTER_PYTHON" -c 'import click, imblearn, numpy, pandas, pyhmmer, screed, seaborn, sklearn; from ruamel import yaml' >/dev/null 2>&1; then
+    echo "[✅] VirSorter2 Python dependencies are installed."
+else
+    echo "[❌] VirSorter2 Python dependencies could not be imported. Check the main environment (pyhmmer, screed, ruamel.yaml, scikit-learn, imbalanced-learn, pandas, numpy, seaborn, click)."
+    missing_dependencies+=("VirSorter2 Python dependencies")
+fi
 
 # Final message based on whether all dependencies are installed
 if [ ${#missing_dependencies[@]} -eq 0 ]; then

@@ -15,6 +15,9 @@ dependencies:
   - seaborn
   - pyhmmer=0.10.14
   - prodigal
+  - hmmer!=3.3.1
+  - last
+  - ncbi-genome-download
   - screed
   - ruamel.yaml
   - "snakemake>=5.18,<=5.26"

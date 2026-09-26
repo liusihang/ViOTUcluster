@@ -6,7 +6,7 @@ import unittest
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-RELEASE_VERSION = "0.7.1"
+RELEASE_VERSION = "0.7.3"
 WORKFLOW = REPO_ROOT / ".github" / "workflows" / "publish-to-pypi.yml"
 
 
@@ -56,14 +56,14 @@ class TestReleaseVersionContract(unittest.TestCase):
         self.assertIn("ViTest/Raw/CleanReads", setup_source)
         self.assertIn('glob.glob("test/*.fastq.gz")', setup_source)
 
-    def test_readme_documents_bioconda_as_the_primary_core_install(self):
+    def test_readme_recommends_tested_source_install_for_current_version(self):
         readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
 
-        self.assertIn("Bioconda Installation (Recommended)", readme)
-        self.assertIn("mamba create -n ViOTUcluster", readme)
-        self.assertIn("-c conda-forge -c bioconda viotucluster", readme)
-        self.assertIn("single-environment core workflow", readme)
-        self.assertIn("DRAM and iPhop", readme)
+        self.assertIn("Version 0.7.3", readme)
+        self.assertIn("YAML-Based Source Installation (Recommended for 0.7.3)", readme)
+        self.assertIn("setup_ViOTUcluster_yaml.sh --cpu --prefix", readme)
+        self.assertIn("--checkm-data-dir", readme)
+        self.assertIn("not yet the 0.7.3 install path", readme)
 
 
 class TestTrustedPublisherWorkflowContract(unittest.TestCase):

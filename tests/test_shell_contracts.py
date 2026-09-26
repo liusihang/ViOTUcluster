@@ -113,7 +113,10 @@ class TestShellContracts(unittest.TestCase):
 
     def test_dependency_check_covers_runtime_tools(self):
         content = read_text("Modules", "ViOTUcluster_Check")
-        for tool_name in ("viralverify", "sambamba", "parallel", "makeblastdb", "blastn"):
+        for tool_name in (
+            "viralverify", "sambamba", "parallel", "makeblastdb", "blastn",
+            "snakemake", "prodigal", "hmmconvert", "hmmsearch", "lastal", "ncbi-genome-download",
+        ):
             self.assertIn(f'"{tool_name}"', content)
 
     def test_dependency_check_does_not_require_an_environment_manager(self):
