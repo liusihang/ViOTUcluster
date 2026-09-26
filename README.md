@@ -58,7 +58,7 @@ ViOTUcluster has been tested on Ubuntu and CentOS and should be compatible with 
 
 | Method | Best for | Behavior |
 | ------ | -------- | -------- |
-| YAML-based source installation | Recommended for 0.7.3 | Solves five versioned environment files and installs the checked-out ViOTUcluster source. This is the clean-install path validated for the VirSorter2 fix. |
+| YAML-based source installation | Recommended for 0.7.3 | Solves five versioned environment files and installs the checked-out ViOTUcluster source. |
 | Bioconda with mamba | Existing packaged installations | Installs the current Bioconda recipe, which may lag this repository and has not been validated for 0.7.3. |
 | Pre-packed installation | Existing prepared-environment deployments | Downloads prepared environments from Zenodo or China SciDB; these archives have not been validated for 0.7.3. |
 
