@@ -6,7 +6,7 @@ import unittest
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-RELEASE_VERSION = "0.7.3"
+RELEASE_VERSION = "0.7.4"
 WORKFLOW = REPO_ROOT / ".github" / "workflows" / "publish-to-pypi.yml"
 
 
@@ -56,14 +56,34 @@ class TestReleaseVersionContract(unittest.TestCase):
         self.assertIn("ViTest/Raw/CleanReads", setup_source)
         self.assertIn('glob.glob("test/*.fastq.gz")', setup_source)
 
+    def test_database_setup_commands_are_packaged_as_scripts(self):
+        setup_tree = ast.parse((REPO_ROOT / "setup.py").read_text(encoding="utf-8"))
+        setup_call = next(
+            node for node in ast.walk(setup_tree)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "setup"
+        )
+        scripts = next(keyword.value for keyword in setup_call.keywords if keyword.arg == "scripts")
+        declared_paths = {
+            node.value for node in ast.walk(scripts)
+            if isinstance(node, ast.Constant) and isinstance(node.value, str)
+        }
+
+        for name in ("DRAM-setup.py", "iPhop-setup.py"):
+            with self.subTest(name=name):
+                path = f"ViOTUcluster/{name}"
+                self.assertTrue((REPO_ROOT / path).is_file())
+                self.assertIn(path, declared_paths)
+
     def test_readme_recommends_tested_source_install_for_current_version(self):
         readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
 
-        self.assertIn("Version 0.7.3", readme)
-        self.assertIn("YAML-Based Source Installation (Recommended for 0.7.3)", readme)
+        self.assertIn("Version 0.7.4", readme)
+        self.assertIn("YAML-Based Source Installation (Recommended for 0.7.4)", readme)
         self.assertIn("setup_ViOTUcluster_yaml.sh --cpu --prefix", readme)
         self.assertIn("--checkm-data-dir", readme)
-        self.assertIn("not yet the 0.7.3 install path", readme)
+        self.assertIn("not yet the 0.7.4 install path", readme)
 
 
 class TestTrustedPublisherWorkflowContract(unittest.TestCase):

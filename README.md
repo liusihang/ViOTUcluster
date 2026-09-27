@@ -37,6 +37,7 @@ _Recorded with [asciinema](https://docs.asciinema.org)_
 ______
 ## Important updates
 
+- Version 0.7.4: Install `DRAM-setup.py` and `iPhop-setup.py` as executable commands alongside the main pipeline. The advanced-analysis databases remain separate downloads; this release does not change the VirSorter2 runtime or redownload any databases.
 - Version 0.7.3: Keep VirSorter2 database setup and prediction in the installed main environment, fail immediately on incomplete database setup, and validate the required runtime dependencies. A clean CPU-only YAML installation and the bundled two-sample workflow passed on Linux with an existing database.
 - Version 0.7.1: Made the Bioconda single-environment installation the recommended core-workflow setup and aligned vRhyme and CheckM runtime checks with that layout.
 - Version 0.5.7.2: Added the `--save-sambamba-intermediate` flag (also available in `ViOTUcluster_AllinOne`) so you can keep Sambamba view BAMs when troubleshooting heavy IO pressure.
@@ -58,34 +59,36 @@ ViOTUcluster has been tested on Ubuntu and CentOS and should be compatible with 
 
 | Method | Best for | Behavior |
 | ------ | -------- | -------- |
-| YAML-based source installation | Recommended for 0.7.3 | Solves five versioned environment files and installs the checked-out ViOTUcluster source. |
-| Bioconda with mamba | Existing packaged installations | Installs the current Bioconda recipe, which may lag this repository and has not been validated for 0.7.3. |
-| Pre-packed installation | Existing prepared-environment deployments | Downloads prepared environments from Zenodo or China SciDB; these archives have not been validated for 0.7.3. |
+| YAML-based source installation | Recommended for 0.7.4 | Solves five versioned environment files and installs the checked-out ViOTUcluster source. |
+| Bioconda with mamba | Existing packaged installations | Installs the current Bioconda recipe, which may lag this repository and has not been validated for 0.7.4. |
+| Pre-packed installation | Existing prepared-environment deployments | Downloads prepared environments from Zenodo or China SciDB; these archives have not been validated for 0.7.4. |
 
 The YAML method installs the main environment plus separate vRhyme, viralverify, DRAM, and iPhop environments. Biological databases are separate from software installation; a complete existing database can be reused without downloading it again.
 
-### YAML-Based Source Installation (Recommended for 0.7.3)
+### YAML-Based Source Installation (Recommended for 0.7.4)
 
 Clone the repository and install into a **new** prefix. The installer refuses to overwrite an existing environment:
 
 ```bash
-git clone https://github.com/liusihang/ViOTUcluster.git
+git clone --depth 1 --branch v0.7.4 https://github.com/liusihang/ViOTUcluster.git
 cd ViOTUcluster
-python3 -c 'from ViOTUcluster.config import VERSION; print(VERSION)'  # expect 0.7.3
+python3 -c 'from ViOTUcluster.config import VERSION; print(VERSION)'  # expect 0.7.4
 
 # CPU-only installation into a fresh prefix; use a path you can write to.
-bash setup_ViOTUcluster_yaml.sh --cpu --prefix /PATH/TO/ViOTUcluster-0.7.3
-conda activate /PATH/TO/ViOTUcluster-0.7.3
+bash setup_ViOTUcluster_yaml.sh --cpu --prefix /PATH/TO/ViOTUcluster-0.7.4
+conda activate /PATH/TO/ViOTUcluster-0.7.4
 ViOTUcluster_Check
 ```
+
+The VirSorter2 runtime and two-sample mini-workflow were validated with the same YAML installation path for 0.7.3; 0.7.4 adds the two database setup commands. Their installation from a newly built wheel was checked on Linux. A full 0.7.4 Conda reinstall and fresh DRAM/iPhop database downloads have not been rerun for this packaging-only update.
 
 If a complete CheckM data directory already exists, pass `--checkm-data-dir /path/to/checkm_data` to the installer; it must contain `genome_tree/genome_tree.derep.txt`. This reuses CheckM reference data and avoids that download. It is independent of the VirSorter2 database.
 
 Continue with [existing database reuse](#set-up-databases) and the [bounded mini-workflow test](#test-the-complete-viotucluster-workflow-with-mini-samples) below. The verified `--cpu` path does not need GPU libraries; omit `--cpu` only when GPU-enabled installation is required and separately validated on your host.
 
-### Bioconda Installation (Not Yet the 0.7.3 Install Path)
+### Bioconda Installation (Not Yet the 0.7.4 Install Path)
 
-The currently published Bioconda recipe is not yet the 0.7.3 install path. The command below documents the existing packaged route, but should not be used to claim that the 0.7.3 VirSorter2 fix is installed:
+The currently published Bioconda recipe is not yet the 0.7.4 install path. The command below documents the existing packaged route, but should not be used to claim that the 0.7.3 VirSorter2 fix or the 0.7.4 database setup commands are installed:
 
 ```bash
 mamba create -n ViOTUcluster --strict-channel-priority -c conda-forge -c bioconda viotucluster
@@ -100,24 +103,24 @@ CHECKM_DATA_DIR=/path/to/checkm_data \
   mamba create -n ViOTUcluster --strict-channel-priority -c conda-forge -c bioconda viotucluster
 ```
 
-The Bioconda 0.7.1 recipe depends on upstream `virsorter=2.2.4`, whereas the YAML installation pins the PyHMMER-based `VirSorter2-pyhmmerAcc=2.2.4.2` fork. These are different installation paths. Bioconda's recipe needs a separate update and clean-install validation before it can be recommended for 0.7.3.
+The Bioconda 0.7.1 recipe depends on upstream `virsorter=2.2.4`, whereas the YAML installation pins the PyHMMER-based `VirSorter2-pyhmmerAcc=2.2.4.2` fork. These are different installation paths. Bioconda's recipe needs a separate update and clean-install validation before it can be recommended for 0.7.4.
 
 On the Linux validation host, a clean GPU-enabled Bioconda installation downloaded about 3 GB of packages and produced an 8.3 GiB environment prefix. Exact sizes vary as dependency builds change; biological databases remain separate.
 
-Use the source YAML installation above for the tested 0.7.3 path. Its database setup remains separate from software installation.
+Use the source YAML installation above for the recommended 0.7.4 path. Its database setup remains separate from software installation.
 
 ### YAML-Based Installation Options
 
 To check that the CPU-only specifications solve without creating an environment:
 
 ```bash
-bash setup_ViOTUcluster_yaml.sh --cpu --dry-run --prefix /PATH/TO/ViOTUcluster-0.7.3
+bash setup_ViOTUcluster_yaml.sh --cpu --dry-run --prefix /PATH/TO/ViOTUcluster-0.7.4
 ```
 
 For a GPU-enabled installation, omit `--cpu` and use a different new prefix:
 
 ```bash
-bash setup_ViOTUcluster_yaml.sh --prefix /PATH/TO/ViOTUcluster-0.7.3-gpu
+bash setup_ViOTUcluster_yaml.sh --prefix /PATH/TO/ViOTUcluster-0.7.4-gpu
 ```
 
 The `--cpu` option requires **mamba**. The installer selects CPU-specific main and iPhop YAML files and sets `CONDA_OVERRIDE_CUDA=""` internally, so users do not need to export that variable themselves. The verified specifications pin TensorFlow 2.11.1 for geNomad and TensorFlow 2.7.0 for iPhop to exact Linux/Python 3.8 CPU builds. iPhop 1.3.3 packages TensorFlow 2.7.0 files, so matching that version avoids mixing files from different TensorFlow releases. The normal command without `--cpu` continues to use the default YAML files.
@@ -127,7 +130,7 @@ The `--cpu` option requires **mamba**. The installer selects CPU-specific main a
 If a complete extracted CheckM data directory already exists, reuse it and avoid the CheckM post-link download:
 
 ```bash
-bash setup_ViOTUcluster_yaml.sh --cpu --prefix /PATH/TO/ViOTUcluster-0.7.3 \
+bash setup_ViOTUcluster_yaml.sh --cpu --prefix /PATH/TO/ViOTUcluster-0.7.4 \
   --checkm-data-dir /path/to/checkm_data
 ```
 
@@ -146,9 +149,9 @@ The YAML installer:
 
 Run `bash setup_ViOTUcluster_yaml.sh --help` for the full option list.
 
-### Pre-Packed Installation (Not Yet Validated for 0.7.3)
+### Pre-Packed Installation (Not Yet Validated for 0.7.4)
 
-ViOTUcluster also provides an **all-in-one setup script** that downloads and unpacks prepared environments. The downloaded archives are not automatically rebuilt when the GitHub source version changes; use the YAML source installation above for the validated 0.7.3 fix.
+ViOTUcluster also provides an **all-in-one setup script** that downloads and unpacks prepared environments. The downloaded archives are not automatically rebuilt when the GitHub source version changes; use the YAML source installation above for the 0.7.3 VirSorter2 fix and 0.7.4 database setup commands.
 
 | Option                                            | What it does                                                                                               |
 | ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
@@ -164,7 +167,7 @@ ViOTUcluster also provides an **all-in-one setup script** that downloads and unp
 
     The setup script can be run directly using `wget` and `bash`.
 
-    **Legacy pre-packed installation (downloads from Zenodo; not the validated 0.7.3 route):**
+    **Legacy pre-packed installation (downloads from Zenodo; not the recommended 0.7.4 route):**
     This command will download the setup script and execute it, which will then download the environment packages from Zenodo.
     ```bash
     wget -qO- https://raw.githubusercontent.com/liusihang/ViOTUcluster/master/setup_ViOTUcluster.sh | bash
@@ -196,7 +199,7 @@ ViOTUcluster also provides an **all-in-one setup script** that downloads and unp
    To confirm that all required dependencies are correctly installed, run:
 
    ```bash
-   conda activate /PATH/TO/ViOTUcluster-0.7.3
+   conda activate /PATH/TO/ViOTUcluster-0.7.4
    ViOTUcluster_Check
    ```
 
@@ -260,7 +263,7 @@ ViOTUcluster also provides an **all-in-one setup script** that downloads and unp
    To install the DRAM database, first activate the `ViOTUcluster` environment and then run the setup command:
 
    ```bash
-   conda activate ViOTUcluster
+   conda activate /PATH/TO/ViOTUcluster-0.7.4
    DRAM-setup.py download "/path/to/db/DRAM"
    ```
 
@@ -274,7 +277,7 @@ ViOTUcluster also provides an **all-in-one setup script** that downloads and unp
 
    2. **Import the Configuration into the New Environment**:
       ```bash
-      conda activate ViOTUcluster
+      conda activate /PATH/TO/ViOTUcluster-0.7.4
       DRAM-setup.py import_config my_old_config.txt
       ```
 
@@ -283,7 +286,7 @@ ViOTUcluster also provides an **all-in-one setup script** that downloads and unp
    To install the iPhop database, activate the `ViOTUcluster` environment and run the database download command:
 
    ```bash
-   conda activate ViOTUcluster
+   conda activate /PATH/TO/ViOTUcluster-0.7.4
    iPhop-setup.py "/path/to/db"
    ```
 
@@ -300,7 +303,7 @@ ViOTUcluster also provides an **all-in-one setup script** that downloads and unp
   
    The source installer stages two paired mini FASTQ samples under `$CONDA_PREFIX/ViTest/Raw/CleanReads`. Run a bounded, full-workflow test in a **new output directory** using the existing database root:
    ```bash
-   conda activate /PATH/TO/ViOTUcluster-0.7.3
+   conda activate /PATH/TO/ViOTUcluster-0.7.4
    ViOTUcluster_AllinOne \
      -r "$CONDA_PREFIX/ViTest/Raw/CleanReads" \
      -o /PATH/TO/new-mini-test-output \
@@ -313,7 +316,7 @@ ViOTUcluster also provides an **all-in-one setup script** that downloads and unp
    If you want a lighter smoke test while debugging orchestration or environment issues, you can also run the All-in-One entrypoint with reduced concurrency and disabled binning:
 
    ```bash
-   conda activate /PATH/TO/ViOTUcluster-0.7.3
+   conda activate /PATH/TO/ViOTUcluster-0.7.4
    ViOTUcluster_AllinOne \
      -r "$CONDA_PREFIX/ViTest/Raw/CleanReads" \
      -o /PATH/TO/new-lightweight-output \
@@ -327,9 +330,9 @@ ViOTUcluster also provides an **all-in-one setup script** that downloads and unp
 
 ### Updating ViOTUcluster from an Older Version
 
-For 0.7.3, use the clean source YAML installation above and a new prefix; keep the old environment until the mini test succeeds. Updating only the package inside an older Conda environment does not install the newly required VirSorter2 runtime dependencies.
+For 0.7.4, use the clean source YAML installation above and a new prefix; keep the old environment until the mini test succeeds. Updating only the package inside an older Conda environment does not install the newly required VirSorter2 runtime dependencies.
 
-For existing Bioconda installations (not yet the 0.7.3 path), use the same channel order as the initial installation:
+For existing Bioconda installations (not yet the 0.7.4 path), use the same channel order as the initial installation:
 
 ```bash
 mamba update -n ViOTUcluster --strict-channel-priority -c conda-forge -c bioconda viotucluster

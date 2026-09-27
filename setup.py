@@ -17,14 +17,15 @@ def read_long_description():
 
 setup(
     name="viotucluster",
-    version="0.7.3",
+    version="0.7.4",
     packages=find_packages(),
     include_package_data=True,
     exclude_package_data={
         "": ["*.py[cod]", "__pycache__/*", "*/__pycache__/*"],
     },
     # Exclude the old Bash entry points to avoid conflict with new Python entry_points
-    scripts=[f for f in glob.glob("Modules/*") if not f.endswith("ViOTUcluster") and not f.endswith("ViOTUcluster_AllinOne")],
+    scripts=[f for f in glob.glob("Modules/*") if not f.endswith("ViOTUcluster") and not f.endswith("ViOTUcluster_AllinOne")]
+    + ["ViOTUcluster/DRAM-setup.py", "ViOTUcluster/iPhop-setup.py"],
     data_files=[
         ("ViTest/Raw/CleanReads", glob.glob("test/*.fastq.gz")),
     ],
